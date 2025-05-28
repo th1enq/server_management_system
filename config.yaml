@@ -1,0 +1,31 @@
+server:
+  name: VCS-SMS
+  env: development
+  port: 8080
+
+database:
+  host: localhost
+  port: 5432
+  user: postgres
+  password: password
+  dbname: vcs_sms
+  max_idle_conns: 10
+  max_open_conns: 100
+
+redis:
+  host: localhost
+  port: 6379
+  password: ""
+  db: 0
+  pool_size: 10
+
+jwt:
+  secret: 
+  expiration: 24h
+
+logging:
+  level: info
+  file_path: ./logs/app.log
+  max_size: 100
+  max_backups: 10
+  max_age: 30

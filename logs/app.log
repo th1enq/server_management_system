@@ -1,0 +1,24 @@
+{"level":"info","timestamp":"2025-05-28T22:26:15.634+0700","caller":"logger/logger.go:81","msg":"Starting server on port: 8080"}
+{"level":"info","timestamp":"2025-05-28T22:37:46.144+0700","caller":"logger/logger.go:81","msg":"Starting Viettel Server Management System","version":"1.0.0","env":"development"}
+{"level":"info","timestamp":"2025-05-28T22:49:32.615+0700","caller":"logger/logger.go:81","msg":"Starting Viettel Server Management System","version":"1.0.0","env":"development"}
+{"level":"info","timestamp":"2025-05-28T22:49:32.615+0700","caller":"logger/logger.go:81","msg":"HTTP server starting","port":8080}
+{"level":"info","timestamp":"2025-05-28T22:50:25.380+0700","caller":"logger/logger.go:81","msg":"Shutting down server..."}
+{"level":"info","timestamp":"2025-05-28T22:50:25.380+0700","caller":"logger/logger.go:81","msg":"Server exited"}
+{"level":"info","timestamp":"2025-05-28T23:33:02.711+0700","caller":"logger/logger.go:81","msg":"Starting Viettel Server Management System","version":"1.0.0","env":"development"}
+{"level":"info","timestamp":"2025-05-28T23:50:57.017+0700","caller":"logger/logger.go:81","msg":"Starting Viettel Server Management System","version":"1.0.0","env":"development"}
+{"level":"info","timestamp":"2025-05-28T23:50:57.031+0700","caller":"logger/logger.go:81","msg":"Database connected successfully","host":"localhost","port":5432,"database":"vcs_sms"}
+{"level":"info","timestamp":"2025-05-28T23:50:57.032+0700","caller":"logger/logger.go:81","msg":"HTTP server starting","port":8080}
+{"level":"info","timestamp":"2025-05-28T23:51:09.000+0700","caller":"logger/logger.go:81","msg":"Shutting down server..."}
+{"level":"info","timestamp":"2025-05-28T23:51:09.009+0700","caller":"logger/logger.go:81","msg":"Server exited"}
+{"level":"info","timestamp":"2025-05-29T00:23:19.502+0700","caller":"logger/logger.go:81","msg":"Starting Viettel Server Management System","version":"1.0.0","env":"development"}
+{"level":"info","timestamp":"2025-05-29T00:23:19.518+0700","caller":"logger/logger.go:81","msg":"Database connected successfully","host":"localhost","port":5432,"database":"vcs_sms"}
+{"level":"info","timestamp":"2025-05-29T00:23:19.520+0700","caller":"logger/logger.go:81","msg":"Redis connected successfully","host":"localhost","port":6379,"db":0}
+{"level":"info","timestamp":"2025-05-29T00:23:19.520+0700","caller":"logger/logger.go:81","msg":"HTTP server starting","port":8080}
+{"level":"info","timestamp":"2025-05-29T00:23:38.458+0700","caller":"logger/logger.go:81","msg":"Shutting down server..."}
+{"level":"info","timestamp":"2025-05-29T00:23:38.459+0700","caller":"logger/logger.go:81","msg":"Server exited"}
+{"level":"info","timestamp":"2025-05-29T00:24:24.266+0700","caller":"logger/logger.go:81","msg":"Starting Viettel Server Management System","version":"1.0.0","env":"development"}
+{"level":"info","timestamp":"2025-05-29T00:24:24.272+0700","caller":"logger/logger.go:81","msg":"Database connected successfully","host":"localhost","port":5432,"database":"vcs_sms"}
+{"level":"info","timestamp":"2025-05-29T00:24:24.273+0700","caller":"logger/logger.go:81","msg":"Redis connected successfully","host":"localhost","port":6379,"db":0}
+{"level":"info","timestamp":"2025-05-29T00:24:24.273+0700","caller":"logger/logger.go:81","msg":"HTTP server starting","port":8080}
+{"level":"info","timestamp":"2025-05-29T00:25:22.254+0700","caller":"logger/logger.go:81","msg":"Shutting down server..."}
+{"level":"info","timestamp":"2025-05-29T00:25:22.255+0700","caller":"logger/logger.go:81","msg":"Server exited"}
