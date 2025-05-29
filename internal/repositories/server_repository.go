@@ -37,7 +37,7 @@ func (s *serverRepository) CountByStatus(ctx context.Context, status models.Serv
 
 // Create implements ServerRepository.
 func (s *serverRepository) Create(ctx context.Context, server *models.Server) error {
-	panic("unimplemented")
+	return s.db.WithContext(ctx).Create(server).Error
 }
 
 // Delete implements ServerRepository.
@@ -57,12 +57,20 @@ func (s *serverRepository) GetByID(ctx context.Context, id uint) (*models.Server
 
 // GetByServerID implements ServerRepository.
 func (s *serverRepository) GetByServerID(ctx context.Context, serverID string) (*models.Server, error) {
-	panic("unimplemented")
+	var server *models.Server
+	if err := s.db.WithContext(ctx).Where("server_id = ?", serverID).First(&server).Error; err != nil {
+		return nil, err
+	}
+	return server, nil
 }
 
 // GetByServerName implements ServerRepository.
 func (s *serverRepository) GetByServerName(ctx context.Context, serverName string) (*models.Server, error) {
-	panic("unimplemented")
+	var server *models.Server
+	if err := s.db.WithContext(ctx).Where("server_name = ?", serverName).First(&server).Error; err != nil {
+		return nil, err
+	}
+	return server, nil
 }
 
 // List implements ServerRepository.

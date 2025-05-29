@@ -2,10 +2,13 @@ package services
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/th1enq/server_management_system/internal/models"
 	"github.com/th1enq/server_management_system/internal/repositories"
+	"github.com/th1enq/server_management_system/pkg/logger"
+	"go.uber.org/zap"
 )
 
 type ServerService interface {
@@ -35,7 +38,30 @@ func NewServerService(serverRepo repositories.ServerRepository, redisClient *red
 
 // CreateServer implements ServerService.
 func (s *serverService) CreateServer(ctx context.Context, server *models.Server) error {
-	panic("unimplemented")
+	if server.ServerID == "" || server.ServerName == "" {
+		return fmt.Errorf("server_id and server_name are required")
+	}
+	existing, _ := s.serverRepo.GetByServerID(ctx, server.ServerID)
+	if existing != nil {
+		return fmt.Errorf("server is already exists")
+	}
+
+	existing, _ = s.serverRepo.GetByServerName(ctx, server.ServerName)
+	if existing != nil {
+		return fmt.Errorf("server is already exists")
+	}
+
+	err := s.serverRepo.Create(ctx, server)
+	if err != nil {
+		return fmt.Errorf("failed to create server: %w", err)
+	}
+
+	logger.Info("Server created successfully",
+		zap.String("server_id", server.ServerID),
+		zap.String("server_name", server.ServerName),
+	)
+
+	return nil
 }
 
 // DeleteServer implements ServerService.
