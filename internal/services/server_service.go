@@ -101,7 +101,62 @@ func (s *serverService) ListServers(ctx context.Context, filter models.ServerFil
 
 // UpdateServer implements ServerService.
 func (s *serverService) UpdateServer(ctx context.Context, id uint, updates map[string]interface{}) (*models.Server, error) {
-	panic("unimplemented")
+	server, err := s.serverRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("server not found")
+	}
+
+	delete(updates, "server_id")
+	delete(updates, "id")
+
+	for key, value := range updates {
+		switch key {
+		case "server_name":
+			if name, ok := value.(string); ok && name != server.ServerName {
+				existing, _ := s.serverRepo.GetByServerName(ctx, name)
+				if existing != nil && existing.ID != server.ID {
+					return nil, fmt.Errorf("server with name is already exists")
+				}
+				server.ServerName = name
+			}
+		case "status":
+			if status, ok := value.(string); ok {
+				server.Status = models.ServerStatus(status)
+			}
+		case "ipv4":
+			if ipv4, ok := value.(string); ok {
+				server.IPv4 = ipv4
+			}
+		case "location":
+			if loc, ok := value.(string); ok {
+				server.Location = loc
+			}
+		case "os":
+			if os, ok := value.(string); ok {
+				server.OS = os
+			}
+		case "cpu":
+			if cpu, ok := value.(float64); ok {
+				server.CPU = int(cpu)
+			}
+		case "ram":
+			if ram, ok := value.(float64); ok {
+				server.RAM = int(ram)
+			}
+		case "disk":
+			if disk, ok := value.(float64); ok {
+				server.Disk = int(disk)
+			}
+		}
+	}
+	if err := s.serverRepo.Update(ctx, server); err != nil {
+		return nil, err
+	}
+	logger.Info("Server updated successfully",
+		zap.Uint("id", server.ID),
+		zap.String("server_id", server.ServerID),
+	)
+	return server, nil
 }
 
 // UpdateServerStatus implements ServerService.

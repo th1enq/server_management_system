@@ -25,6 +25,10 @@ type serverRepository struct {
 	db *gorm.DB
 }
 
+func NewServerRepository(db *gorm.DB) ServerRepository {
+	return &serverRepository{db: db}
+}
+
 // BatchCreate implements ServerRepository.
 func (s *serverRepository) BatchCreate(ctx context.Context, servers []models.Server) ([]models.Server, []models.Server, error) {
 	panic("unimplemented")
@@ -42,7 +46,7 @@ func (s *serverRepository) Create(ctx context.Context, server *models.Server) er
 
 // Delete implements ServerRepository.
 func (s *serverRepository) Delete(ctx context.Context, id uint) error {
-	panic("unimplemented")
+	
 }
 
 // GetAll implements ServerRepository.
@@ -52,7 +56,11 @@ func (s *serverRepository) GetAll(ctx context.Context) ([]models.Server, error) 
 
 // GetByID implements ServerRepository.
 func (s *serverRepository) GetByID(ctx context.Context, id uint) (*models.Server, error) {
-	panic("unimplemented")
+	var server models.Server
+	if err := s.db.WithContext(ctx).First(&server, id).Error; err != nil {
+		return nil, err
+	}
+	return &server, nil
 }
 
 // GetByServerID implements ServerRepository.
@@ -80,14 +88,10 @@ func (s *serverRepository) List(ctx context.Context, filter models.ServerFilter,
 
 // Update implements ServerRepository.
 func (s *serverRepository) Update(ctx context.Context, server *models.Server) error {
-	panic("unimplemented")
+	return s.db.WithContext(ctx).Save(server).Error
 }
 
 // UpdateStatus implements ServerRepository.
 func (s *serverRepository) UpdateStatus(ctx context.Context, serverID string, status models.ServerStatus) error {
 	panic("unimplemented")
-}
-
-func NewServerRepository(db *gorm.DB) ServerRepository {
-	return &serverRepository{db: db}
 }

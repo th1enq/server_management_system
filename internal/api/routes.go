@@ -17,5 +17,7 @@ func SetupRoutes(router *gin.Engine, app *wire.App) {
 	servers := v1.Group("/servers")
 	{
 		servers.POST("/", app.ServerHandler.CreateServer)
+		servers.PUT("/:id", app.ServerHandler.UpdateServer)
+		servers.DELETE("/:id", app.ServerHandler.DeleteServer)
 	}
 }
