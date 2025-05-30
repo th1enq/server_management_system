@@ -19,5 +19,8 @@ func SetupRoutes(router *gin.Engine, app *wire.App) {
 		servers.POST("/", app.ServerHandler.CreateServer)
 		servers.PUT("/:id", app.ServerHandler.UpdateServer)
 		servers.DELETE("/:id", app.ServerHandler.DeleteServer)
+		servers.GET("/", app.ServerHandler.ListServer)
+		servers.POST("/import", app.ServerHandler.ImportServers)
+		servers.GET("/export", app.ServerHandler.ExportServers)
 	}
 }

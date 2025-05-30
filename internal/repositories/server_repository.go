@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/th1enq/server_management_system/internal/models"
 	"gorm.io/gorm"
@@ -46,7 +47,7 @@ func (s *serverRepository) Create(ctx context.Context, server *models.Server) er
 
 // Delete implements ServerRepository.
 func (s *serverRepository) Delete(ctx context.Context, id uint) error {
-	
+	return s.db.WithContext(ctx).Delete(&models.Server{}, id).Error
 }
 
 // GetAll implements ServerRepository.
@@ -83,7 +84,47 @@ func (s *serverRepository) GetByServerName(ctx context.Context, serverName strin
 
 // List implements ServerRepository.
 func (s *serverRepository) List(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) ([]models.Server, int64, error) {
-	panic("unimplemented")
+	var servers []models.Server
+	var total int64
+
+	query := s.db.WithContext(ctx).Model(&models.Server{})
+
+	// Apply filters
+	if filter.ServerID != "" {
+		query = query.Where("server_id LIKE ?", "%"+filter.ServerID+"%")
+	}
+	if filter.ServerName != "" {
+		query = query.Where("server_name LIKE ?", "%"+filter.ServerName+"%")
+	}
+	if filter.Status != "" {
+		query = query.Where("status = ?", filter.Status)
+	}
+	if filter.IPv4 != "" {
+		query = query.Where("ipv4 LIKE ?", "%"+filter.IPv4+"%")
+	}
+	if filter.Location != "" {
+		query = query.Where("location LIKE ?", "%"+filter.Location+"%")
+	}
+	if filter.OS != "" {
+		query = query.Where("os LIKE ?", "%"+filter.OS+"%")
+	}
+
+	// Count total
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Apply pagination and sorting
+	offset := (pagination.Page - 1) * pagination.PageSize
+	orderBy := fmt.Sprintf("%s %s", pagination.Sort, pagination.Order)
+
+	err := query.
+		Order(orderBy).
+		Limit(pagination.PageSize).
+		Offset(offset).
+		Find(&servers).Error
+
+	return servers, total, err
 }
 
 // Update implements ServerRepository.

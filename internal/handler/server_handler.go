@@ -58,7 +58,50 @@ func (h *ServerHandler) CreateServer(c *gin.Context) {
 }
 
 func (h *ServerHandler) ListServer(c *gin.Context) {
+	var filter models.ServerFilter
+	var pagination models.Pagination
 
+	if err := c.ShouldBindQuery(&filter); err != nil {
+		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+			models.CodeBadRequest,
+			"Invalid filter parameters",
+			err.Error(),
+		))
+		return
+	}
+
+	if err := c.ShouldBindQuery(&pagination); err != nil {
+		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+			models.CodeBadRequest,
+			"Invalid pagnination parameters",
+			err.Error(),
+		))
+		return
+	}
+
+	if pagination.Page < 1 {
+		pagination.Page = 1
+	}
+	if pagination.PageSize < 1 || pagination.PageSize > 100 {
+		pagination.PageSize = 10
+	}
+
+	response, err := h.serverSrv.ListServers(c.Request.Context(), filter, pagination)
+	if err != nil {
+		logger.Error("Failed to list servers", err)
+		c.JSON(http.StatusInternalServerError, models.NewErrorResponse(
+			models.CodeInternalServerError,
+			"Failed to list servers",
+			err.Error(),
+		))
+		return
+	}
+
+	c.JSON(http.StatusOK, models.NewSuccessResponse(
+		models.CodeSuccess,
+		"Servers listed successfully",
+		response,
+	))
 }
 
 func (h *ServerHandler) UpdateServer(c *gin.Context) {
@@ -134,4 +177,87 @@ func (h *ServerHandler) DeleteServer(c *gin.Context) {
 		"Server deleted successfully",
 		nil,
 	))
+}
+
+func (h *ServerHandler) ImportServers(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+			models.CodeBadRequest,
+			"No file uploaded",
+			err.Error(),
+		))
+		return
+	}
+	filePath := "/tmp/" + file.Filename
+	if err := c.SaveUploadedFile(file, filePath); err != nil {
+		c.JSON(http.StatusInternalServerError, models.NewErrorResponse(
+			models.CodeInternalServerError,
+			"Failed to save file",
+			err.Error(),
+		))
+		return
+	}
+	result, err := h.serverSrv.ImportServers(c.Request.Context(), filePath)
+	if err != nil {
+		logger.Error("Failed to import servers", err, zap.String("file", file.Filename))
+		c.JSON(http.StatusInternalServerError, models.NewErrorResponse(
+			models.CodeInternalServerError,
+			"Failed to import servers",
+			err.Error(),
+		))
+		return
+	}
+
+	c.JSON(http.StatusOK, models.NewSuccessResponse(
+		models.CodeSuccess,
+		"Servers imported successfully",
+		result,
+	))
+}
+
+func (h *ServerHandler) ExportServers(c *gin.Context) {
+	var filter models.ServerFilter
+	var pagination models.Pagination
+
+	// Bind query parameters
+	if err := c.ShouldBindQuery(&filter); err != nil {
+		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+			models.CodeBadRequest,
+			"Invalid filter parameters",
+			err.Error(),
+		))
+		return
+	}
+
+	if err := c.ShouldBindQuery(&pagination); err != nil {
+		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+			models.CodeBadRequest,
+			"Invalid pagination parameters",
+			err.Error(),
+		))
+		return
+	}
+
+	// Set default page size for export
+	if pagination.PageSize == 0 {
+		pagination.PageSize = 10000
+	}
+
+	filePath, err := h.serverSrv.ExportServers(c.Request.Context(), filter, pagination)
+	if err != nil {
+		logger.Error("Failed to export servers", err)
+		c.JSON(http.StatusInternalServerError, models.NewErrorResponse(
+			models.CodeInternalServerError,
+			"Failed to export servers",
+			err.Error(),
+		))
+		return
+	}
+
+	c.Header("Content-Description", "File Transfer")
+	c.Header("Content-Transfer-Encoding", "binary")
+	c.Header("Content-Disposition", "attachment; filename=servers.xlsx")
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.File(filePath)
 }
