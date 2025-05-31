@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -181,6 +182,7 @@ func (h *ServerHandler) DeleteServer(c *gin.Context) {
 
 func (h *ServerHandler) ImportServers(c *gin.Context) {
 	file, err := c.FormFile("file")
+	fmt.Println(file)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
 			models.CodeBadRequest,

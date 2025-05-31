@@ -3,12 +3,14 @@ package services
 import (
 	"context"
 	"fmt"
-	"strconv"
+	"sync"
 	"time"
 
+	"github.com/gammazero/workerpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/th1enq/server_management_system/internal/models"
 	"github.com/th1enq/server_management_system/internal/repositories"
+	"github.com/th1enq/server_management_system/internal/utils"
 	"github.com/th1enq/server_management_system/pkg/logger"
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/zap"
@@ -84,6 +86,8 @@ func (s *serverService) DeleteServer(ctx context.Context, id uint) error {
 	return nil
 }
 
+// ...existing code...
+
 // ImportServers implements ServerService.
 func (s *serverService) ImportServers(ctx context.Context, filePath string) (*models.ImportResult, error) {
 	file, err := excelize.OpenFile(filePath)
@@ -92,173 +96,130 @@ func (s *serverService) ImportServers(ctx context.Context, filePath string) (*mo
 	}
 	defer file.Close()
 
-	// Get first sheet
 	sheets := file.GetSheetList()
 	if len(sheets) == 0 {
 		return nil, fmt.Errorf("no sheets found in file")
 	}
 
-	rows, err := file.Rows(sheets[0])
+	// Get all rows to count them first
+	allRows, err := file.GetRows(sheets[0])
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rows: %w", err)
 	}
-	defer rows.Close()
+
+	rowCount := len(allRows)
+	if rowCount < 2 {
+		return nil, fmt.Errorf("file must contain at least 2 rows (header + data)")
+	}
+
+	logger.Info("Starting import process",
+		zap.String("file", filePath),
+		zap.Int("total_rows", rowCount-1), // excluding header
+	)
 
 	result := &models.ImportResult{
 		SuccessServers: make([]string, 0),
 		FailureServers: make([]string, 0),
 	}
 
-	rowIndex := 0
-	columnIndexes := make(map[string]int)
-
-	for rows.Next() {
-		row, err := rows.Columns()
+	// Validate header (first row)
+	if len(allRows) > 0 {
+		err := utils.Validate(allRows[0])
 		if err != nil {
-			return nil, fmt.Errorf("failed to read row %d: %w", rowIndex+1, err)
+			return nil, fmt.Errorf("header validation failed: %w", err)
 		}
-
-		// Skip empty rows
-		if len(row) == 0 {
-			rowIndex++
-			continue
-		}
-
-		// First row - parse headers
-		if rowIndex == 0 {
-			for i, col := range row {
-				switch col {
-				case "server_id":
-					columnIndexes["server_id"] = i
-				case "server_name":
-					columnIndexes["server_name"] = i
-				case "status":
-					columnIndexes["status"] = i
-				case "ipv4":
-					columnIndexes["ipv4"] = i
-				case "description":
-					columnIndexes["description"] = i
-				case "location":
-					columnIndexes["location"] = i
-				case "os":
-					columnIndexes["os"] = i
-				case "cpu":
-					columnIndexes["cpu"] = i
-				case "ram":
-					columnIndexes["ram"] = i
-				case "disk":
-					columnIndexes["disk"] = i
-				}
-			}
-
-			// Validate required columns exist
-			if _, exists := columnIndexes["server_id"]; !exists {
-				return nil, fmt.Errorf("server_id column is required in the Excel file")
-			}
-			if _, exists := columnIndexes["server_name"]; !exists {
-				return nil, fmt.Errorf("server_name column is required in the Excel file")
-			}
-
-			rowIndex++
-			continue
-		}
-
-		// Data rows - create server objects
-		server := models.Server{}
-		var serverIdentifier string
-
-		// Extract required fields
-		if idx, exists := columnIndexes["server_id"]; exists && idx < len(row) {
-			server.ServerID = row[idx]
-			serverIdentifier = server.ServerID
-		}
-		if idx, exists := columnIndexes["server_name"]; exists && idx < len(row) {
-			server.ServerName = row[idx]
-			if serverIdentifier == "" {
-				serverIdentifier = server.ServerName
-			}
-		}
-
-		// Validate required fields
-		if server.ServerID == "" || server.ServerName == "" {
-			result.FailureServers = append(result.FailureServers, fmt.Sprintf("Row %d: server_id and server_name are required", rowIndex+1))
-			result.FailureCount++
-			rowIndex++
-			continue
-		}
-		if _, err := s.serverRepo.GetByServerID(ctx, server.ServerID); err == nil {
-			result.FailureServers = append(result.FailureServers, fmt.Sprintf("Row %d: server_id is already exists", rowIndex+1))
-			result.FailureCount++
-			rowIndex++
-			continue
-		}
-
-		if _, err := s.serverRepo.GetByServerName(ctx, server.ServerName); err == nil {
-			result.FailureServers = append(result.FailureServers, fmt.Sprintf("Row %d: server_name is already exists", rowIndex+1))
-			result.FailureCount++
-			rowIndex++
-			continue
-		}
-
-		// Extract optional fields
-		if idx, exists := columnIndexes["status"]; exists && idx < len(row) && row[idx] != "" {
-			server.Status = models.ServerStatus(row[idx])
-		} else {
-			server.Status = "OFF" // default status
-		}
-
-		if idx, exists := columnIndexes["ipv4"]; exists && idx < len(row) {
-			server.IPv4 = row[idx]
-		}
-
-		if idx, exists := columnIndexes["description"]; exists && idx < len(row) {
-			server.Description = row[idx]
-		}
-
-		if idx, exists := columnIndexes["location"]; exists && idx < len(row) {
-			server.Location = row[idx]
-		}
-
-		if idx, exists := columnIndexes["os"]; exists && idx < len(row) {
-			server.OS = row[idx]
-		}
-
-		// Parse integer fields with error handling
-		if idx, exists := columnIndexes["cpu"]; exists && idx < len(row) && row[idx] != "" {
-			cpu, parseErr := strconv.Atoi(row[idx]); parseErr == nil {
-				server.CPU = cpu
-			}
-		}
-
-		if idx, exists := columnIndexes["ram"]; exists && idx < len(row) && row[idx] != "" {
-			if ram, parseErr := strconv.Atoi(row[idx]); parseErr == nil {
-				server.RAM = ram
-			}
-		}
-
-		if idx, exists := columnIndexes["disk"]; exists && idx < len(row) && row[idx] != "" {
-			if disk, parseErr := strconv.Atoi(row[idx]); parseErr == nil {
-				server.Disk = disk
-			}
-		}
-
-		// Try to create the server
-		err = s.CreateServer(ctx, &server)
-		if err != nil {
-			result.FailureServers = append(result.FailureServers, fmt.Sprintf("%s: %s", serverIdentifier, err.Error()))
-			result.FailureCount++
-		} else {
-			result.SuccessServers = append(result.SuccessServers, serverIdentifier)
-			result.SuccessCount++
-		}
-
-		rowIndex++
 	}
 
+	servers := make([]models.Server, 0)
+
+	benchmarks := time.Now()
+
+	// Process data rows (skip header)
+	for i := 1; i < len(allRows); i++ {
+		row := allRows[i]
+
+		server, err := utils.ParseToServer(row)
+		if err != nil {
+			result.FailureCount++
+			result.FailureServers = append(result.FailureServers,
+				fmt.Sprintf("Row %d: %s", i+1, err.Error()))
+			continue
+		}
+		servers = append(servers, server)
+	}
+
+	if len(servers) == 0 {
+		logger.Warn("No valid servers to import")
+		return result, nil
+	}
+
+	// Create batches
+	var batches [][]models.Server
+	batchSize := 150
+
+	for i := 0; i < len(servers); i += batchSize {
+		end := i + batchSize
+		if end > len(servers) {
+			end = len(servers)
+		}
+		batches = append(batches, servers[i:end])
+	}
+
+	// Process batches with proper concurrency control
+	workerPool := workerpool.New(15) // Reduce workers to avoid overwhelming DB
+
+	var mu sync.Mutex
+
+	for batchIndex, batch := range batches {
+
+		// Capture variables to avoid race condition
+		currentBatch := batch
+		currentIndex := batchIndex
+
+		logger.Info("Processing batch",
+			zap.Int("batch", currentIndex+1),
+			zap.Int("size", len(currentBatch)),
+		)
+
+		workerPool.Submit(func() {
+
+			// Try batch insert first
+			if err := s.serverRepo.BatchCreate(ctx, currentBatch); err != nil {
+				// Fallback to individual inserts
+				for _, sv := range currentBatch {
+					if err := s.serverRepo.Create(ctx, &sv); err != nil {
+						mu.Lock()
+						result.FailureCount++
+						result.FailureServers = append(result.FailureServers,
+							fmt.Sprintf("Server '%s': %s", sv.ServerID, err.Error()))
+						mu.Unlock()
+					} else {
+						mu.Lock()
+						result.SuccessCount++
+						result.SuccessServers = append(result.SuccessServers, sv.ServerID)
+						mu.Unlock()
+					}
+				}
+			} else {
+				mu.Lock()
+				// Batch insert successful
+				result.SuccessCount += len(currentBatch)
+				for _, sv := range currentBatch {
+					result.SuccessServers = append(result.SuccessServers, sv.ServerID)
+				}
+				mu.Unlock()
+			}
+		})
+	}
+
+	// Wait for all workers to complete
+	workerPool.StopWait()
+
 	logger.Info("Import completed",
-		zap.String("file", filePath),
 		zap.Int("success_count", result.SuccessCount),
 		zap.Int("failure_count", result.FailureCount),
+		zap.Int("total_processed", result.SuccessCount+result.FailureCount),
+		zap.Duration("duration", time.Since(benchmarks)),
 	)
 
 	return result, nil
@@ -311,17 +272,44 @@ func (s *serverService) ExportServers(ctx context.Context, filter models.ServerF
 
 // GetServer implements ServerService.
 func (s *serverService) GetServer(ctx context.Context, id uint) (*models.Server, error) {
-	panic("unimplemented")
+	server, err := s.serverRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("server not found: %w", err)
+	}
+	return server, nil
 }
 
 // GetServerByServerID implements ServerService.
 func (s *serverService) GetServerByServerID(ctx context.Context, serverID string) (*models.Server, error) {
-	panic("unimplemented")
+	server, err := s.serverRepo.GetByServerID(ctx, serverID)
+	if err != nil {
+		return nil, fmt.Errorf("server not found: %w", err)
+	}
+	return server, nil
 }
 
 // GetServerStats implements ServerService.
 func (s *serverService) GetServerStats(ctx context.Context) (map[string]int64, error) {
-	panic("unimplemented")
+	stats := make(map[string]int64)
+
+	// Count total servers
+	var total int64
+	if servers, err := s.serverRepo.GetAll(ctx); err == nil {
+		total = int64(len(servers))
+	}
+	stats["total"] = total
+
+	// Count by status
+	onlineCount, _ := s.serverRepo.CountByStatus(ctx, "ON")
+	stats["online"] = onlineCount
+
+	offlineCount, _ := s.serverRepo.CountByStatus(ctx, "OFF")
+	stats["offline"] = offlineCount
+
+	maintenanceCount, _ := s.serverRepo.CountByStatus(ctx, "MAINTENANCE")
+	stats["maintenance"] = maintenanceCount
+
+	return stats, nil
 }
 
 // ListServers implements ServerService.
@@ -401,5 +389,22 @@ func (s *serverService) UpdateServer(ctx context.Context, id uint, updates map[s
 
 // UpdateServerStatus implements ServerService.
 func (s *serverService) UpdateServerStatus(ctx context.Context, serverID string, status models.ServerStatus) error {
-	panic("unimplemented")
+	// Check if server exists
+	server, err := s.serverRepo.GetByServerID(ctx, serverID)
+	if err != nil {
+		return fmt.Errorf("server not found: %w", err)
+	}
+
+	// Update the status
+	if err := s.serverRepo.UpdateStatus(ctx, serverID, status); err != nil {
+		return fmt.Errorf("failed to update server status: %w", err)
+	}
+
+	logger.Info("Server status updated successfully",
+		zap.String("server_id", serverID),
+		zap.String("old_status", string(server.Status)),
+		zap.String("new_status", string(status)),
+	)
+
+	return nil
 }

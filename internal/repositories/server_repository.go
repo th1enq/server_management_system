@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/th1enq/server_management_system/internal/models"
 	"gorm.io/gorm"
 )
@@ -16,7 +18,7 @@ type ServerRepository interface {
 	List(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) ([]models.Server, int64, error)
 	Update(ctx context.Context, server *models.Server) error
 	Delete(ctx context.Context, id uint) error
-	BatchCreate(ctx context.Context, servers []models.Server) ([]models.Server, []models.Server, error)
+	BatchCreate(ctx context.Context, servers []models.Server) error
 	UpdateStatus(ctx context.Context, serverID string, status models.ServerStatus) error
 	CountByStatus(ctx context.Context, status models.ServerStatus) (int64, error)
 	GetAll(ctx context.Context) ([]models.Server, error)
@@ -24,20 +26,66 @@ type ServerRepository interface {
 
 type serverRepository struct {
 	db *gorm.DB
+	pg *pgxpool.Pool
 }
 
-func NewServerRepository(db *gorm.DB) ServerRepository {
-	return &serverRepository{db: db}
+func NewServerRepository(db *gorm.DB, pg *pgxpool.Pool) ServerRepository {
+	return &serverRepository{
+		db: db,
+		pg: pg,
+	}
 }
 
-// BatchCreate implements ServerRepository.
-func (s *serverRepository) BatchCreate(ctx context.Context, servers []models.Server) ([]models.Server, []models.Server, error) {
-	panic("unimplemented")
+// BatchCreate implements ServerRepository using CopyFrom for better performance.
+func (s *serverRepository) BatchCreate(ctx context.Context, servers []models.Server) error {
+	if len(servers) == 0 {
+		return nil
+	}
+
+	// Prepare data for CopyFrom
+	rows := make([][]interface{}, len(servers))
+	for i, server := range servers {
+		rows[i] = []interface{}{
+			server.ServerID,
+			server.ServerName,
+			server.Status,
+			server.IPv4,
+			server.Description,
+			server.Location,
+			server.OS,
+			server.CPU,
+			server.RAM,
+			server.Disk,
+		}
+	}
+
+	// Use CopyFrom for bulk insert
+	_, err := s.pg.CopyFrom(
+		ctx,
+		[]string{"servers"}, // table name
+		[]string{
+			"server_id",
+			"server_name",
+			"status",
+			"ipv4",
+			"description",
+			"location",
+			"os",
+			"cpu",
+			"ram",
+			"disk",
+		}, // columns
+		pgx.CopyFromRows(rows),
+	)
+
+	return err
 }
 
 // CountByStatus implements ServerRepository.
 func (s *serverRepository) CountByStatus(ctx context.Context, status models.ServerStatus) (int64, error) {
-	panic("unimplemented")
+	var count int64
+	err := s.db.WithContext(ctx).Model(&models.Server{}).Where("status = ?", status).Count(&count).Error
+	return count, err
 }
 
 // Create implements ServerRepository.
@@ -52,7 +100,9 @@ func (s *serverRepository) Delete(ctx context.Context, id uint) error {
 
 // GetAll implements ServerRepository.
 func (s *serverRepository) GetAll(ctx context.Context) ([]models.Server, error) {
-	panic("unimplemented")
+	var servers []models.Server
+	err := s.db.WithContext(ctx).Find(&servers).Error
+	return servers, err
 }
 
 // GetByID implements ServerRepository.
@@ -134,5 +184,5 @@ func (s *serverRepository) Update(ctx context.Context, server *models.Server) er
 
 // UpdateStatus implements ServerRepository.
 func (s *serverRepository) UpdateStatus(ctx context.Context, serverID string, status models.ServerStatus) error {
-	panic("unimplemented")
+	return s.db.WithContext(ctx).Model(&models.Server{}).Where("server_id = ?", serverID).Update("status", status).Error
 }

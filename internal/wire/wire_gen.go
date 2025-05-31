@@ -7,6 +7,7 @@
 package wire
 
 import (
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/th1enq/server_management_system/internal/config"
 	"github.com/th1enq/server_management_system/internal/database"
@@ -27,13 +28,18 @@ func InitializeApp(config2 *config.Config) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	serverRepository := repositories.NewServerRepository(db)
+	pool, err := providePgx(config2)
+	if err != nil {
+		return nil, err
+	}
+	serverRepository := repositories.NewServerRepository(db, pool)
 	serverService := services.NewServerService(serverRepository, client)
 	serverHandler := handler.NewServerHandler(serverService)
 	app := &App{
 		Config:        config2,
 		DB:            db,
 		Redis:         client,
+		PGP:           pool,
 		ServerHandler: serverHandler,
 	}
 	return app, nil
@@ -45,6 +51,7 @@ type App struct {
 	Config        *config.Config
 	DB            *gorm.DB
 	Redis         *redis.Client
+	PGP           *pgxpool.Pool
 	ServerHandler *handler.ServerHandler
 }
 
@@ -54,6 +61,14 @@ func provideDB(config2 *config.Config) (*gorm.DB, error) {
 		return nil, err
 	}
 	return database.DB, nil
+}
+
+func providePgx(config2 *config.Config) (*pgxpool.Pool, error) {
+	err := database.LoadPgPool(config2)
+	if err != nil {
+		return nil, err
+	}
+	return database.PgPool, nil
 }
 
 func provideRedis(config2 *config.Config) (*redis.Client, error) {
