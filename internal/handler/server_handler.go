@@ -22,6 +22,15 @@ func NewServerHandler(serverSrv services.ServerService) *ServerHandler {
 	}
 }
 
+// @Summary Create a new server
+// @Description Create a new server with the provided details
+// @Tags servers
+// @Accept json
+// @Produce json
+// @Param server body models.Server true "Server details"
+// @Success 200 {object} models.ImportResponse
+// @Failure 400 {object} models.ErrorResponse
+// @Router /api/v1/servers/import [post]
 func (h *ServerHandler) CreateServer(c *gin.Context) {
 	var server models.Server
 	if err := c.ShouldBindBodyWithJSON(&server); err != nil {

@@ -1,0 +1,2 @@
+{"level":"info","timestamp":"2025-05-31T22:52:53.362+0700","caller":"logger/logger.go:81","msg":"Shutting down server..."}
+{"level":"info","timestamp":"2025-05-31T22:52:53.363+0700","caller":"logger/logger.go:81","msg":"Server exited"}
