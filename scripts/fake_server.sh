@@ -12,7 +12,6 @@ docker network create \
 for i in $(seq 2 10); do
   IP="${SUBNET}.${i}"
   NAME="fake-server-${i}"
-
   docker run -d \
     --name "$NAME" \
     --network "$NETWORK" \

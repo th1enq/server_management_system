@@ -15,6 +15,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - custom-net
   redis:
     image: redis:7-alpine
     container_name: vcs_sms_redis
@@ -28,7 +30,61 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      
+    networks:
+      - custom-net
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.0.2
+    container_name: vcs_sms_elasticsearch
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - custom-net
+  heartbeat:
+    build:
+      context: ./heartbeat
+      args:
+        ELK_VERSION: 9.0.2
+    container_name: vcs_sms_heartbeat
+    environment:
+      - ELASTICSEARCH_HOST=http://elasticsearch:9200
+      - KIBANA_HOST=http://kibana:5601
+    depends_on:
+      - elasticsearch
+      - kibana
+    restart: always
+    networks:
+      - custom-net
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.0.2
+    container_name: vcs_sms_kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - custom-net
 volumes:
   postgres_data:
   redis_data:
+  elasticsearch_data:
+networks:
+  custom-net:
+    external: true
