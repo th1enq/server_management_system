@@ -15,8 +15,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - custom-net
   redis:
     image: redis:7-alpine
     container_name: vcs_sms_redis
@@ -30,8 +28,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - custom-net
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.0.2
     container_name: vcs_sms_elasticsearch
@@ -48,23 +44,27 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-    networks:
-      - custom-net
-  heartbeat:
-    build:
-      context: ./heartbeat
-      args:
-        ELK_VERSION: 9.0.2
-    container_name: vcs_sms_heartbeat
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:9.0.2
+    container_name: vcs_sms_logstash
     environment:
-      - ELASTICSEARCH_HOST=http://elasticsearch:9200
-      - KIBANA_HOST=http://kibana:5601
+      - "LS_JAVA_OPTS=-Xmx256m -Xms256m"
+    volumes:
+      - ./internal/logstash/conf.d:/usr/share/logstash/pipeline
+      - ./internal/logstash/pipelines.yml:/usr/share/logstash/config/pipelines.yml
+      - ./logs:/usr/share/logstash/logs:ro
+    ports:
+      - "5044:5044"
+      - "9600:9600"
     depends_on:
       - elasticsearch
-      - kibana
-    restart: always
-    networks:
-      - custom-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9600 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
   kibana:
     image: docker.elastic.co/kibana/kibana:9.0.2
     container_name: vcs_sms_kibana
@@ -79,12 +79,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-    networks:
-      - custom-net
 volumes:
   postgres_data:
   redis_data:
   elasticsearch_data:
-networks:
-  custom-net:
-    external: true

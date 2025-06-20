@@ -46,6 +46,8 @@ func main() {
 	router.Use(gin.Recovery())
 	api.SetupRoutes(router, app)
 
+	go app.MonitoringWorker.Start()
+
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", config.Server.Port),
 		Handler: router,

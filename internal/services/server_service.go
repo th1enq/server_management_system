@@ -21,6 +21,7 @@ type ServerService interface {
 	CreateServer(ctx context.Context, server *models.Server) error
 	GetServer(ctx context.Context, id uint) (*models.Server, error)
 	GetServerByServerID(ctx context.Context, serverID string) (*models.Server, error)
+	GetServersIP(ctx context.Context) ([]string, error)
 	ListServers(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) (*models.ServerListResponse, error)
 	UpdateServer(ctx context.Context, id uint, updates map[string]interface{}) (*models.Server, error)
 	DeleteServer(ctx context.Context, id uint) error
@@ -40,6 +41,14 @@ func NewServerService(serverRepo repositories.ServerRepository, redisClient *red
 		serverRepo:  serverRepo,
 		redisClient: redisClient,
 	}
+}
+
+func (s *serverService) GetServersIP(ctx context.Context) ([]string, error) {
+	ipList, err := s.serverRepo.GetServersIP(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return ipList, nil
 }
 
 // CreateServer implements ServerService.

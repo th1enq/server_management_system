@@ -8,11 +8,12 @@ import (
 )
 
 type Config struct {
-	Server   ServerConfig   `mapstructure:"server"`
-	Database DatabaseConfig `mapstructure:"database"`
-	Redis    RedisConfig    `mapstructure:"redis"`
-	Logging  LoggingConfig  `mapstructure:"logging"`
-	JWT      JWTConfig      `mapstructure:"jwt"`
+	Server     ServerConfig     `mapstructure:"server"`
+	Database   DatabaseConfig   `mapstructure:"database"`
+	Redis      RedisConfig      `mapstructure:"redis"`
+	Logging    LoggingConfig    `mapstructure:"logging"`
+	JWT        JWTConfig        `mapstructure:"jwt"`
+	Monitoring MonitoringConfig `mapstructure:"monitoring"`
 }
 
 type ServerConfig struct {
@@ -50,6 +51,11 @@ type LoggingConfig struct {
 type JWTConfig struct {
 	Secret     string        `mapstructure:"secret"`
 	Expiration time.Duration `mapstructure:"expiration"`
+}
+
+type MonitoringConfig struct {
+	Interval    time.Duration `mapstructure:"interval"`
+	PingTimeout time.Duration `mapstructure:"timeout"`
 }
 
 func Load() (*Config, error) {

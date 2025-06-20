@@ -12,15 +12,18 @@ import (
 	"github.com/th1enq/server_management_system/internal/handler"
 	"github.com/th1enq/server_management_system/internal/repositories"
 	"github.com/th1enq/server_management_system/internal/services"
+	"github.com/th1enq/server_management_system/internal/worker"
+
 	"gorm.io/gorm"
 )
 
 type App struct {
-	Config        *config.Config
-	DB            *gorm.DB
-	Redis         *redis.Client
-	PGP           *pgxpool.Pool
-	ServerHandler *handler.ServerHandler
+	Config           *config.Config
+	DB               *gorm.DB
+	Redis            *redis.Client
+	PGP              *pgxpool.Pool
+	ServerHandler    *handler.ServerHandler
+	MonitoringWorker *worker.MonitoringWorker
 }
 
 func InitializeApp(config *config.Config) (*App, error) {
@@ -38,6 +41,9 @@ func InitializeApp(config *config.Config) (*App, error) {
 
 		// Handlers
 		handler.NewServerHandler,
+
+		// Worker
+		provideMonitoringWorker,
 
 		// App
 		wire.Struct(new(App), "*"),
@@ -67,4 +73,9 @@ func provideRedis(config *config.Config) (*redis.Client, error) {
 		return nil, err
 	}
 	return database.RedisClient, nil
+}
+
+func provideMonitoringWorker(config *config.Config, serverRepo repositories.ServerRepository) *worker.MonitoringWorker {
+	stopChan := make(chan bool)
+	return worker.NewMonitoringWorker(config, serverRepo, stopChan)
 }

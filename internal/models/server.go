@@ -8,6 +8,11 @@ import (
 
 type ServerStatus string
 
+const (
+	ServerStatusOn  ServerStatus = "ON"
+	ServerStatusOff ServerStatus = "OFF"
+)
+
 type Server struct {
 	ID          uint           `gorm:"primaryKey" json:"id"`
 	ServerID    string         `gorm:"uniqueIndex;not null" json:"server_id"`
@@ -67,13 +72,4 @@ type ImportResult struct {
 	SuccessServers []string `json:"success_servers"`
 	FailureCount   int      `json:"failure_count"`
 	FailureServers []string `json:"failure_servers"`
-}
-
-// DailyReport for email reports
-type DailyReport struct {
-	Date         time.Time `json:"date"`
-	TotalServers int64     `json:"total_servers"`
-	OnlineCount  int64     `json:"online_count"`
-	OfflineCount int64     `json:"offline_count"`
-	AvgUptime    float64   `json:"avg_uptime_percentage"`
 }

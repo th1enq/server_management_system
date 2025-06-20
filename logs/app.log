@@ -1,2 +1,75 @@
-{"level":"info","timestamp":"2025-05-31T22:52:53.362+0700","caller":"logger/logger.go:81","msg":"Shutting down server..."}
-{"level":"info","timestamp":"2025-05-31T22:52:53.363+0700","caller":"logger/logger.go:81","msg":"Server exited"}
+{"level":"info","timestamp":"2025-06-20T16:02:10.863+0700","caller":"logger/logger.go:81","msg":"Starting Viettel Server Management System","version":"1.0.0","env":"development"}
+{"level":"info","timestamp":"2025-06-20T16:02:10.885+0700","caller":"logger/logger.go:81","msg":"Database connected successfully","host":"localhost","port":5432,"database":"vcs_sms"}
+{"level":"info","timestamp":"2025-06-20T16:02:10.887+0700","caller":"logger/logger.go:81","msg":"Redis connected successfully","host":"localhost","port":6379,"db":0}
+{"level":"info","timestamp":"2025-06-20T16:02:10.899+0700","caller":"logger/logger.go:81","msg":"PgxPool connected successfully","host":"localhost","port":5432,"database":"vcs_sms"}
+{"level":"info","timestamp":"2025-06-20T16:02:10.900+0700","caller":"logger/logger.go:81","msg":"Starting monitoring worker","interval":30}
+{"level":"info","timestamp":"2025-06-20T16:02:10.900+0700","caller":"logger/logger.go:81","msg":"HTTP server starting","port":8080}
+{"level":"info","timestamp":"2025-06-20T16:02:10.900+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"error","timestamp":"2025-06-20T16:02:10.901+0700","caller":"logger/logger.go:77","msg":"Failed to get servers","error":"ERROR: relation \"servers\" does not exist (SQLSTATE 42P01)","stacktrace":"github.com/th1enq/server_management_system/pkg/logger.Error\n\t/home/th1enq/Documents/server_management_system/pkg/logger/logger.go:77\ngithub.com/th1enq/server_management_system/internal/worker.(*MonitoringWorker).checkServers\n\t/home/th1enq/Documents/server_management_system/internal/worker/monitoring.go:63\ngithub.com/th1enq/server_management_system/internal/worker.(*MonitoringWorker).Start\n\t/home/th1enq/Documents/server_management_system/internal/worker/monitoring.go:39"}
+{"level":"info","timestamp":"2025-06-20T16:02:17.849+0700","caller":"logger/logger.go:81","msg":"Shutting down server..."}
+{"level":"info","timestamp":"2025-06-20T16:02:17.850+0700","caller":"logger/logger.go:81","msg":"Server exited"}
+{"level":"info","timestamp":"2025-06-20T16:02:31.754+0700","caller":"logger/logger.go:81","msg":"Starting Viettel Server Management System","version":"1.0.0","env":"development"}
+{"level":"info","timestamp":"2025-06-20T16:02:31.767+0700","caller":"logger/logger.go:81","msg":"Database connected successfully","host":"localhost","port":5432,"database":"vcs_sms"}
+{"level":"info","timestamp":"2025-06-20T16:02:31.770+0700","caller":"logger/logger.go:81","msg":"Redis connected successfully","host":"localhost","port":6379,"db":0}
+{"level":"info","timestamp":"2025-06-20T16:02:31.783+0700","caller":"logger/logger.go:81","msg":"PgxPool connected successfully","host":"localhost","port":5432,"database":"vcs_sms"}
+{"level":"info","timestamp":"2025-06-20T16:02:31.783+0700","caller":"logger/logger.go:81","msg":"HTTP server starting","port":8080}
+{"level":"info","timestamp":"2025-06-20T16:02:31.783+0700","caller":"logger/logger.go:81","msg":"Starting monitoring worker","interval":30}
+{"level":"info","timestamp":"2025-06-20T16:02:31.784+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"info","timestamp":"2025-06-20T16:02:31.788+0700","caller":"logger/logger.go:81","msg":"Checking servers","count":0}
+{"level":"info","timestamp":"2025-06-20T16:02:46.405+0700","caller":"logger/logger.go:81","msg":"Shutting down server..."}
+{"level":"info","timestamp":"2025-06-20T16:02:46.405+0700","caller":"logger/logger.go:81","msg":"Server exited"}
+{"level":"info","timestamp":"2025-06-20T16:34:24.617+0700","caller":"logger/logger.go:81","msg":"Starting Viettel Server Management System","version":"1.0.0","env":"development"}
+{"level":"info","timestamp":"2025-06-20T16:34:24.626+0700","caller":"logger/logger.go:81","msg":"Database connected successfully","host":"localhost","port":5432,"database":"vcs_sms"}
+{"level":"info","timestamp":"2025-06-20T16:34:24.630+0700","caller":"logger/logger.go:81","msg":"Redis connected successfully","host":"localhost","port":6379,"db":0}
+{"level":"info","timestamp":"2025-06-20T16:34:24.642+0700","caller":"logger/logger.go:81","msg":"PgxPool connected successfully","host":"localhost","port":5432,"database":"vcs_sms"}
+{"level":"info","timestamp":"2025-06-20T16:34:24.643+0700","caller":"logger/logger.go:81","msg":"HTTP server starting","port":8080}
+{"level":"info","timestamp":"2025-06-20T16:34:24.643+0700","caller":"logger/logger.go:81","msg":"Starting monitoring worker","interval":30}
+{"level":"info","timestamp":"2025-06-20T16:34:24.643+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"info","timestamp":"2025-06-20T16:34:24.649+0700","caller":"logger/logger.go:81","msg":"Checking servers","count":0}
+{"level":"info","timestamp":"2025-06-20T16:34:29.832+0700","caller":"logger/logger.go:81","msg":"Shutting down server..."}
+{"level":"info","timestamp":"2025-06-20T16:34:29.832+0700","caller":"logger/logger.go:81","msg":"Server exited"}
+{"level":"info","timestamp":"2025-06-20T16:35:12.132+0700","caller":"logger/logger.go:81","msg":"Starting Viettel Server Management System","version":"1.0.0","env":"development"}
+{"level":"info","timestamp":"2025-06-20T16:35:12.142+0700","caller":"logger/logger.go:81","msg":"Database connected successfully","host":"localhost","port":5432,"database":"vcs_sms"}
+{"level":"info","timestamp":"2025-06-20T16:35:12.145+0700","caller":"logger/logger.go:81","msg":"Redis connected successfully","host":"localhost","port":6379,"db":0}
+{"level":"info","timestamp":"2025-06-20T16:35:12.158+0700","caller":"logger/logger.go:81","msg":"PgxPool connected successfully","host":"localhost","port":5432,"database":"vcs_sms"}
+{"level":"info","timestamp":"2025-06-20T16:35:12.159+0700","caller":"logger/logger.go:81","msg":"Starting monitoring worker","interval":30}
+{"level":"info","timestamp":"2025-06-20T16:35:12.159+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"info","timestamp":"2025-06-20T16:35:12.160+0700","caller":"logger/logger.go:81","msg":"HTTP server starting","port":8080}
+{"level":"info","timestamp":"2025-06-20T16:35:12.165+0700","caller":"logger/logger.go:81","msg":"Checking servers","count":0}
+{"level":"info","timestamp":"2025-06-20T16:35:42.186+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"error","timestamp":"2025-06-20T16:35:42.191+0700","caller":"logger/logger.go:77","msg":"Failed to get servers","error":"ERROR: cached plan must not change result type (SQLSTATE 0A000)","stacktrace":"github.com/th1enq/server_management_system/pkg/logger.Error\n\t/home/th1enq/Documents/server_management_system/pkg/logger/logger.go:77\ngithub.com/th1enq/server_management_system/internal/worker.(*MonitoringWorker).checkServers\n\t/home/th1enq/Documents/server_management_system/internal/worker/monitoring.go:63\ngithub.com/th1enq/server_management_system/internal/worker.(*MonitoringWorker).Start\n\t/home/th1enq/Documents/server_management_system/internal/worker/monitoring.go:44"}
+{"level":"info","timestamp":"2025-06-20T16:36:12.165+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"info","timestamp":"2025-06-20T16:36:12.174+0700","caller":"logger/logger.go:81","msg":"Checking servers","count":0}
+{"level":"info","timestamp":"2025-06-20T16:36:42.189+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"info","timestamp":"2025-06-20T16:36:42.191+0700","caller":"logger/logger.go:81","msg":"Checking servers","count":0}
+{"level":"info","timestamp":"2025-06-20T16:37:12.175+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"info","timestamp":"2025-06-20T16:37:12.180+0700","caller":"logger/logger.go:81","msg":"Checking servers","count":0}
+{"level":"info","timestamp":"2025-06-20T16:37:17.483+0700","caller":"logger/logger.go:81","msg":"Starting import process","file":"/tmp/servers_10000.xlsx","total_rows":4}
+{"level":"info","timestamp":"2025-06-20T16:37:17.483+0700","caller":"logger/logger.go:81","msg":"Processing batch","batch":1,"size":4}
+{"level":"info","timestamp":"2025-06-20T16:37:17.490+0700","caller":"logger/logger.go:81","msg":"Import completed","success_count":4,"failure_count":0,"total_processed":4,"duration":0.007021029}
+{"level":"info","timestamp":"2025-06-20T16:37:42.181+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"info","timestamp":"2025-06-20T16:37:42.183+0700","caller":"logger/logger.go:81","msg":"Checking servers","count":4}
+{"level":"info","timestamp":"2025-06-20T16:37:42.183+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVRO0QAB","status":"ON","response_time":0}
+{"level":"info","timestamp":"2025-06-20T16:37:45.301+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVOFZY79","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-20T16:37:45.304+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVOJ9VH4","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-20T16:37:45.305+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRV66ZY27","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-20T16:38:12.172+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"info","timestamp":"2025-06-20T16:38:12.176+0700","caller":"logger/logger.go:81","msg":"Checking servers","count":4}
+{"level":"info","timestamp":"2025-06-20T16:38:12.177+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVRO0QAB","status":"ON","response_time":0}
+{"level":"info","timestamp":"2025-06-20T16:38:15.238+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVOFZY79","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-20T16:38:15.238+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVOJ9VH4","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-20T16:38:15.238+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRV66ZY27","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-20T16:38:42.184+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"info","timestamp":"2025-06-20T16:38:42.185+0700","caller":"logger/logger.go:81","msg":"Checking servers","count":4}
+{"level":"info","timestamp":"2025-06-20T16:38:42.185+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVRO0QAB","status":"ON","response_time":0}
+{"level":"info","timestamp":"2025-06-20T16:38:45.254+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRV66ZY27","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-20T16:38:45.254+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVOFZY79","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-20T16:38:45.254+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVOJ9VH4","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-20T16:39:12.173+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"info","timestamp":"2025-06-20T16:39:12.175+0700","caller":"logger/logger.go:81","msg":"Checking servers","count":4}
+{"level":"info","timestamp":"2025-06-20T16:39:12.176+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVRO0QAB","status":"ON","response_time":0}
+{"level":"info","timestamp":"2025-06-20T16:39:15.270+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRV66ZY27","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-20T16:39:15.270+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVOJ9VH4","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-20T16:39:15.270+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVOFZY79","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-20T16:39:24.191+0700","caller":"logger/logger.go:81","msg":"Shutting down server..."}
+{"level":"info","timestamp":"2025-06-20T16:39:24.199+0700","caller":"logger/logger.go:81","msg":"Server exited"}

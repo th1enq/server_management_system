@@ -22,6 +22,7 @@ type ServerRepository interface {
 	UpdateStatus(ctx context.Context, serverID string, status models.ServerStatus) error
 	CountByStatus(ctx context.Context, status models.ServerStatus) (int64, error)
 	GetAll(ctx context.Context) ([]models.Server, error)
+	GetServersIP(ctx context.Context) ([]string, error)
 }
 
 type serverRepository struct {
@@ -34,6 +35,15 @@ func NewServerRepository(db *gorm.DB, pg *pgxpool.Pool) ServerRepository {
 		db: db,
 		pg: pg,
 	}
+}
+
+// GetServersIP implements ServerRepository.
+func (s *serverRepository) GetServersIP(ctx context.Context) ([]string, error) {
+	var ipv4 []string
+	if err := s.db.WithContext(ctx).Model(&models.Server{}).Pluck("ipv4", &ipv4).Error; err != nil {
+		return nil, err
+	}
+	return ipv4, nil
 }
 
 // BatchCreate implements ServerRepository using CopyFrom for better performance.

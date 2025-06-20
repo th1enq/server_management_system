@@ -14,6 +14,7 @@ import (
 	"github.com/th1enq/server_management_system/internal/handler"
 	"github.com/th1enq/server_management_system/internal/repositories"
 	"github.com/th1enq/server_management_system/internal/services"
+	"github.com/th1enq/server_management_system/internal/worker"
 	"gorm.io/gorm"
 )
 
@@ -35,12 +36,14 @@ func InitializeApp(config2 *config.Config) (*App, error) {
 	serverRepository := repositories.NewServerRepository(db, pool)
 	serverService := services.NewServerService(serverRepository, client)
 	serverHandler := handler.NewServerHandler(serverService)
+	monitoringWorker := provideMonitoringWorker(config2, serverRepository)
 	app := &App{
-		Config:        config2,
-		DB:            db,
-		Redis:         client,
-		PGP:           pool,
-		ServerHandler: serverHandler,
+		Config:           config2,
+		DB:               db,
+		Redis:            client,
+		PGP:              pool,
+		ServerHandler:    serverHandler,
+		MonitoringWorker: monitoringWorker,
 	}
 	return app, nil
 }
@@ -48,11 +51,12 @@ func InitializeApp(config2 *config.Config) (*App, error) {
 // wire.go:
 
 type App struct {
-	Config        *config.Config
-	DB            *gorm.DB
-	Redis         *redis.Client
-	PGP           *pgxpool.Pool
-	ServerHandler *handler.ServerHandler
+	Config           *config.Config
+	DB               *gorm.DB
+	Redis            *redis.Client
+	PGP              *pgxpool.Pool
+	ServerHandler    *handler.ServerHandler
+	MonitoringWorker *worker.MonitoringWorker
 }
 
 func provideDB(config2 *config.Config) (*gorm.DB, error) {
@@ -77,4 +81,9 @@ func provideRedis(config2 *config.Config) (*redis.Client, error) {
 		return nil, err
 	}
 	return database.RedisClient, nil
+}
+
+func provideMonitoringWorker(config2 *config.Config, serverRepo repositories.ServerRepository) *worker.MonitoringWorker {
+	stopChan := make(chan bool)
+	return worker.NewMonitoringWorker(config2, serverRepo, stopChan)
 }

@@ -29,3 +29,7 @@ logging:
   max_size: 100
   max_backups: 10
   max_age: 30
+
+monitoring:
+  interval: 30s
+  timeout: 5s

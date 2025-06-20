@@ -22,5 +22,6 @@ func SetupRoutes(router *gin.Engine, app *wire.App) {
 		servers.GET("/", app.ServerHandler.ListServer)
 		servers.POST("/import", app.ServerHandler.ImportServers)
 		servers.GET("/export", app.ServerHandler.ExportServers)
+		servers.GET("/monitors", app.ServerHandler.Monitors)
 	}
 }
