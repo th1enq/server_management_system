@@ -8,12 +8,13 @@ import (
 )
 
 type Config struct {
-	Server     ServerConfig     `mapstructure:"server"`
-	Database   DatabaseConfig   `mapstructure:"database"`
-	Redis      RedisConfig      `mapstructure:"redis"`
-	Logging    LoggingConfig    `mapstructure:"logging"`
-	JWT        JWTConfig        `mapstructure:"jwt"`
-	Monitoring MonitoringConfig `mapstructure:"monitoring"`
+	Server        ServerConfig         `mapstructure:"server"`
+	Database      DatabaseConfig       `mapstructure:"database"`
+	Redis         RedisConfig          `mapstructure:"redis"`
+	Logging       LoggingConfig        `mapstructure:"logging"`
+	JWT           JWTConfig            `mapstructure:"jwt"`
+	Monitoring    MonitoringConfig     `mapstructure:"monitoring"`
+	Elasticsearch ElastichSearchConfig `mapstructure:"elasticsearch"`
 }
 
 type ServerConfig struct {
@@ -30,6 +31,10 @@ type DatabaseConfig struct {
 	Name         string `mapstructure:"dbname"`
 	MaxIdleConns int    `mapstructure:"max_idle_conns"`
 	MaxOpenConns int    `mapstructure:"max_open_conns"`
+}
+
+type ElastichSearchConfig struct {
+	URL string `mapstructure:"url"`
 }
 
 type RedisConfig struct {

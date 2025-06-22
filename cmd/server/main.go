@@ -72,6 +72,7 @@ func main() {
 	}
 
 	database.Close()
+	
 
 	logger.Info("Server exited")
 }

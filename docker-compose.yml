@@ -51,6 +51,7 @@ services:
     environment:
       - "LS_JAVA_OPTS=-Xmx256m -Xms256m"
     volumes:
+      - ./internal/logstash/conf.d:/usr/share/logstash/conf.d
       - ./internal/logstash/conf.d:/usr/share/logstash/pipeline
       - ./internal/logstash/pipelines.yml:/usr/share/logstash/config/pipelines.yml
       - ./logs:/usr/share/logstash/logs:ro

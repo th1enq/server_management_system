@@ -19,6 +19,9 @@ redis:
   db: 0
   pool_size: 10
 
+elasticsearch:
+  url: http://localhost:9200
+
 jwt:
   secret: 
   expiration: 24h

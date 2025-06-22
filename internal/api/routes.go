@@ -24,4 +24,9 @@ func SetupRoutes(router *gin.Engine, app *wire.App) {
 		servers.GET("/export", app.ServerHandler.ExportServers)
 		servers.GET("/monitors", app.ServerHandler.Monitors)
 	}
+
+	reports := v1.Group("/reports")
+	{
+		reports.GET("/today", app.ReportHandler.GetTodayReport)
+	}
 }

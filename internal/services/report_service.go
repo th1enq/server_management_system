@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
-	"github.com/olivere/elastic/v7"
-	"github.com/robfig/cron/v3"
+	"github.com/elastic/go-elasticsearch/v9"
 	"github.com/th1enq/server_management_system/internal/config"
 	"github.com/th1enq/server_management_system/internal/models"
 	"github.com/th1enq/server_management_system/internal/repositories"
@@ -25,16 +25,34 @@ type ReportService interface {
 
 type reportService struct {
 	cfg        *config.Config
-	esClient   *elastic.Client
-	cron       *cron.Cron
+	esClient   *elasticsearch.Client
 	serverRepo repositories.ServerRepository
 }
 
-func NewreportService(cfg *config.Config, esClient *elastic.Client, cron *cron.Cron, serverRepo repositories.ServerRepository) *reportService {
+// SendDailyReport implements ReportService.
+func (s *reportService) SendDailyReport(ctx context.Context, report *models.DailyReport, emailTo string) error {
+	panic("unimplemented")
+}
+
+// SendReportForDateRange implements ReportService.
+func (s *reportService) SendReportForDateRange(ctx context.Context, startDate time.Time, endDate time.Time, emailTo string) error {
+	panic("unimplemented")
+}
+
+// StartDailyReportScheduler implements ReportService.
+func (s *reportService) StartDailyReportScheduler() {
+	panic("unimplemented")
+}
+
+// StopDailyReportScheduler implements ReportService.
+func (s *reportService) StopDailyReportScheduler() {
+	panic("unimplemented")
+}
+
+func NewReportService(cfg *config.Config, esClient *elasticsearch.Client, serverRepo repositories.ServerRepository) ReportService {
 	return &reportService{
 		cfg:        cfg,
 		esClient:   esClient,
-		cron:       cron,
 		serverRepo: serverRepo,
 	}
 }
@@ -42,11 +60,6 @@ func NewreportService(cfg *config.Config, esClient *elastic.Client, cron *cron.C
 func (s *reportService) GenerateDailyReport(ctx context.Context, date time.Time) (*models.DailyReport, error) {
 	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
 	endOfDay := startOfDay.Add(24 * time.Hour)
-
-	totalServer, err := s.serverRepo.CountByStatus(ctx, "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to count total server: %w", err)
-	}
 
 	onlineServer, err := s.serverRepo.CountByStatus(ctx, models.ServerStatusOn)
 	if err != nil {
@@ -66,7 +79,7 @@ func (s *reportService) GenerateDailyReport(ctx context.Context, date time.Time)
 
 	report := &models.DailyReport{
 		Date:         date,
-		TotalServers: totalServer,
+		TotalServers: onlineServer + offlineServer,
 		OnlineCount:  onlineServer,
 		OfflineCount: offlineServer,
 		AvgUptime:    avgUpTime,
@@ -88,7 +101,7 @@ func (s *reportService) calculateAverageUptime(ctx context.Context, startTime, e
 
 	totalUpTime := 0.0
 	for _, server := range servers {
-		uptime, err := s.calculateServerUpTime(ctx, server.ID, startTime, endTime)
+		uptime, err := s.calculateServerUpTime(ctx, server.ServerID, startTime, endTime)
 		if err != nil {
 			logger.Error("Failed to calculated server uptime", err, zap.String("server_id", server.ServerID))
 			continue
@@ -102,26 +115,52 @@ func (s *reportService) calculateAverageUptime(ctx context.Context, startTime, e
 	return totalUpTime / float64(len(servers)), singleUpTime, nil
 }
 
-func (s *reportService) calculateServerUpTime(ctx context.Context, serverID uint, startTime, endTime time.Time) (float64, error) {
-	query := elastic.NewBoolQuery().
-		Must(
-			elastic.NewTermQuery("server_id", serverID),
-			elastic.NewRangeQuery("checked_at").
-				Gte(startTime).
-				Lt(endTime),
-		)
+func (s *reportService) calculateServerUpTime(ctx context.Context, serverID string, startTime, endTime time.Time) (float64, error) {
+	query := `{
+		"query": {
+			"bool": {
+				"must": [
+					{ "term": { "server_id": "` + serverID + `" }},
+					{ "range": { "@timestamp": { "gte": "` + startTime.Format(time.RFC3339) + `", "lt": "` + endTime.Format(time.RFC3339) + `" }}}
+				]
+			}
+		},
+		"sort": [
+			{ "@timestamp": { "order": "asc" }}
+		],
+		"size": 10000
+	}`
 
-	searchResult, err := s.esClient.Search().
-		Index("server_status_logs").
-		Query(query).
-		Sort("checked_at", true).
-		Size(10000).
-		Do(ctx)
+	fmt.Println("Elasticsearch query:", query)
 
+	res, err := s.esClient.Search(
+		s.esClient.Search.WithContext(ctx),
+		s.esClient.Search.WithIndex("vcs-sms-server-checks-*"),
+		s.esClient.Search.WithBody(strings.NewReader(query)),
+		s.esClient.Search.WithTrackTotalHits(true),
+	)
 	if err != nil {
 		return 0, err
 	}
-	if searchResult.Hits.TotalHits.Value == 0 {
+	defer res.Body.Close()
+
+	if res.IsError() {
+		return 0, fmt.Errorf("elasticsearch error: %s", res.String())
+	}
+
+	var body struct {
+		Hits struct {
+			Hits []struct {
+				Source models.ServerStatusLog `json:"_source"`
+			} `json:"hits"`
+		} `json:"hits"`
+	}
+
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		return 0, err
+	}
+
+	if len(body.Hits.Hits) == 0 {
 		return 0, nil
 	}
 
@@ -132,12 +171,8 @@ func (s *reportService) calculateServerUpTime(ctx context.Context, serverID uint
 	var lastStatus models.ServerStatus
 	var lastTime time.Time
 
-	for _, hit := range searchResult.Hits.Hits {
-		var log models.ServerStatusLog
-		if err := json.Unmarshal(hit.Source, &log); err != nil {
-			continue
-		}
-
+	for _, hit := range body.Hits.Hits {
+		log := hit.Source
 		if lastTime.IsZero() {
 			lastTime = log.CheckedAt
 			lastStatus = log.Status
@@ -152,7 +187,6 @@ func (s *reportService) calculateServerUpTime(ctx context.Context, serverID uint
 		lastStatus = log.Status
 	}
 
-	// Add remaining time if last status was ON
 	if lastStatus == models.ServerStatusOn && !lastTime.IsZero() {
 		uptimeDuration += endTime.Sub(lastTime)
 	}

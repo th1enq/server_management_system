@@ -74,7 +74,7 @@ func (w *MonitoringWorker) checkServers() {
 func (w *MonitoringWorker) checkServer(ctx context.Context, server models.Server) {
 	startTime := time.Now()
 	status := models.ServerStatusOff
-	responseTime := -1
+	responseTime := int64(-1)
 
 	// Try to ping the server
 	if server.IPv4 != "" {
@@ -83,7 +83,7 @@ func (w *MonitoringWorker) checkServer(ctx context.Context, server models.Server
 		if err == nil {
 			conn.Close()
 			status = models.ServerStatusOn
-			responseTime = int(time.Since(startTime).Milliseconds())
+			responseTime = time.Since(startTime).Milliseconds()
 		}
 	}
 
@@ -100,6 +100,6 @@ func (w *MonitoringWorker) checkServer(ctx context.Context, server models.Server
 	logger.Info("Server checked",
 		zap.String("server_id", server.ServerID),
 		zap.String("status", string(status)),
-		zap.Int("response_time", responseTime),
+		zap.Int64("response_time", responseTime),
 	)
 }

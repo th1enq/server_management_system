@@ -4,6 +4,7 @@
 package wire
 
 import (
+	"github.com/elastic/go-elasticsearch/v9"
 	"github.com/google/wire"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -22,7 +23,9 @@ type App struct {
 	DB               *gorm.DB
 	Redis            *redis.Client
 	PGP              *pgxpool.Pool
+	Elasticsearch    *elasticsearch.Client
 	ServerHandler    *handler.ServerHandler
+	ReportHandler    *handler.ReportHandler
 	MonitoringWorker *worker.MonitoringWorker
 }
 
@@ -32,15 +35,18 @@ func InitializeApp(config *config.Config) (*App, error) {
 		provideDB,
 		providePgx,
 		provideRedis,
+		provideElasticsearch,
 
 		// Repositories
 		repositories.NewServerRepository,
 
 		// Services
 		services.NewServerService,
+		services.NewReportService,
 
 		// Handlers
 		handler.NewServerHandler,
+		handler.NewReportHandler,
 
 		// Worker
 		provideMonitoringWorker,
@@ -49,6 +55,14 @@ func InitializeApp(config *config.Config) (*App, error) {
 		wire.Struct(new(App), "*"),
 	)
 	return nil, nil
+}
+
+func provideElasticsearch(config *config.Config) (*elasticsearch.Client, error) {
+	err := database.InitElasticsearchClient(config)
+	if err != nil {
+		return nil, err
+	}
+	return database.ESClient, nil
 }
 
 func provideDB(config *config.Config) (*gorm.DB, error) {
