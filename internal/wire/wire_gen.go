@@ -53,6 +53,7 @@ func InitializeApp(config2 *config.Config) (*App, error) {
 		ServerHandler:    serverHandler,
 		ReportHandler:    reportHandler,
 		MonitoringWorker: monitoringWorker,
+		ReportService:    reportService,
 	}
 	return app, nil
 }
@@ -68,6 +69,7 @@ type App struct {
 	ServerHandler    *handler.ServerHandler
 	ReportHandler    *handler.ReportHandler
 	MonitoringWorker *worker.MonitoringWorker
+	ReportService    services.ReportService
 }
 
 func provideElasticsearch(config2 *config.Config) (*elasticsearch.Client, error) {

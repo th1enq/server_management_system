@@ -27,6 +27,7 @@ type App struct {
 	ServerHandler    *handler.ServerHandler
 	ReportHandler    *handler.ReportHandler
 	MonitoringWorker *worker.MonitoringWorker
+	ReportService    services.ReportService
 }
 
 func InitializeApp(config *config.Config) (*App, error) {

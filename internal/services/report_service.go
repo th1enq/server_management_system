@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/elastic/go-elasticsearch/v9"
-	"github.com/robfig/cron"
+	"github.com/robfig/cron/v3"
 	"github.com/th1enq/server_management_system/internal/config"
 	"github.com/th1enq/server_management_system/internal/models"
 	"github.com/th1enq/server_management_system/internal/repositories"
@@ -37,11 +37,12 @@ type reportService struct {
 }
 
 func NewReportService(cfg *config.Config, esClient *elasticsearch.Client, serverRepo repositories.ServerRepository) ReportService {
+	loc, _ := time.LoadLocation("Asia/Ho_Chi_Minh")
 	return &reportService{
 		cfg:        cfg,
 		esClient:   esClient,
 		serverRepo: serverRepo,
-		cron:       cron.New(),
+		cron:       cron.New(cron.WithLocation(loc)),
 	}
 }
 
@@ -119,29 +120,31 @@ func (s *reportService) SendReportForDaily(ctx context.Context, date time.Time) 
 	return s.SendReportToEmail(ctx, report, emailTo, msg)
 }
 
-func (s *reportService) Sen(ctx context.Context, startDate time.Time, endDate time.Time, emailTo string) error {
-	if startDate.After(endDate) {
-		return fmt.Errorf("start date must be before end date")
-	}
-
-	report, err := s.GenerateReport(ctx, startDate, endDate)
-	if err != nil {
-		return fmt.Errorf("failed to generate report :%w", err)
-	}
-
-	msg := fmt.Sprintf("Server Report - %s to %s", startDate, endDate)
-
-	return s.SendReportToEmail(ctx, report, emailTo, msg)
-}
-
 // StartDailyReportScheduler implements ReportService.
 func (s *reportService) StartDailyReportScheduler() {
-	panic("unimplemented")
+	_, err := s.cron.AddFunc("0 8 * * *", func() {
+		ctx := context.Background()
+		yesterday := time.Now().AddDate(0, 0, -1)
+
+		if err := s.SendReportForDaily(ctx, yesterday); err != nil {
+			logger.Error("Failed to send daily report", err)
+			return
+		}
+	})
+
+	if err != nil {
+		logger.Error("Failed to schedule daily report", err)
+		return
+	}
+
+	s.cron.Start()
+	logger.Info("	")
 }
 
 // StopDailyReportScheduler implements ReportService.
 func (s *reportService) StopDailyReportScheduler() {
-	panic("unimplemented")
+	s.cron.Stop()
+	logger.Info("Daily report scheduler stopped")
 }
 
 func (s *reportService) GenerateReport(ctx context.Context, startOfDay, endOfDay time.Time) (*models.DailyReport, error) {
@@ -215,7 +218,7 @@ func (s *reportService) calculateServerUpTime(ctx context.Context, serverID *str
 			"bool": {
 				"must": [
 					{ "term": { "server_id": "%s" }},
-					{ "range": { "@timestamp": { "gte": "%s", "lt": "%s" }}}
+					{ "range": { "timestamp": { "gte": "%s", "lt": "%s" }}}
 				]
 			}
 		},

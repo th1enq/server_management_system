@@ -67,27 +67,6 @@ func (h *ServerHandler) CreateServer(c *gin.Context) {
 	))
 }
 
-func (h *ServerHandler) Monitors(c *gin.Context) {
-	servers, err := h.serverSrv.GetServersIP(c.Request.Context())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.NewErrorResponse(
-			models.CodeInternalServerError,
-			"Failed to get ipv4 address",
-			err.Error(),
-		))
-		return
-	}
-
-	ipInfo := map[string]interface{}{
-		"type":     "tcp",
-		"schedule": "@every 10s",
-		"hosts":    servers,
-		"name":     "vcs_sms_servers",
-	}
-
-	c.JSON(http.StatusOK, []interface{}{ipInfo})
-}
-
 func (h *ServerHandler) ListServer(c *gin.Context) {
 	var filter models.ServerFilter
 	var pagination models.Pagination

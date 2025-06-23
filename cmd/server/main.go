@@ -47,6 +47,7 @@ func main() {
 	api.SetupRoutes(router, app)
 
 	go app.MonitoringWorker.Start()
+	go app.ReportService.StartDailyReportScheduler()
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", config.Server.Port),
@@ -72,7 +73,10 @@ func main() {
 	}
 
 	database.Close()
-	
+	app.Redis.Close()
+	app.PGP.Close()
+	app.ReportService.StopDailyReportScheduler()
+	app.MonitoringWorker.Stop()
 
 	logger.Info("Server exited")
 }

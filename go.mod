@@ -10,7 +10,7 @@ require (
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/pressly/goose/v3 v3.24.3
 	github.com/redis/go-redis/v9 v9.9.0
-	github.com/robfig/cron v1.2.0
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/viper v1.20.1
 	github.com/xuri/excelize/v2 v2.9.1
 	go.uber.org/zap v1.27.0
