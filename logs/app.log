@@ -137,3 +137,124 @@
 {"level":"info","timestamp":"2025-06-23T10:19:22.697+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVUOYYT7","status":"ON","response_time":0}
 {"level":"info","timestamp":"2025-06-23T10:19:47.204+0700","caller":"logger/logger.go:81","msg":"Shutting down server..."}
 {"level":"info","timestamp":"2025-06-23T10:19:47.205+0700","caller":"logger/logger.go:81","msg":"Server exited"}
+{"level":"info","timestamp":"2025-06-23T15:59:23.016+0700","caller":"logger/logger.go:81","msg":"Starting Viettel Server Management System","version":"1.0.0","env":"development"}
+{"level":"info","timestamp":"2025-06-23T15:59:23.022+0700","caller":"logger/logger.go:81","msg":"Database connected successfully","host":"localhost","port":5432,"database":"vcs_sms"}
+{"level":"info","timestamp":"2025-06-23T15:59:23.022+0700","caller":"logger/logger.go:81","msg":"Redis connected successfully","host":"localhost","port":6379,"db":0}
+{"level":"info","timestamp":"2025-06-23T15:59:23.027+0700","caller":"logger/logger.go:81","msg":"PgxPool connected successfully","host":"localhost","port":5432,"database":"vcs_sms"}
+{"level":"info","timestamp":"2025-06-23T15:59:23.029+0700","caller":"logger/logger.go:81","msg":"Elasticsearch connected successfully","url":"http://localhost:9200","code":200}
+{"level":"info","timestamp":"2025-06-23T15:59:23.029+0700","caller":"logger/logger.go:81","msg":"Starting monitoring worker","interval":30}
+{"level":"info","timestamp":"2025-06-23T15:59:23.029+0700","caller":"logger/logger.go:81","msg":"HTTP server starting","port":8080}
+{"level":"info","timestamp":"2025-06-23T15:59:23.029+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"info","timestamp":"2025-06-23T15:59:23.031+0700","caller":"logger/logger.go:81","msg":"Checking servers","count":0}
+{"level":"info","timestamp":"2025-06-23T15:59:39.507+0700","caller":"logger/logger.go:81","msg":"Starting import process","file":"/tmp/servers_10000.xlsx","total_rows":9}
+{"level":"info","timestamp":"2025-06-23T15:59:39.507+0700","caller":"logger/logger.go:81","msg":"Processing batch","batch":1,"size":9}
+{"level":"info","timestamp":"2025-06-23T15:59:39.510+0700","caller":"logger/logger.go:81","msg":"Import completed","success_count":9,"failure_count":0,"total_processed":9,"duration":0.003120623}
+{"level":"info","timestamp":"2025-06-23T15:59:53.034+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"info","timestamp":"2025-06-23T15:59:53.036+0700","caller":"logger/logger.go:81","msg":"Checking servers","count":9}
+{"level":"info","timestamp":"2025-06-23T15:59:56.119+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVYOV4FG","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T15:59:56.120+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRV1E8HCO","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T15:59:56.120+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVUOYYT7","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T15:59:56.120+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVNASAWS","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T15:59:56.120+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVZYIC7K","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T15:59:56.120+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVG6DSPH","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T15:59:56.120+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVHTT3AX","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T15:59:56.120+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVYOTJA2","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T15:59:56.120+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRV22Q9N1","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:00:23.029+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"info","timestamp":"2025-06-23T16:00:23.033+0700","caller":"logger/logger.go:81","msg":"Checking servers","count":9}
+{"level":"info","timestamp":"2025-06-23T16:00:26.117+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVNASAWS","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:00:26.117+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRV1E8HCO","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:00:26.117+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVUOYYT7","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:00:26.118+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVYOV4FG","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:00:26.118+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVHTT3AX","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:00:26.118+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVG6DSPH","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:00:26.118+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVYOTJA2","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:00:26.118+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVZYIC7K","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:00:26.118+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRV22Q9N1","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:00:53.053+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"info","timestamp":"2025-06-23T16:00:53.055+0700","caller":"logger/logger.go:81","msg":"Checking servers","count":9}
+{"level":"info","timestamp":"2025-06-23T16:00:56.133+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVZYIC7K","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:00:56.133+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRV1E8HCO","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:00:56.133+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVYOTJA2","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:00:56.133+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVHTT3AX","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:00:56.133+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVNASAWS","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:00:56.134+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRV22Q9N1","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:00:56.134+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVUOYYT7","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:00:56.134+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVYOV4FG","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:00:56.134+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVG6DSPH","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:01:13.906+0700","caller":"logger/logger.go:81","msg":"Shutting down server..."}
+{"level":"info","timestamp":"2025-06-23T16:01:13.907+0700","caller":"logger/logger.go:81","msg":"Server exited"}
+{"level":"info","timestamp":"2025-06-23T16:01:33.980+0700","caller":"logger/logger.go:81","msg":"Starting Viettel Server Management System","version":"1.0.0","env":"development"}
+{"level":"info","timestamp":"2025-06-23T16:01:33.987+0700","caller":"logger/logger.go:81","msg":"Database connected successfully","host":"localhost","port":5432,"database":"vcs_sms"}
+{"level":"info","timestamp":"2025-06-23T16:01:33.988+0700","caller":"logger/logger.go:81","msg":"Redis connected successfully","host":"localhost","port":6379,"db":0}
+{"level":"info","timestamp":"2025-06-23T16:01:33.993+0700","caller":"logger/logger.go:81","msg":"PgxPool connected successfully","host":"localhost","port":5432,"database":"vcs_sms"}
+{"level":"info","timestamp":"2025-06-23T16:01:33.994+0700","caller":"logger/logger.go:81","msg":"Elasticsearch connected successfully","url":"http://localhost:9200","code":200}
+{"level":"info","timestamp":"2025-06-23T16:01:33.995+0700","caller":"logger/logger.go:81","msg":"Starting monitoring worker","interval":30}
+{"level":"info","timestamp":"2025-06-23T16:01:33.995+0700","caller":"logger/logger.go:81","msg":"HTTP server starting","port":8080}
+{"level":"info","timestamp":"2025-06-23T16:01:33.995+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"info","timestamp":"2025-06-23T16:01:33.996+0700","caller":"logger/logger.go:81","msg":"Checking servers","count":9}
+{"level":"info","timestamp":"2025-06-23T16:01:37.093+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRV22Q9N1","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:01:37.093+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVYOV4FG","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:01:37.093+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVHTT3AX","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:01:37.094+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVUOYYT7","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:01:37.093+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVG6DSPH","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:01:37.093+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVYOTJA2","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:01:37.093+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVNASAWS","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:01:37.093+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRV1E8HCO","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:01:37.094+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVZYIC7K","status":"OFF","response_time":-1}
+{"level":"error","timestamp":"2025-06-23T16:01:41.644+0700","caller":"logger/logger.go:77","msg":"Failed to send daily report","error":"failed to read email template: open ../../template/email.html: no such file or directory","stacktrace":"github.com/th1enq/server_management_system/pkg/logger.Error\n\t/home/th1enq/Documents/github.com/server_management_system/pkg/logger/logger.go:77\ngithub.com/th1enq/server_management_system/internal/handler.(*ReportHandler).GetTodayReport\n\t/home/th1enq/Documents/github.com/server_management_system/internal/handler/report_handler.go:26\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/home/th1enq/go/pkg/mod/github.com/gin-gonic/gin@v1.10.1/context.go:185\ngithub.com/gin-gonic/gin.CustomRecoveryWithWriter.func1\n\t/home/th1enq/go/pkg/mod/github.com/gin-gonic/gin@v1.10.1/recovery.go:102\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/home/th1enq/go/pkg/mod/github.com/gin-gonic/gin@v1.10.1/context.go:185\ngithub.com/gin-gonic/gin.(*Engine).handleHTTPRequest\n\t/home/th1enq/go/pkg/mod/github.com/gin-gonic/gin@v1.10.1/gin.go:644\ngithub.com/gin-gonic/gin.(*Engine).ServeHTTP\n\t/home/th1enq/go/pkg/mod/github.com/gin-gonic/gin@v1.10.1/gin.go:600\nnet/http.serverHandler.ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:3301\nnet/http.(*conn).serve\n\t/usr/lib/go/src/net/http/server.go:2102"}
+{"level":"info","timestamp":"2025-06-23T16:01:53.332+0700","caller":"logger/logger.go:81","msg":"Shutting down server..."}
+{"level":"info","timestamp":"2025-06-23T16:01:53.332+0700","caller":"logger/logger.go:81","msg":"Server exited"}
+{"level":"info","timestamp":"2025-06-23T16:02:32.171+0700","caller":"logger/logger.go:81","msg":"Starting Viettel Server Management System","version":"1.0.0","env":"development"}
+{"level":"info","timestamp":"2025-06-23T16:02:32.184+0700","caller":"logger/logger.go:81","msg":"Database connected successfully","host":"localhost","port":5432,"database":"vcs_sms"}
+{"level":"info","timestamp":"2025-06-23T16:02:32.185+0700","caller":"logger/logger.go:81","msg":"Redis connected successfully","host":"localhost","port":6379,"db":0}
+{"level":"info","timestamp":"2025-06-23T16:02:32.190+0700","caller":"logger/logger.go:81","msg":"PgxPool connected successfully","host":"localhost","port":5432,"database":"vcs_sms"}
+{"level":"info","timestamp":"2025-06-23T16:02:32.191+0700","caller":"logger/logger.go:81","msg":"Elasticsearch connected successfully","url":"http://localhost:9200","code":200}
+{"level":"info","timestamp":"2025-06-23T16:02:32.191+0700","caller":"logger/logger.go:81","msg":"HTTP server starting","port":8080}
+{"level":"info","timestamp":"2025-06-23T16:02:32.191+0700","caller":"logger/logger.go:81","msg":"Starting monitoring worker","interval":30}
+{"level":"info","timestamp":"2025-06-23T16:02:32.191+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"info","timestamp":"2025-06-23T16:02:32.193+0700","caller":"logger/logger.go:81","msg":"Checking servers","count":9}
+{"level":"error","timestamp":"2025-06-23T16:02:35.149+0700","caller":"logger/logger.go:77","msg":"Failed to send daily report","error":"failed to execute template: template: report:19:22: executing \"report\" at <.Date.Format>: can't evaluate field Date in type *models.DailyReport","stacktrace":"github.com/th1enq/server_management_system/pkg/logger.Error\n\t/home/th1enq/Documents/github.com/server_management_system/pkg/logger/logger.go:77\ngithub.com/th1enq/server_management_system/internal/handler.(*ReportHandler).GetTodayReport\n\t/home/th1enq/Documents/github.com/server_management_system/internal/handler/report_handler.go:26\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/home/th1enq/go/pkg/mod/github.com/gin-gonic/gin@v1.10.1/context.go:185\ngithub.com/gin-gonic/gin.CustomRecoveryWithWriter.func1\n\t/home/th1enq/go/pkg/mod/github.com/gin-gonic/gin@v1.10.1/recovery.go:102\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/home/th1enq/go/pkg/mod/github.com/gin-gonic/gin@v1.10.1/context.go:185\ngithub.com/gin-gonic/gin.(*Engine).handleHTTPRequest\n\t/home/th1enq/go/pkg/mod/github.com/gin-gonic/gin@v1.10.1/gin.go:644\ngithub.com/gin-gonic/gin.(*Engine).ServeHTTP\n\t/home/th1enq/go/pkg/mod/github.com/gin-gonic/gin@v1.10.1/gin.go:600\nnet/http.serverHandler.ServeHTTP\n\t/usr/lib/go/src/net/http/server.go:3301\nnet/http.(*conn).serve\n\t/usr/lib/go/src/net/http/server.go:2102"}
+{"level":"info","timestamp":"2025-06-23T16:02:35.269+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVHTT3AX","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:02:35.269+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRV1E8HCO","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:02:35.269+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRV22Q9N1","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:02:35.270+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVZYIC7K","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:02:35.270+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVYOV4FG","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:02:35.269+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVYOTJA2","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:02:35.269+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVUOYYT7","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:02:35.269+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVG6DSPH","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:02:35.270+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVNASAWS","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:03:02.216+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"info","timestamp":"2025-06-23T16:03:02.218+0700","caller":"logger/logger.go:81","msg":"Checking servers","count":9}
+{"level":"info","timestamp":"2025-06-23T16:03:05.285+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVHTT3AX","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:03:05.285+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVYOV4FG","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:03:05.285+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVYOTJA2","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:03:05.285+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRV1E8HCO","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:03:05.285+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVNASAWS","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:03:05.285+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRV22Q9N1","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:03:05.285+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVG6DSPH","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:03:05.285+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVUOYYT7","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:03:05.285+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVZYIC7K","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:03:23.648+0700","caller":"logger/logger.go:81","msg":"Shutting down server..."}
+{"level":"info","timestamp":"2025-06-23T16:03:23.649+0700","caller":"logger/logger.go:81","msg":"Server exited"}
+{"level":"info","timestamp":"2025-06-23T16:05:01.236+0700","caller":"logger/logger.go:81","msg":"Starting Viettel Server Management System","version":"1.0.0","env":"development"}
+{"level":"info","timestamp":"2025-06-23T16:05:01.242+0700","caller":"logger/logger.go:81","msg":"Database connected successfully","host":"localhost","port":5432,"database":"vcs_sms"}
+{"level":"info","timestamp":"2025-06-23T16:05:01.243+0700","caller":"logger/logger.go:81","msg":"Redis connected successfully","host":"localhost","port":6379,"db":0}
+{"level":"info","timestamp":"2025-06-23T16:05:01.247+0700","caller":"logger/logger.go:81","msg":"PgxPool connected successfully","host":"localhost","port":5432,"database":"vcs_sms"}
+{"level":"info","timestamp":"2025-06-23T16:05:01.248+0700","caller":"logger/logger.go:81","msg":"Elasticsearch connected successfully","url":"http://localhost:9200","code":200}
+{"level":"info","timestamp":"2025-06-23T16:05:01.248+0700","caller":"logger/logger.go:81","msg":"Starting monitoring worker","interval":30}
+{"level":"info","timestamp":"2025-06-23T16:05:01.248+0700","caller":"logger/logger.go:81","msg":"HTTP server starting","port":8080}
+{"level":"info","timestamp":"2025-06-23T16:05:01.248+0700","caller":"logger/logger.go:81","msg":"Starting server health check"}
+{"level":"info","timestamp":"2025-06-23T16:05:01.250+0700","caller":"logger/logger.go:81","msg":"Checking servers","count":9}
+{"level":"info","timestamp":"2025-06-23T16:05:04.325+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVG6DSPH","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:05:04.325+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVNASAWS","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:05:04.325+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVUOYYT7","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:05:04.325+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRV22Q9N1","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:05:04.325+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVHTT3AX","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:05:04.325+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVZYIC7K","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:05:04.325+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVYOTJA2","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:05:04.325+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRVYOV4FG","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:05:04.325+0700","caller":"logger/logger.go:81","msg":"Server checked","server_id":"SRV1E8HCO","status":"OFF","response_time":-1}
+{"level":"info","timestamp":"2025-06-23T16:05:10.148+0700","caller":"logger/logger.go:81","msg":"Report sent successfully","to":"miyaki08x@gmail.com","Message":"Daily Server Report - 2025-06-23"}
+{"level":"info","timestamp":"2025-06-23T16:05:28.894+0700","caller":"logger/logger.go:81","msg":"Shutting down server..."}
+{"level":"info","timestamp":"2025-06-23T16:05:28.894+0700","caller":"logger/logger.go:81","msg":"Server exited"}

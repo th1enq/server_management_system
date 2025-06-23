@@ -16,7 +16,7 @@
     <div class="container">
         <div class="header">
             <h1>Daily Server Report</h1>
-            <p>{{.Date.Format "2006-01-02"}}</p>
+            <p>{{.StartOfDay.Format "2006-01-02"}} - {{.EndOfDay.Format "2006-01-02"}}</p>
         </div>
         <div class="content">
             <h2>Server Statistics</h2>

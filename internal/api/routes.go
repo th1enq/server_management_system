@@ -27,6 +27,6 @@ func SetupRoutes(router *gin.Engine, app *wire.App) {
 
 	reports := v1.Group("/reports")
 	{
-		reports.GET("/today", app.ReportHandler.GetTodayReport)
+		reports.POST("/today", app.ReportHandler.GetTodayReport)
 	}
 }

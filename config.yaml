@@ -36,3 +36,12 @@ logging:
 monitoring:
   interval: 30s
   timeout: 5s
+
+email:
+  smtp_host: smtp.gmail.com
+  smtp_port: 587
+  username: thienchy3305@gmail.com
+  password: rtac iyoq zaad rkui
+  from: thienchy3305@gmail.com
+  admin_email: miyaki08x@gmail.com
+  

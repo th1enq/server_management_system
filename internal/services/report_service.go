@@ -24,6 +24,7 @@ type ReportService interface {
 	GenerateReport(ctx context.Context, startOfDay, endOfDay time.Time) (*models.DailyReport, error)
 	SendReportToEmail(ctx context.Context, report *models.DailyReport, emailTo, msg string) error
 	SendReportForDateRange(ctx context.Context, startDate, endDate time.Time, emailTo string) error
+	SendReportForDaily(ctx context.Context, date time.Time) error
 	StartDailyReportScheduler()
 	StopDailyReportScheduler()
 }
@@ -46,7 +47,7 @@ func NewReportService(cfg *config.Config, esClient *elasticsearch.Client, server
 
 // SendDailyReport implements ReportService.
 func (s *reportService) SendReportToEmail(ctx context.Context, report *models.DailyReport, emailTo, msg string) error {
-	emailTemplate, err := os.ReadFile("../../template/email.html")
+	emailTemplate, err := os.ReadFile("template/email.html")
 	if err != nil {
 		return fmt.Errorf("failed to read email template: %w", err)
 	}
@@ -89,6 +90,36 @@ func (s *reportService) SendReportToEmail(ctx context.Context, report *models.Da
 
 // SendReportForDateRange implements ReportService.
 func (s *reportService) SendReportForDateRange(ctx context.Context, startDate time.Time, endDate time.Time, emailTo string) error {
+	if startDate.After(endDate) {
+		return fmt.Errorf("start date must be before end date")
+	}
+
+	report, err := s.GenerateReport(ctx, startDate, endDate)
+	if err != nil {
+		return fmt.Errorf("failed to generate report :%w", err)
+	}
+
+	msg := fmt.Sprintf("Server Report - %s to %s", startDate, endDate)
+
+	return s.SendReportToEmail(ctx, report, emailTo, msg)
+}
+
+func (s *reportService) SendReportForDaily(ctx context.Context, date time.Time) error {
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	endOfDay := startOfDay.Add(24 * time.Hour)
+
+	report, err := s.GenerateReport(ctx, startOfDay, endOfDay)
+	if err != nil {
+		return fmt.Errorf("failed to generate report for daily: %w", err)
+	}
+
+	msg := fmt.Sprintf("Daily Server Report - %s", date.Format("2006-01-02"))
+	emailTo := s.cfg.Email.AdminEmail
+
+	return s.SendReportToEmail(ctx, report, emailTo, msg)
+}
+
+func (s *reportService) Sen(ctx context.Context, startDate time.Time, endDate time.Time, emailTo string) error {
 	if startDate.After(endDate) {
 		return fmt.Errorf("start date must be before end date")
 	}
