@@ -15,6 +15,7 @@ type Config struct {
 	JWT           JWTConfig            `mapstructure:"jwt"`
 	Monitoring    MonitoringConfig     `mapstructure:"monitoring"`
 	Elasticsearch ElastichSearchConfig `mapstructure:"elasticsearch"`
+	Email         EmailConfig          `mapstructure:"email"`
 }
 
 type ServerConfig struct {
@@ -61,6 +62,15 @@ type JWTConfig struct {
 type MonitoringConfig struct {
 	Interval    time.Duration `mapstructure:"interval"`
 	PingTimeout time.Duration `mapstructure:"timeout"`
+}
+
+type EmailConfig struct {
+	SMTPHost   string `mapstructure:"smtp_host"`
+	SMTPPort   int    `mapstructure:"smtp_port"`
+	Username   string `mapstructure:"username"`
+	Password   string `mapstructure:"password"`
+	From       string `mapstructure:"from"`
+	AdminEmail string `mapstructure:"admin_email"`
 }
 
 func Load() (*Config, error) {

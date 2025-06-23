@@ -32,12 +32,10 @@ type Server struct {
 
 // ServerStatusLog for tracking status changes
 type ServerStatusLog struct {
-	ID           uint         `gorm:"primaryKey" json:"id"`
-	ServerID     string       `gorm:"index;not null" json:"server_id"`
+	ServerID     string       `json:"server_id"`
 	Status       ServerStatus `json:"status"`
-	CheckedAt    time.Time    `json:"checked_at"`
+	CheckedAt    time.Time    `json:"@timestamp"`
 	ResponseTime int          `json:"response_time"` // in milliseconds
-	CreatedAt    time.Time    `gorm:"autoCreateTime" json:"created_at"`
 }
 
 // ServerFilter for filtering servers

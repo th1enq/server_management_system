@@ -9,7 +9,8 @@ type ServerUpTime struct {
 
 // DailyReport for email reports
 type DailyReport struct {
-	Date         time.Time      `json:"date"`
+	StartOfDay   time.Time      `json:"start_day"`
+	EndOfDay     time.Time      `json:"end_day"`
 	TotalServers int64          `json:"total_servers"`
 	OnlineCount  int64          `json:"online_count"`
 	OfflineCount int64          `json:"offline_count"`

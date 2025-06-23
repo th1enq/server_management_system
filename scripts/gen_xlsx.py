@@ -6,7 +6,7 @@ def random_string(prefix, length=6):
     return prefix + ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
 servers = []
-for i in range(7, 11):
+for i in range(2, 11):
     servers.append({
         "server_id": random_string("SRV"),
         "server_name": random_string("Server"),
