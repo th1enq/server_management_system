@@ -15,15 +15,15 @@ type PgxPoolInterface interface {
 	CopyFrom(ctx context.Context, tableName []string, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error)
 }
 
-type PgxPoolWrapper struct {
+type pgxPoolWrapper struct {
 	Pool *pgxpool.Pool
 }
 
-func (w *PgxPoolWrapper) CopyFrom(ctx context.Context, tableName []string, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error) {
+func (w *pgxPoolWrapper) CopyFrom(ctx context.Context, tableName []string, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error) {
 	return w.Pool.CopyFrom(ctx, tableName, columnNames, rowSrc)
 }
 
-var PgPool *pgxpool.Pool
+var PgPool PgxPoolInterface
 
 func LoadPgPool(config *config.Config) error {
 	cfg := config.Database
@@ -46,7 +46,7 @@ func LoadPgPool(config *config.Config) error {
 		return fmt.Errorf("failed to connect pgxpool: %w", err)
 	}
 
-	PgPool = pool
+	PgPool = &pgxPoolWrapper{Pool: pool}
 
 	logger.Info("PgxPool connected successfully",
 		zap.String("host", cfg.Host),

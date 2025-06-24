@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/th1enq/server_management_system/internal/database"
 	"github.com/th1enq/server_management_system/internal/models"
 	"gorm.io/gorm"
@@ -31,14 +30,10 @@ type serverRepository struct {
 	pg database.PgxPoolInterface
 }
 
-func NewServerRepository(db *gorm.DB, pg *pgxpool.Pool) ServerRepository {
-	var pgInterface database.PgxPoolInterface
-	if pg != nil {
-		pgInterface = &database.PgxPoolWrapper{Pool: pg}
-	}
+func NewServerRepository(db *gorm.DB, pg database.PgxPoolInterface) ServerRepository {
 	return &serverRepository{
 		db: db,
-		pg: pgInterface,
+		pg: pg,
 	}
 }
 

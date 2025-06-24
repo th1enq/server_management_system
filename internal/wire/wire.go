@@ -6,7 +6,6 @@ package wire
 import (
 	"github.com/elastic/go-elasticsearch/v9"
 	"github.com/google/wire"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/th1enq/server_management_system/internal/config"
 	"github.com/th1enq/server_management_system/internal/database"
@@ -22,7 +21,7 @@ type App struct {
 	Config           *config.Config
 	DB               *gorm.DB
 	Redis            *redis.Client
-	PGP              *pgxpool.Pool
+	PGP              database.PgxPoolInterface
 	Elasticsearch    *elasticsearch.Client
 	ServerHandler    *handler.ServerHandler
 	ReportHandler    *handler.ReportHandler
@@ -74,7 +73,7 @@ func provideDB(config *config.Config) (*gorm.DB, error) {
 	return database.DB, nil
 }
 
-func providePgx(config *config.Config) (*pgxpool.Pool, error) {
+func providePgx(config *config.Config) (database.PgxPoolInterface, error) {
 	err := database.LoadPgPool(config)
 	if err != nil {
 		return nil, err

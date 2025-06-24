@@ -6,6 +6,7 @@ require (
 	github.com/elastic/go-elasticsearch/v9 v9.0.0
 	github.com/gammazero/workerpool v1.1.3
 	github.com/gin-gonic/gin v1.10.1
+	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/google/wire v0.6.0
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/pressly/goose/v3 v3.24.3

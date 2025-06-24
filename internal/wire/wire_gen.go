@@ -8,7 +8,6 @@ package wire
 
 import (
 	"github.com/elastic/go-elasticsearch/v9"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/th1enq/server_management_system/internal/config"
 	"github.com/th1enq/server_management_system/internal/database"
@@ -30,7 +29,7 @@ func InitializeApp(config2 *config.Config) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	pool, err := providePgx(config2)
+	pgxPoolInterface, err := providePgx(config2)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +37,7 @@ func InitializeApp(config2 *config.Config) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	serverRepository := repositories.NewServerRepository(db, pool)
+	serverRepository := repositories.NewServerRepository(db, pgxPoolInterface)
 	serverService := services.NewServerService(serverRepository, client)
 	serverHandler := handler.NewServerHandler(serverService)
 	reportService := services.NewReportService(config2, elasticsearchClient, serverRepository)
@@ -48,7 +47,7 @@ func InitializeApp(config2 *config.Config) (*App, error) {
 		Config:           config2,
 		DB:               db,
 		Redis:            client,
-		PGP:              pool,
+		PGP:              pgxPoolInterface,
 		Elasticsearch:    elasticsearchClient,
 		ServerHandler:    serverHandler,
 		ReportHandler:    reportHandler,
@@ -64,7 +63,7 @@ type App struct {
 	Config           *config.Config
 	DB               *gorm.DB
 	Redis            *redis.Client
-	PGP              *pgxpool.Pool
+	PGP              database.PgxPoolInterface
 	Elasticsearch    *elasticsearch.Client
 	ServerHandler    *handler.ServerHandler
 	ReportHandler    *handler.ReportHandler
@@ -88,7 +87,7 @@ func provideDB(config2 *config.Config) (*gorm.DB, error) {
 	return database.DB, nil
 }
 
-func providePgx(config2 *config.Config) (*pgxpool.Pool, error) {
+func providePgx(config2 *config.Config) (database.PgxPoolInterface, error) {
 	err := database.LoadPgPool(config2)
 	if err != nil {
 		return nil, err
