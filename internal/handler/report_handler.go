@@ -15,10 +15,12 @@ type ReportHandler struct {
 	reportSrv services.ReportService
 }
 
+// ReportRequest represents the request payload for generating reports by date range
+// @Description Request structure for generating reports within a specific date range
 type ReportRequest struct {
-	StartDate string `json:"start_date" binding:"required"`
-	EndDate   string `json:"end_date" binding:"required"`
-	Email     string `json:"email" binding:"required,email"`
+	StartDate string `json:"start_date" binding:"required" example:"2025-06-20 00:00:00"` // Start date in format YYYY-MM-DD HH:MM:SS
+	EndDate   string `json:"end_date" binding:"required" example:"2025-06-21 23:59:59"`   // End date in format YYYY-MM-DD HH:MM:SS
+	Email     string `json:"email" binding:"required,email" example:"admin@example.com"`  // Email address to send the report to
 }
 
 func NewReportHandler(reportSrv services.ReportService) *ReportHandler {
@@ -27,6 +29,16 @@ func NewReportHandler(reportSrv services.ReportService) *ReportHandler {
 	}
 }
 
+// SendReportDaily godoc
+// @Summary Send daily report
+// @Description Send a daily server monitoring report for today's date
+// @Tags reports
+// @Accept json
+// @Produce json
+// @Success 200 {object} models.APIResponse{data=map[string]interface{}}
+// @Failure 500 {object} models.APIResponse
+// @Security BearerAuth
+// @Router /api/v1/reports/daily [post]
 func (h *ReportHandler) SendReportDaily(c *gin.Context) {
 	err := h.reportSrv.SendReportForDaily(c.Request.Context(), time.Now())
 	if err != nil {
@@ -48,6 +60,18 @@ func (h *ReportHandler) SendReportDaily(c *gin.Context) {
 	))
 }
 
+// SendReportByDate godoc
+// @Summary Send report by date range
+// @Description Send a server monitoring report for a specified date range to an email address
+// @Tags reports
+// @Accept json
+// @Produce json
+// @Param report body ReportRequest true "Report request with date range and email"
+// @Success 200 {object} models.APIResponse{data=map[string]interface{}}
+// @Failure 400 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security BearerAuth
+// @Router /api/v1/reports [post]
 func (h *ReportHandler) SendReportByDate(c *gin.Context) {
 	var req ReportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

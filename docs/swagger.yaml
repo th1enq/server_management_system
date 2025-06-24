@@ -1,0 +1,498 @@
+definitions:
+  handler.ReportRequest:
+    description: Request structure for generating reports within a specific date range
+    properties:
+      email:
+        description: Email address to send the report to
+        example: admin@example.com
+        type: string
+      end_date:
+        description: End date in format YYYY-MM-DD HH:MM:SS
+        example: "2025-06-21 23:59:59"
+        type: string
+      start_date:
+        description: Start date in format YYYY-MM-DD HH:MM:SS
+        example: "2025-06-20 00:00:00"
+        type: string
+    required:
+    - email
+    - end_date
+    - start_date
+    type: object
+  models.APIResponse:
+    properties:
+      code:
+        type: string
+      data: {}
+      error:
+        $ref: '#/definitions/models.ErrorInfo'
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  models.ErrorInfo:
+    properties:
+      code:
+        type: string
+      details: {}
+      message:
+        type: string
+    type: object
+  models.ImportResult:
+    properties:
+      failure_count:
+        type: integer
+      failure_servers:
+        items:
+          type: string
+        type: array
+      success_count:
+        type: integer
+      success_servers:
+        items:
+          type: string
+        type: array
+    type: object
+  models.Server:
+    properties:
+      cpu:
+        type: integer
+      created_time:
+        type: string
+      description:
+        type: string
+      disk:
+        description: in GB
+        type: integer
+      id:
+        type: integer
+      ipv4:
+        type: string
+      last_updated:
+        type: string
+      location:
+        type: string
+      os:
+        type: string
+      ram:
+        description: in GB
+        type: integer
+      server_id:
+        type: string
+      server_name:
+        type: string
+      status:
+        $ref: '#/definitions/models.ServerStatus'
+    type: object
+  models.ServerListResponse:
+    properties:
+      page:
+        type: integer
+      servers:
+        items:
+          $ref: '#/definitions/models.Server'
+        type: array
+      size:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.ServerStatus:
+    enum:
+    - "ON"
+    - "OFF"
+    type: string
+    x-enum-varnames:
+    - ServerStatusOn
+    - ServerStatusOff
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: A comprehensive server management system for monitoring and reporting
+    server status
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: VCS Server Management System API
+  version: "1.0"
+paths:
+  /api/v1/reports:
+    post:
+      consumes:
+      - application/json
+      description: Send a server monitoring report for a specified date range to an
+        email address
+      parameters:
+      - description: Report request with date range and email
+        in: body
+        name: report
+        required: true
+        schema:
+          $ref: '#/definitions/handler.ReportRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.APIResponse'
+            - properties:
+                data:
+                  additionalProperties: true
+                  type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Send report by date range
+      tags:
+      - reports
+  /api/v1/reports/daily:
+    post:
+      consumes:
+      - application/json
+      description: Send a daily server monitoring report for today's date
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.APIResponse'
+            - properties:
+                data:
+                  additionalProperties: true
+                  type: object
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Send daily report
+      tags:
+      - reports
+  /api/v1/servers:
+    get:
+      consumes:
+      - application/json
+      description: Get list of servers with optional filters and pagination
+      parameters:
+      - description: Filter by server ID
+        in: query
+        name: server_id
+        type: string
+      - description: Filter by server name
+        in: query
+        name: server_name
+        type: string
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Filter by IPv4
+        in: query
+        name: ipv4
+        type: string
+      - description: Filter by location
+        in: query
+        name: location
+        type: string
+      - description: Filter by OS
+        in: query
+        name: os
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Page size
+        in: query
+        name: page_size
+        type: integer
+      - default: created_time
+        description: Sort field
+        in: query
+        name: sort
+        type: string
+      - default: desc
+        description: Sort order
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.ServerListResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: List servers
+      tags:
+      - servers
+    post:
+      consumes:
+      - application/json
+      description: Create a new server with the provided information
+      parameters:
+      - description: Server information
+        in: body
+        name: server
+        required: true
+        schema:
+          $ref: '#/definitions/models.Server'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Server'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a new server
+      tags:
+      - servers
+  /api/v1/servers/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a server by ID
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete server
+      tags:
+      - servers
+    put:
+      consumes:
+      - application/json
+      description: Update server information
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Update data
+        in: body
+        name: updates
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Server'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Update server
+      tags:
+      - servers
+  /api/v1/servers/export:
+    get:
+      consumes:
+      - application/json
+      description: Export servers to an Excel file with optional filters
+      parameters:
+      - description: Filter by server ID
+        in: query
+        name: server_id
+        type: string
+      - description: Filter by server name
+        in: query
+        name: server_name
+        type: string
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Filter by IPv4
+        in: query
+        name: ipv4
+        type: string
+      - description: Filter by location
+        in: query
+        name: location
+        type: string
+      - description: Filter by OS
+        in: query
+        name: os
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10000
+        description: Page size
+        in: query
+        name: page_size
+        type: integer
+      - default: created_time
+        description: Sort field
+        in: query
+        name: sort
+        type: string
+      - default: desc
+        description: Sort order
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Export servers to Excel file
+      tags:
+      - servers
+  /api/v1/servers/import:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Import multiple servers from an Excel file
+      parameters:
+      - description: Excel file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.ImportResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Import servers from Excel file
+      tags:
+      - servers
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -22,15 +22,19 @@ func NewServerHandler(serverSrv services.ServerService) *ServerHandler {
 	}
 }
 
+// CreateServer godoc
 // @Summary Create a new server
-// @Description Create a new server with the provided details
+// @Description Create a new server with the provided information
 // @Tags servers
 // @Accept json
 // @Produce json
-// @Param server body models.Server true "Server details"
-// @Success 200 {object} models.ImportResponse
-// @Failure 400 {object} models.ErrorResponse
-// @Router /api/v1/servers/import [post]
+// @Param server body models.Server true "Server information"
+// @Success 201 {object} models.APIResponse{data=models.Server}
+// @Failure 400 {object} models.APIResponse
+// @Failure 409 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security BearerAuth
+// @Router /api/v1/servers [post]
 func (h *ServerHandler) CreateServer(c *gin.Context) {
 	var server models.Server
 	if err := c.ShouldBindBodyWithJSON(&server); err != nil {
@@ -67,6 +71,27 @@ func (h *ServerHandler) CreateServer(c *gin.Context) {
 	))
 }
 
+// ListServers godoc
+// @Summary List servers
+// @Description Get list of servers with optional filters and pagination
+// @Tags servers
+// @Accept json
+// @Produce json
+// @Param server_id query string false "Filter by server ID"
+// @Param server_name query string false "Filter by server name"
+// @Param status query string false "Filter by status"
+// @Param ipv4 query string false "Filter by IPv4"
+// @Param location query string false "Filter by location"
+// @Param os query string false "Filter by OS"
+// @Param page query int false "Page number" default(1)
+// @Param page_size query int false "Page size" default(10)
+// @Param sort query string false "Sort field" default(created_time)
+// @Param order query string false "Sort order" default(desc)
+// @Success 200 {object} models.APIResponse{data=models.ServerListResponse}
+// @Failure 400 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security BearerAuth
+// @Router /api/v1/servers [get]
 func (h *ServerHandler) ListServer(c *gin.Context) {
 	var filter models.ServerFilter
 	var pagination models.Pagination
@@ -114,6 +139,21 @@ func (h *ServerHandler) ListServer(c *gin.Context) {
 	))
 }
 
+// UpdateServer godoc
+// @Summary Update server
+// @Description Update server information
+// @Tags servers
+// @Accept json
+// @Produce json
+// @Param id path int true "Server ID"
+// @Param updates body map[string]interface{} true "Update data"
+// @Success 200 {object} models.APIResponse{data=models.Server}
+// @Failure 400 {object} models.APIResponse
+// @Failure 404 {object} models.APIResponse
+// @Failure 409 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security BearerAuth
+// @Router /api/v1/servers/{id} [put]
 func (h *ServerHandler) UpdateServer(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -156,6 +196,18 @@ func (h *ServerHandler) UpdateServer(c *gin.Context) {
 	))
 }
 
+// DeleteServer godoc
+// @Summary Delete server
+// @Description Delete a server by ID
+// @Tags servers
+// @Accept json
+// @Produce json
+// @Param id path int true "Server ID"
+// @Success 200 {object} models.APIResponse
+// @Failure 404 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security BearerAuth
+// @Router /api/v1/servers/{id} [delete]
 func (h *ServerHandler) DeleteServer(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -189,6 +241,18 @@ func (h *ServerHandler) DeleteServer(c *gin.Context) {
 	))
 }
 
+// ImportServers godoc
+// @Summary Import servers from Excel file
+// @Description Import multiple servers from an Excel file
+// @Tags servers
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file"
+// @Success 200 {object} models.APIResponse{data=models.ImportResult}
+// @Failure 400 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security BearerAuth
+// @Router /api/v1/servers/import [post]
 func (h *ServerHandler) ImportServers(c *gin.Context) {
 	file, err := c.FormFile("file")
 	fmt.Println(file)
@@ -227,6 +291,27 @@ func (h *ServerHandler) ImportServers(c *gin.Context) {
 	))
 }
 
+// ExportServers godoc
+// @Summary Export servers to Excel file
+// @Description Export servers to an Excel file with optional filters
+// @Tags servers
+// @Accept json
+// @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Param server_id query string false "Filter by server ID"
+// @Param server_name query string false "Filter by server name"
+// @Param status query string false "Filter by status"
+// @Param ipv4 query string false "Filter by IPv4"
+// @Param location query string false "Filter by location"
+// @Param os query string false "Filter by OS"
+// @Param page query int false "Page number" default(1)
+// @Param page_size query int false "Page size" default(10000)
+// @Param sort query string false "Sort field" default(created_time)
+// @Param order query string false "Sort order" default(desc)
+// @Success 200 {file} binary
+// @Failure 400 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security BearerAuth
+// @Router /api/v1/servers/export [get]
 func (h *ServerHandler) ExportServers(c *gin.Context) {
 	var filter models.ServerFilter
 	var pagination models.Pagination
