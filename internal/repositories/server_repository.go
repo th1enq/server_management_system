@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/th1enq/server_management_system/internal/database"
 	"github.com/th1enq/server_management_system/internal/models"
 	"gorm.io/gorm"
 )
@@ -27,13 +28,17 @@ type ServerRepository interface {
 
 type serverRepository struct {
 	db *gorm.DB
-	pg *pgxpool.Pool
+	pg database.PgxPoolInterface
 }
 
 func NewServerRepository(db *gorm.DB, pg *pgxpool.Pool) ServerRepository {
+	var pgInterface database.PgxPoolInterface
+	if pg != nil {
+		pgInterface = &database.PgxPoolWrapper{Pool: pg}
+	}
 	return &serverRepository{
 		db: db,
-		pg: pg,
+		pg: pgInterface,
 	}
 }
 
@@ -50,6 +55,11 @@ func (s *serverRepository) GetServersIP(ctx context.Context) ([]string, error) {
 func (s *serverRepository) BatchCreate(ctx context.Context, servers []models.Server) error {
 	if len(servers) == 0 {
 		return nil
+	}
+
+	// If no pgx pool available, use GORM batch create
+	if s.pg == nil {
+		return s.db.WithContext(ctx).CreateInBatches(servers, len(servers)).Error
 	}
 
 	// Prepare data for CopyFrom
