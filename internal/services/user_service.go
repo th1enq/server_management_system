@@ -6,7 +6,6 @@ import (
 
 	"github.com/th1enq/server_management_system/internal/models"
 	"github.com/th1enq/server_management_system/internal/repositories"
-	"github.com/th1enq/server_management_system/pkg/logger"
 	"go.uber.org/zap"
 )
 
@@ -18,11 +17,13 @@ type UserService interface {
 
 type userService struct {
 	userRepo repositories.UserRepository
+	logger   *zap.Logger
 }
 
-func NewUserService(userRepo repositories.UserRepository) UserService {
+func NewUserService(userRepo repositories.UserRepository, logger *zap.Logger) UserService {
 	return &userService{
 		userRepo: userRepo,
+		logger:   logger,
 	}
 }
 
@@ -57,12 +58,12 @@ func (u *userService) DeleteUser(ctx context.Context, id uint) error {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
 
-	logger.Info("User deleted successfully",
-		zap.Uint("id", id),
+	u.logger.Info("User deleted successfully",
+		zap.Uint("id", user.ID),
 		zap.String("username", user.Username),
 		zap.String("email", user.Email),
-		zap.Time("deleted_at", user.DeletedAt.Time),
 	)
+
 	return nil
 }
 
@@ -104,10 +105,11 @@ func (u *userService) UpdateUser(ctx context.Context, id uint, updates map[strin
 		return nil, fmt.Errorf("failed to update user: %w", err)
 	}
 
-	logger.Info("User updated successfully",
+	u.logger.Info("User updated successfully",
 		zap.Uint("id", user.ID),
 		zap.String("username", user.Username),
 		zap.String("email", user.Email),
+		zap.String("role", string(user.Role)),
 	)
 
 	return user, nil

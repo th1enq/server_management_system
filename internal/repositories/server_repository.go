@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/th1enq/server_management_system/internal/database"
+	database "github.com/th1enq/server_management_system/internal/dataaccess"
 	"github.com/th1enq/server_management_system/internal/models"
 	"gorm.io/gorm"
 )

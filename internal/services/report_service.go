@@ -11,11 +11,8 @@ import (
 	"time"
 
 	"github.com/elastic/go-elasticsearch/v9"
-	"github.com/robfig/cron/v3"
-	"github.com/th1enq/server_management_system/internal/config"
+	"github.com/th1enq/server_management_system/internal/configs"
 	"github.com/th1enq/server_management_system/internal/models"
-	"github.com/th1enq/server_management_system/internal/repositories"
-	"github.com/th1enq/server_management_system/pkg/logger"
 	"go.uber.org/zap"
 	"gopkg.in/gomail.v2"
 )
@@ -25,24 +22,21 @@ type ReportService interface {
 	SendReportToEmail(ctx context.Context, report *models.DailyReport, emailTo, msg string) error
 	SendReportForDateRange(ctx context.Context, startDate, endDate time.Time, emailTo string) error
 	SendReportForDaily(ctx context.Context, date time.Time) error
-	StartDailyReportScheduler()
-	StopDailyReportScheduler()
 }
 
 type reportService struct {
-	cfg        *config.Config
-	esClient   *elasticsearch.Client
-	serverRepo repositories.ServerRepository
-	cron       *cron.Cron
+	cfg       *configs.Email
+	esClient  *elasticsearch.Client
+	serverSrv ServerService
+	logger    *zap.Logger
 }
 
-func NewReportService(cfg *config.Config, esClient *elasticsearch.Client, serverRepo repositories.ServerRepository) ReportService {
-	loc, _ := time.LoadLocation("Asia/Ho_Chi_Minh")
+func NewReportService(cfg *configs.Email, esClient *elasticsearch.Client, serverSrv ServerService, logger *zap.Logger) ReportService {
 	return &reportService{
-		cfg:        cfg,
-		esClient:   esClient,
-		serverRepo: serverRepo,
-		cron:       cron.New(cron.WithLocation(loc)),
+		cfg:       cfg,
+		logger:    logger,
+		esClient:  esClient,
+		serverSrv: serverSrv,
 	}
 }
 
@@ -66,25 +60,26 @@ func (s *reportService) SendReportToEmail(ctx context.Context, report *models.Da
 	}
 
 	m := gomail.NewMessage()
-	m.SetHeader("From", s.cfg.Email.From)
+	m.SetHeader("From", s.cfg.From)
 	m.SetHeader("To", emailTo)
 	m.SetHeader("Subject", msg)
 	m.SetBody("text/html", buf.String())
 
 	d := gomail.NewDialer(
-		s.cfg.Email.SMTPHost,
-		s.cfg.Email.SMTPPort,
-		s.cfg.Email.Username,
-		s.cfg.Email.Password,
+		s.cfg.SMTPHost,
+		s.cfg.SMTPPort,
+		s.cfg.Username,
+		s.cfg.Password,
 	)
 
 	if err := d.DialAndSend(m); err != nil {
 		return fmt.Errorf("failed to send email: %w", err)
 	}
 
-	logger.Info("Report sent successfully",
-		zap.String("to", emailTo),
-		zap.String("Message", msg))
+	s.logger.Info("Report sent successfully",
+		zap.String("emailTo", emailTo),
+		zap.String("subject", msg),
+	)
 
 	return nil
 }
@@ -115,52 +110,23 @@ func (s *reportService) SendReportForDaily(ctx context.Context, date time.Time) 
 	}
 
 	msg := fmt.Sprintf("Daily Server Report - %s", date.Format("2006-01-02"))
-	emailTo := s.cfg.Email.AdminEmail
+	emailTo := s.cfg.AdminEmail
 
 	return s.SendReportToEmail(ctx, report, emailTo, msg)
 }
 
-// StartDailyReportScheduler implements ReportService.
-func (s *reportService) StartDailyReportScheduler() {
-	_, err := s.cron.AddFunc("0 8 * * *", func() {
-		ctx := context.Background()
-		yesterday := time.Now().AddDate(0, 0, -1)
-
-		if err := s.SendReportForDaily(ctx, yesterday); err != nil {
-			logger.Error("Failed to send daily report", err)
-			return
-		}
-	})
-
-	if err != nil {
-		logger.Error("Failed to schedule daily report", err)
-		return
-	}
-
-	s.cron.Start()
-	logger.Info("	")
-}
-
-// StopDailyReportScheduler implements ReportService.
-func (s *reportService) StopDailyReportScheduler() {
-	s.cron.Stop()
-	logger.Info("Daily report scheduler stopped")
-}
-
 func (s *reportService) GenerateReport(ctx context.Context, startOfDay, endOfDay time.Time) (*models.DailyReport, error) {
-	onlineServer, err := s.serverRepo.CountByStatus(ctx, models.ServerStatusOn)
+	serverStats, err := s.serverSrv.GetServerStats(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to count online server: %w", err)
+		return nil, fmt.Errorf("failed to get server stats: %w", err)
 	}
 
-	offlineServer, err := s.serverRepo.CountByStatus(ctx, models.ServerStatusOff)
-	if err != nil {
-		return nil, fmt.Errorf("failed to count offline server: %w", err)
-	}
+	onlineServer := serverStats["ON"]
+	offlineServer := serverStats["OFF"]
 
 	avgUpTime, detail, err := s.calculateAverageUptime(ctx, startOfDay, endOfDay)
 	if err != nil {
-		logger.Error("Failed to calculate average uptime", err)
+		s.logger.With(zap.Error(err)).Error("Failed to calculate average uptime")
 		avgUpTime = 0
 	}
 
@@ -177,7 +143,7 @@ func (s *reportService) GenerateReport(ctx context.Context, startOfDay, endOfDay
 }
 
 func (s *reportService) calculateAverageUptime(ctx context.Context, startTime, endTime time.Time) (float64, []models.ServerUpTime, error) {
-	servers, err := s.serverRepo.GetAll(ctx)
+	servers, err := s.serverSrv.GetAllServers(ctx)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -191,7 +157,7 @@ func (s *reportService) calculateAverageUptime(ctx context.Context, startTime, e
 	for _, server := range servers {
 		uptime, err := s.calculateServerUpTime(ctx, &server.ServerID, startTime, endTime)
 		if err != nil {
-			logger.Error("Failed to calculated server uptime", err, zap.String("server_id", server.ServerID))
+			s.logger.With(zap.Error(err)).Error("Failed to calculate uptime for server", zap.String("serverID", server.ServerID))
 			continue
 		}
 		singleUpTime = append(singleUpTime, models.ServerUpTime{

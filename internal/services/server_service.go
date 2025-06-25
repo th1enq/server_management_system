@@ -12,7 +12,6 @@ import (
 	"github.com/th1enq/server_management_system/internal/models"
 	"github.com/th1enq/server_management_system/internal/repositories"
 	"github.com/th1enq/server_management_system/internal/utils"
-	"github.com/th1enq/server_management_system/pkg/logger"
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/zap"
 )
@@ -20,8 +19,6 @@ import (
 type ServerService interface {
 	CreateServer(ctx context.Context, server *models.Server) error
 	GetServer(ctx context.Context, id uint) (*models.Server, error)
-	GetServerByServerID(ctx context.Context, serverID string) (*models.Server, error)
-	GetServersIP(ctx context.Context) ([]string, error)
 	ListServers(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) (*models.ServerListResponse, error)
 	UpdateServer(ctx context.Context, id uint, updates map[string]interface{}) (*models.Server, error)
 	DeleteServer(ctx context.Context, id uint) error
@@ -29,26 +26,21 @@ type ServerService interface {
 	ExportServers(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) (string, error)
 	UpdateServerStatus(ctx context.Context, serverID string, status models.ServerStatus) error
 	GetServerStats(ctx context.Context) (map[string]int64, error)
+	GetAllServers(ctx context.Context) ([]models.Server, error)
 }
 
 type serverService struct {
+	logger      *zap.Logger
 	serverRepo  repositories.ServerRepository
 	redisClient *redis.Client
 }
 
-func NewServerService(serverRepo repositories.ServerRepository, redisClient *redis.Client) ServerService {
+func NewServerService(serverRepo repositories.ServerRepository, redisClient *redis.Client, logger *zap.Logger) ServerService {
 	return &serverService{
 		serverRepo:  serverRepo,
 		redisClient: redisClient,
+		logger:      logger,
 	}
-}
-
-func (s *serverService) GetServersIP(ctx context.Context) ([]string, error) {
-	ipList, err := s.serverRepo.GetServersIP(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return ipList, nil
 }
 
 // CreateServer implements ServerService.
@@ -71,7 +63,8 @@ func (s *serverService) CreateServer(ctx context.Context, server *models.Server)
 		return fmt.Errorf("failed to create server: %w", err)
 	}
 
-	logger.Info("Server created successfully",
+	s.logger.Info("Server created successfully",
+		zap.Uint("id", server.ID),
 		zap.String("server_id", server.ServerID),
 		zap.String("server_name", server.ServerName),
 	)
@@ -89,9 +82,11 @@ func (s *serverService) DeleteServer(ctx context.Context, id uint) error {
 		return fmt.Errorf("failed to delete server: %w", err)
 	}
 
-	logger.Info("Delete server successfully",
-		zap.Uint("id", id),
-		zap.String("server_id", server.ServerID))
+	s.logger.Info("Server deleted successfully",
+		zap.Uint("id", server.ID),
+		zap.String("server_id", server.ServerID),
+		zap.String("server_name", server.ServerName),
+	)
 
 	return nil
 }
@@ -120,9 +115,9 @@ func (s *serverService) ImportServers(ctx context.Context, filePath string) (*mo
 		return nil, fmt.Errorf("file must contain at least 2 rows (header + data)")
 	}
 
-	logger.Info("Starting import process",
+	s.logger.Info("Starting import",
 		zap.String("file", filePath),
-		zap.Int("total_rows", rowCount-1), // excluding header
+		zap.Int("total_rows", rowCount),
 	)
 
 	result := &models.ImportResult{
@@ -140,8 +135,6 @@ func (s *serverService) ImportServers(ctx context.Context, filePath string) (*mo
 
 	servers := make([]models.Server, 0)
 
-	benchmarks := time.Now()
-
 	// Process data rows (skip header)
 	for i := 1; i < len(allRows); i++ {
 		row := allRows[i]
@@ -157,7 +150,11 @@ func (s *serverService) ImportServers(ctx context.Context, filePath string) (*mo
 	}
 
 	if len(servers) == 0 {
-		logger.Warn("No valid servers to import")
+		s.logger.Info("No valid servers found in file",
+			zap.String("file", filePath),
+			zap.Int("total_rows", rowCount),
+			zap.Int("valid_rows", 0),
+		)
 		return result, nil
 	}
 
@@ -184,9 +181,10 @@ func (s *serverService) ImportServers(ctx context.Context, filePath string) (*mo
 		currentBatch := batch
 		currentIndex := batchIndex
 
-		logger.Info("Processing batch",
-			zap.Int("batch", currentIndex+1),
-			zap.Int("size", len(currentBatch)),
+		s.logger.Info("Processing batch",
+			zap.Int("batch_index", currentIndex),
+			zap.Int("batch_size", len(currentBatch)),
+			zap.Int("total_batches", len(batches)),
 		)
 
 		workerPool.Submit(func() {
@@ -223,11 +221,11 @@ func (s *serverService) ImportServers(ctx context.Context, filePath string) (*mo
 	// Wait for all workers to complete
 	workerPool.StopWait()
 
-	logger.Info("Import completed",
+	s.logger.Info("Import completed",
+		zap.String("file", filePath),
+		zap.Int("total_rows", rowCount),
 		zap.Int("success_count", result.SuccessCount),
 		zap.Int("failure_count", result.FailureCount),
-		zap.Int("total_processed", result.SuccessCount+result.FailureCount),
-		zap.Duration("duration", time.Since(benchmarks)),
 	)
 
 	return result, nil
@@ -270,9 +268,10 @@ func (s *serverService) ExportServers(ctx context.Context, filter models.ServerF
 	if err := file.SaveAs(filePath); err != nil {
 		return "", fmt.Errorf("failed to save file: %w", err)
 	}
-	logger.Info("Servers exported",
-		zap.String("file", filePath),
-		zap.Int("count", len(servers)),
+
+	s.logger.Info("Servers exported successfully",
+		zap.String("file_path", filePath),
+		zap.Int("total_servers", len(servers)),
 	)
 
 	return filePath, nil
@@ -307,15 +306,6 @@ func (s *serverService) GetServer(ctx context.Context, id uint) (*models.Server,
 	return server, nil
 }
 
-// GetServerByServerID implements ServerService.
-func (s *serverService) GetServerByServerID(ctx context.Context, serverID string) (*models.Server, error) {
-	server, err := s.serverRepo.GetByServerID(ctx, serverID)
-	if err != nil {
-		return nil, fmt.Errorf("server not found: %w", err)
-	}
-	return server, nil
-}
-
 // GetServerStats implements ServerService.
 func (s *serverService) GetServerStats(ctx context.Context) (map[string]int64, error) {
 	// Try to get stats from cache first
@@ -345,9 +335,6 @@ func (s *serverService) GetServerStats(ctx context.Context) (map[string]int64, e
 
 	offlineCount, _ := s.serverRepo.CountByStatus(ctx, "OFF")
 	stats["offline"] = offlineCount
-
-	maintenanceCount, _ := s.serverRepo.CountByStatus(ctx, "MAINTENANCE")
-	stats["maintenance"] = maintenanceCount
 
 	// Store in cache for future requests
 	if statsJSON, err := json.Marshal(stats); err == nil {
@@ -450,10 +437,12 @@ func (s *serverService) UpdateServer(ctx context.Context, id uint, updates map[s
 	// Invalidate caches
 	s.invalidateServerCaches(ctx, server)
 
-	logger.Info("Server updated successfully",
+	s.logger.Info("Server updated successfully",
 		zap.Uint("id", server.ID),
 		zap.String("server_id", server.ServerID),
+		zap.String("server_name", server.ServerName),
 	)
+
 	return server, nil
 }
 
@@ -473,13 +462,40 @@ func (s *serverService) UpdateServerStatus(ctx context.Context, serverID string,
 	// Invalidate caches
 	s.invalidateServerCaches(ctx, server)
 
-	logger.Info("Server status updated successfully",
+	s.logger.Info("Server status updated successfully",
 		zap.String("server_id", serverID),
-		zap.String("old_status", string(server.Status)),
-		zap.String("new_status", string(status)),
+		zap.String("status", string(status)),
 	)
 
 	return nil
+}
+
+func (s *serverService) GetAllServers(ctx context.Context) ([]models.Server, error) {
+	// Try to get from cache first
+	cacheKey := "servers:all"
+
+	// Try to get servers from Redis
+	serversJSON, err := s.redisClient.Get(ctx, cacheKey).Result()
+	if err == nil {
+		// Cache hit
+		var servers []models.Server
+		if err := json.Unmarshal([]byte(serversJSON), &servers); err == nil {
+			return servers, nil
+		}
+	}
+
+	// Cache miss, get from database
+	servers, err := s.serverRepo.GetAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all servers: %w", err)
+	}
+
+	// Store in cache for future requests
+	if serversJSON, err := json.Marshal(servers); err == nil {
+		s.redisClient.Set(ctx, cacheKey, serversJSON, 30*time.Minute)
+	}
+
+	return servers, nil
 }
 
 // Helper method to invalidate all related caches
