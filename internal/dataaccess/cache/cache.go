@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func LoadCache(cfg *configs.Cache, logger *zap.Logger) (*redis.Client, func(), error) {
+func LoadCache(cfg configs.Cache, logger *zap.Logger) (*redis.Client, func(), error) {
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
 		Password: cfg.Password,

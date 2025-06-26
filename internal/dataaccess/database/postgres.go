@@ -10,7 +10,7 @@ import (
 	gormLogger "gorm.io/gorm/logger"
 )
 
-func LoadDB(cfg *configs.Database, logger *zap.Logger) (*gorm.DB, func(), error) {
+func LoadDB(cfg configs.Database, logger *zap.Logger) (*gorm.DB, func(), error) {
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable",
 		cfg.Host,
 		cfg.User,

@@ -6,7 +6,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func LoadElasticSearch(cfg *configs.ElasticSearch, logger *zap.Logger) (*elasticsearch.Client, func(), error) {
+func LoadElasticSearch(cfg configs.ElasticSearch, logger *zap.Logger) (*elasticsearch.Client, func(), error) {
 	esConfig := elasticsearch.Config{
 		Addresses: []string{cfg.URL},
 	}

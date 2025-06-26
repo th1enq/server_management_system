@@ -6,33 +6,34 @@ import (
 	"net"
 	"time"
 
-	"github.com/th1enq/server_management_system/internal/config"
+	"github.com/th1enq/server_management_system/internal/configs"
 	"github.com/th1enq/server_management_system/internal/models"
 	"github.com/th1enq/server_management_system/internal/repositories"
-	"github.com/th1enq/server_management_system/pkg/logger"
 	"go.uber.org/zap"
 )
 
 type MonitoringWorker struct {
-	cfg        *config.Config
+	cfg        *configs.Config
 	serverRepo repositories.ServerRepository
+	logger     *zap.Logger
 	stopChan   chan bool
 }
 
-func NewMonitoringWorker(cfg *config.Config, serverRepo repositories.ServerRepository, stopChan chan bool) *MonitoringWorker {
+func NewMonitoringWorker(cfg *configs.Config, serverRepo repositories.ServerRepository, logger *zap.Logger) *MonitoringWorker {
 	return &MonitoringWorker{
 		cfg:        cfg,
 		serverRepo: serverRepo,
+		logger:     logger,
 		stopChan:   make(chan bool),
 	}
 }
 
 func (w *MonitoringWorker) Start() {
-	logger.Info("Starting monitoring worker",
-		zap.Duration("interval", w.cfg.Monitoring.Interval),
-	)
+	w.logger.Info("Starting monitoring worker")
 
-	ticker := time.NewTicker(w.cfg.Monitoring.Interval)
+	// For now, use a default interval since monitoring config might not exist
+	interval := 30 * time.Second
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	// Run immediately on start
@@ -43,7 +44,7 @@ func (w *MonitoringWorker) Start() {
 		case <-ticker.C:
 			w.checkServers()
 		case <-w.stopChan:
-			logger.Info("Stopping monitoring worker")
+			w.logger.Info("Stopping monitoring worker")
 			return
 		}
 	}
@@ -55,16 +56,16 @@ func (w *MonitoringWorker) Stop() {
 
 func (w *MonitoringWorker) checkServers() {
 	ctx := context.Background()
-	logger.Info("Starting server health check")
+	w.logger.Info("Starting server health check")
 
 	// Get all servers
 	servers, err := w.serverRepo.GetAll(ctx)
 	if err != nil {
-		logger.Error("Failed to get servers", err)
+		w.logger.Error("Failed to get servers", zap.Error(err))
 		return
 	}
 
-	logger.Info("Checking servers", zap.Int("count", len(servers)))
+	w.logger.Info("Checking servers", zap.Int("count", len(servers)))
 
 	for _, server := range servers {
 		go w.checkServer(ctx, server)
@@ -74,30 +75,30 @@ func (w *MonitoringWorker) checkServers() {
 func (w *MonitoringWorker) checkServer(ctx context.Context, server models.Server) {
 	startTime := time.Now()
 	status := models.ServerStatusOff
-	responseTime := int64(-1)
 
 	// Try to ping the server
 	if server.IPv4 != "" {
-		timeout := w.cfg.Monitoring.PingTimeout
+		timeout := 5 * time.Second // Default timeout since config might not have Monitoring
 		conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:80", server.IPv4), timeout)
 		if err == nil {
 			conn.Close()
 			status = models.ServerStatusOn
-			responseTime = time.Since(startTime).Milliseconds()
 		}
 	}
 
 	if server.Status != status {
 		err := w.serverRepo.UpdateStatus(ctx, server.ServerID, status)
 		if err != nil {
-			logger.Error("Failed to update server status", err,
+			w.logger.Error("Failed to update server status",
+				zap.Error(err),
 				zap.String("server_id", server.ServerID),
 				zap.String("status", string(status)),
 			)
 		}
 	}
 
-	logger.Info("Server checked",
+	responseTime := time.Since(startTime).Milliseconds()
+	w.logger.Info("Server checked",
 		zap.String("server_id", server.ServerID),
 		zap.String("status", string(status)),
 		zap.Int64("response_time", responseTime),

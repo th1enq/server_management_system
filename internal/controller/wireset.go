@@ -1,8 +1,8 @@
-package http
+package controller
 
 import "github.com/google/wire"
 
 var WireSet = wire.NewSet(
-	NewHandler,
-	NewServer,
+	NewReportHandler,
+	NewServerHandler,
 )

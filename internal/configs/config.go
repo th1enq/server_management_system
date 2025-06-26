@@ -41,3 +41,8 @@ func NewConfig(filePath ConfigFilePath) (Config, error) {
 	}
 	return config, nil
 }
+
+// Load loads config from default path for migration compatibility
+func Load() (Config, error) {
+	return NewConfig("configs/config.yaml")
+}

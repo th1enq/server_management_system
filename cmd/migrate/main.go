@@ -8,7 +8,7 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
-	"github.com/th1enq/server_management_system/internal/config"
+	"github.com/th1enq/server_management_system/internal/configs"
 )
 
 const (
@@ -33,7 +33,7 @@ func main() {
 
 	command := args[0]
 
-	config, err := config.Load()
+	config, err := configs.Load()
 
 	if err != nil {
 		panic(fmt.Sprintf("failed to load configuration: %v", err))

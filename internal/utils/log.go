@@ -10,7 +10,7 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-func LoadLogger(cfg *configs.Log) (*zap.Logger, func(), error) {
+func LoadLogger(cfg configs.Log) (*zap.Logger, func(), error) {
 	level, err := zapcore.ParseLevel(cfg.Level)
 	if err != nil {
 		return nil, nil, err

@@ -21,93 +21,19 @@ package main
 
 import (
 	_ "github.com/th1enq/server_management_system/docs"
+	"github.com/th1enq/server_management_system/internal/configs"
+	"github.com/th1enq/server_management_system/internal/wiring"
+)
+
+const (
+	configFilePath = "configs/config.yaml"
 )
 
 func main() {
-	app, cleanup, err := wiring
-	// 	config, err := config.Load()
-	// 	if err != nil {
-	// 		panic(fmt.Sprintf("failed to load configuration: %v", err))
-	// 	}
-
-	// 	err = logger.Load(config)
-	// 	if err != nil {
-	// 		panic(fmt.Sprintf("failed to load logger: %v", err))
-	// 	}
-	// 	defer logger.Sync()
-
-	// 	logger.Info("Starting Viettel Server Management System",
-	// 		zap.String("version", "1.0.0"),
-	// 		zap.String("env", config.Server.Env))
-
-	// 	app, err := wire.InitializeApp(config)
-	// 	if err != nil {
-	// 		logger.Fatal("failed to initialize application", err)
-	// 	}
-
-	// 	if config.Server.Env == "production" {
-	// 		gin.SetMode(gin.ReleaseMode)
-	// 	}
-	// router := gin.New()
-	// router.Use(gin.Recovery())
-	// api.SetupRoutes(router, app)
-
-	// 	go app.MonitoringWorker.Start()
-	// 	go app.ReportService.StartDailyReportScheduler()
-
-	// 	server := &http.Server{
-	// 		Addr:    fmt.Sprintf(":%d", config.Server.Port),
-	// 		Handler: router,
-	// 	}
-
-	// 	go func() {
-	// 		logger.Info("HTTP server starting", zap.Int("port", config.Server.Port))
-	// 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-	// 			logger.Fatal("failed to start HTTP Server", err)
-	// 		}
-	// 	}()
-
-	// 	quit := make(chan os.Signal, 1)
-	// 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	// 	<-quit
-	// 	logger.Info("Shutting down server...")
-	// 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	// 	defer cancel()
-
-	// 	if err := server.Shutdown(ctx); err != nil {
-	// 		logger.Error("Server force to shut down", err)
-	// 	}
-
-	// 	database.Close()
-	// 	app.Redis.Close()
-	// 	database.ClosePgPool()
-	// 	app.ReportService.StopDailyReportScheduler()
-	// 	app.MonitoringWorker.Stop()
-
-	// 	logger.Info("Server exited")
-	// 	go func() {
-	// 		logger.Info("HTTP server starting", zap.Int("port", config.Server.Port))
-	// 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-	// 			logger.Fatal("failed to start HTTP Server", err)
-	// 		}
-	// 	}()
-
-	// 	quit := make(chan os.Signal, 1)
-	// 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	// 	<-quit
-	// 	logger.Info("Shutting down server...")
-	// 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	// 	defer cancel()
-
-	// 	if err := server.Shutdown(ctx); err != nil {
-	// 		logger.Error("Server force to shut down", err)
-	// 	}
-
-	// 	database.Close()
-	// 	app.Redis.Close()
-	// 	database.ClosePgPool()
-	// 	app.ReportService.StopDailyReportScheduler()
-	// 	app.MonitoringWorker.Stop()
-
-	// logger.Info("Server exited")
+	app, cleanup, err := wiring.InitializeStandardServer(configs.ConfigFilePath(configFilePath))
+	if err != nil {
+		panic("failed to initialize server: " + err.Error())
+	}
+	defer cleanup()
+	app.Start()
 }

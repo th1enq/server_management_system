@@ -4,15 +4,15 @@ import (
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	handler "github.com/th1enq/server_management_system/internal/controller"
+	"github.com/th1enq/server_management_system/internal/controller"
 )
 
 type Handler struct {
-	serverHandler *handler.ServerHandler
-	reportHandler *handler.ReportHandler
+	serverHandler *controller.ServerHandler
+	reportHandler *controller.ReportHandler
 }
 
-func NewHandler(serverHandler *handler.ServerHandler, reportHandler *handler.ReportHandler) *Handler {
+func NewHandler(serverHandler *controller.ServerHandler, reportHandler *controller.ReportHandler) *Handler {
 	return &Handler{
 		serverHandler: serverHandler,
 		reportHandler: reportHandler,

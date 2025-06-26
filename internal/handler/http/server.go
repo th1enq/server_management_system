@@ -19,8 +19,9 @@ type server struct {
 	logger     *zap.Logger
 }
 
-func NewServer(httpConfig configs.Server, logger *zap.Logger) Server {
+func NewServer(httpConfig configs.Server, logger *zap.Logger, handler *Handler) Server {
 	return &server{
+		handler:    handler,
 		httpConfig: httpConfig,
 		logger:     logger,
 	}

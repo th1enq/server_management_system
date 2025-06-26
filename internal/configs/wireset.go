@@ -4,12 +4,12 @@ import "github.com/google/wire"
 
 var WireSet = wire.NewSet(
 	NewConfig,
-	wire.FieldsOf(new(Config), "server"),
-	wire.FieldsOf(new(Config), "database"),
-	wire.FieldsOf(new(Config), "cache"),
-	wire.FieldsOf(new(Config), "logging"),
-	wire.FieldsOf(new(Config), "jwt"),
-	wire.FieldsOf(new(Config), "monitoring"),
-	wire.FieldsOf(new(Config), "elasticsearch"),
-	wire.FieldsOf(new(Config), "email"),
+	wire.FieldsOf(new(Config), "Server"),
+	wire.FieldsOf(new(Config), "Database"),
+	wire.FieldsOf(new(Config), "Cache"),
+	wire.FieldsOf(new(Config), "Logging"),
+	wire.FieldsOf(new(Config), "Cron"),
+	wire.FieldsOf(new(Config), "JWT"),
+	wire.FieldsOf(new(Config), "Elasticsearch"),
+	wire.FieldsOf(new(Config), "Email"),
 )

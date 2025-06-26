@@ -22,7 +22,7 @@ func (w *pgxPoolWrapper) CopyFrom(ctx context.Context, tableName []string, colum
 	return w.Pool.CopyFrom(ctx, tableName, columnNames, rowSrc)
 }
 
-func LoadPgPool(cfg *configs.Database, logger *zap.Logger) (PgxPoolInterface, func(), error) {
+func LoadPgPool(cfg configs.Database, logger *zap.Logger) (PgxPoolInterface, func(), error) {
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable",
 		cfg.User,
 		cfg.Password,
