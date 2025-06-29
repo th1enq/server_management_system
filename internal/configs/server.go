@@ -1,7 +1,7 @@
 package configs
 
 type Server struct {
-	Name string `mapstructure:"name"`
-	Env  string `mapstructure:"env"`
-	Port int    `mapstructure:"port"`
+	Name string `yaml:"name"`
+	Env  string `yaml:"env"`
+	Port int    `yaml:"port"`
 }

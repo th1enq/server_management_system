@@ -1,0 +1,1428 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>services: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/th1enq/server_management_system/internal/services/auth_service.go (82.0%)</option>
+				
+				<option value="file1">github.com/th1enq/server_management_system/internal/services/report_service.go (31.8%)</option>
+				
+				<option value="file2">github.com/th1enq/server_management_system/internal/services/server_service.go (46.1%)</option>
+				
+				<option value="file3">github.com/th1enq/server_management_system/internal/services/user_service.go (93.2%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package services
+
+import (
+        "context"
+        "fmt"
+        "time"
+
+        "github.com/golang-jwt/jwt/v5"
+        "github.com/th1enq/server_management_system/internal/configs"
+        "github.com/th1enq/server_management_system/internal/models"
+        "go.uber.org/zap"
+)
+
+type AuthService interface {
+        Login(ctx context.Context, username, password string) (*AuthResponse, error)
+        Register(ctx context.Context, user *models.User) (*AuthResponse, error)
+        ValidateToken(tokenString string) (*Claims, error)
+        RefreshToken(ctx context.Context, refreshToken string) (*AuthResponse, error)
+        Logout(ctx context.Context, userID uint) error
+}
+
+type AuthResponse struct {
+        AccessToken  string       `json:"access_token"`
+        RefreshToken string       `json:"refresh_token"`
+        TokenType    string       `json:"token_type"`
+        ExpiresIn    int64        `json:"expires_in"`
+        User         *models.User `json:"user"`
+        Scopes       []string     `json:"scopes"`
+}
+
+type Claims struct {
+        UserID   uint              `json:"user_id"`
+        Username string            `json:"username"`
+        Email    string            `json:"email"`
+        Role     models.UserRole   `json:"role"`
+        Scopes   []models.APIScope `json:"scopes"`
+        jwt.RegisteredClaims
+}
+
+type authService struct {
+        userService UserService
+        jwtConfig   configs.JWT
+        logger      *zap.Logger
+}
+
+func NewAuthService(userService UserService, jwtConfig configs.JWT, logger *zap.Logger) AuthService <span class="cov0" title="0">{
+        return &amp;authService{
+                userService: userService,
+                jwtConfig:   jwtConfig,
+                logger:      logger,
+        }
+}</span>
+
+// Login implements AuthService.
+func (a *authService) Login(ctx context.Context, username, password string) (*AuthResponse, error) <span class="cov8" title="1">{
+        // Get user by username
+        user, err := a.userService.GetUserByUsername(ctx, username)
+        if err != nil </span><span class="cov8" title="1">{
+                a.logger.Error("Failed to get user by username", zap.String("username", username), zap.Error(err))
+                return nil, fmt.Errorf("invalid credentials")
+        }</span>
+
+        // Check if user is active
+        <span class="cov8" title="1">if !user.IsActive </span><span class="cov8" title="1">{
+                a.logger.Warn("Inactive user attempted login", zap.String("username", username))
+                return nil, fmt.Errorf("account is disabled")
+        }</span>
+
+        // Verify password
+        <span class="cov8" title="1">if err := user.CheckPassword(password); err != nil </span><span class="cov8" title="1">{
+                a.logger.Warn("Invalid password attempt", zap.String("username", username))
+                return nil, fmt.Errorf("invalid credentials")
+        }</span>
+
+        // Update last login
+        <span class="cov8" title="1">if err := a.userService.UpdateLastLogin(ctx, user.ID); err != nil </span><span class="cov0" title="0">{
+                a.logger.Error("Failed to update last login", zap.Uint("user_id", user.ID), zap.Error(err))
+        }</span>
+
+        // Generate tokens
+        <span class="cov8" title="1">accessToken, err := a.generateAccessToken(user)
+        if err != nil </span><span class="cov0" title="0">{
+                a.logger.Error("Failed to generate access token", zap.Uint("user_id", user.ID), zap.Error(err))
+                return nil, fmt.Errorf("failed to generate token")
+        }</span>
+
+        <span class="cov8" title="1">refreshToken, err := a.generateRefreshToken(user)
+        if err != nil </span><span class="cov0" title="0">{
+                a.logger.Error("Failed to generate refresh token", zap.Uint("user_id", user.ID), zap.Error(err))
+                return nil, fmt.Errorf("failed to generate token")
+        }</span>
+
+        <span class="cov8" title="1">a.logger.Info("User logged in successfully", zap.String("username", username), zap.Uint("user_id", user.ID))
+
+        // Get user scopes
+        userScopes := models.GetDefaultScopes(user.Role)
+        scopeStrings := make([]string, len(userScopes))
+        for i, scope := range userScopes </span><span class="cov8" title="1">{
+                scopeStrings[i] = string(scope)
+        }</span>
+
+        <span class="cov8" title="1">return &amp;AuthResponse{
+                AccessToken:  accessToken,
+                RefreshToken: refreshToken,
+                TokenType:    "Bearer",
+                ExpiresIn:    int64(a.jwtConfig.Expiration.Seconds()),
+                User:         user,
+                Scopes:       scopeStrings,
+        }, nil</span>
+}
+
+// Register implements AuthService.
+func (a *authService) Register(ctx context.Context, user *models.User) (*AuthResponse, error) <span class="cov8" title="1">{
+        // Set default values
+        if user.Role == "" </span><span class="cov8" title="1">{
+                user.Role = models.RoleUser
+        }</span>
+        <span class="cov8" title="1">user.IsActive = true
+
+        // Create user
+        if err := a.userService.CreateUser(ctx, user); err != nil </span><span class="cov8" title="1">{
+                a.logger.Error("Failed to create user", zap.String("username", user.Username), zap.Error(err))
+                return nil, fmt.Errorf("failed to create user: %w", err)
+        }</span>
+
+        // Get the created user (to get the ID)
+        <span class="cov8" title="1">createdUser, err := a.userService.GetUserByUsername(ctx, user.Username)
+        if err != nil </span><span class="cov0" title="0">{
+                a.logger.Error("Failed to get created user", zap.String("username", user.Username), zap.Error(err))
+                return nil, fmt.Errorf("failed to get created user")
+        }</span>
+
+        // Generate tokens
+        <span class="cov8" title="1">accessToken, err := a.generateAccessToken(createdUser)
+        if err != nil </span><span class="cov0" title="0">{
+                a.logger.Error("Failed to generate access token", zap.Uint("user_id", createdUser.ID), zap.Error(err))
+                return nil, fmt.Errorf("failed to generate token")
+        }</span>
+
+        <span class="cov8" title="1">refreshToken, err := a.generateRefreshToken(createdUser)
+        if err != nil </span><span class="cov0" title="0">{
+                a.logger.Error("Failed to generate refresh token", zap.Uint("user_id", createdUser.ID), zap.Error(err))
+                return nil, fmt.Errorf("failed to generate token")
+        }</span>
+
+        <span class="cov8" title="1">a.logger.Info("User registered successfully", zap.String("username", user.Username), zap.Uint("user_id", createdUser.ID))
+
+        // Get user scopes
+        userScopes := models.GetDefaultScopes(createdUser.Role)
+        scopeStrings := make([]string, len(userScopes))
+        for i, scope := range userScopes </span><span class="cov8" title="1">{
+                scopeStrings[i] = string(scope)
+        }</span>
+
+        <span class="cov8" title="1">return &amp;AuthResponse{
+                AccessToken:  accessToken,
+                RefreshToken: refreshToken,
+                TokenType:    "Bearer",
+                ExpiresIn:    int64(a.jwtConfig.Expiration.Seconds()),
+                User:         createdUser,
+                Scopes:       scopeStrings,
+        }, nil</span>
+}
+
+// ValidateToken implements AuthService.
+func (a *authService) ValidateToken(tokenString string) (*Claims, error) <span class="cov8" title="1">{
+        token, err := jwt.ParseWithClaims(tokenString, &amp;Claims{}, func(token *jwt.Token) (interface{}, error) </span><span class="cov8" title="1">{
+                if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+                }</span>
+                <span class="cov8" title="1">return []byte(a.jwtConfig.Secret), nil</span>
+        })
+
+        <span class="cov8" title="1">if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("invalid token: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if claims, ok := token.Claims.(*Claims); ok &amp;&amp; token.Valid </span><span class="cov8" title="1">{
+                return claims, nil
+        }</span>
+
+        <span class="cov0" title="0">return nil, fmt.Errorf("invalid token claims")</span>
+}
+
+// RefreshToken implements AuthService.
+func (a *authService) RefreshToken(ctx context.Context, refreshToken string) (*AuthResponse, error) <span class="cov8" title="1">{
+        // Validate refresh token
+        claims, err := a.ValidateToken(refreshToken)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("invalid refresh token: %w", err)
+        }</span>
+
+        // Get user
+        <span class="cov8" title="1">user, err := a.userService.GetUserByID(ctx, claims.UserID)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("user not found")
+        }</span>
+
+        // Check if user is still active
+        <span class="cov8" title="1">if !user.IsActive </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("account is disabled")
+        }</span>
+
+        // Generate new tokens
+        <span class="cov8" title="1">newAccessToken, err := a.generateAccessToken(user)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to generate access token")
+        }</span>
+
+        <span class="cov8" title="1">newRefreshToken, err := a.generateRefreshToken(user)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to generate refresh token")
+        }</span>
+
+        // Get user scopes
+        <span class="cov8" title="1">userScopes := models.GetDefaultScopes(user.Role)
+        scopeStrings := make([]string, len(userScopes))
+        for i, scope := range userScopes </span><span class="cov8" title="1">{
+                scopeStrings[i] = string(scope)
+        }</span>
+
+        <span class="cov8" title="1">return &amp;AuthResponse{
+                AccessToken:  newAccessToken,
+                RefreshToken: newRefreshToken,
+                TokenType:    "Bearer",
+                ExpiresIn:    int64(a.jwtConfig.Expiration.Seconds()),
+                User:         user,
+                Scopes:       scopeStrings,
+        }, nil</span>
+}
+
+// Logout implements AuthService.
+func (a *authService) Logout(ctx context.Context, userID uint) error <span class="cov8" title="1">{
+        // In a real implementation, you might want to blacklist the token
+        // For now, we'll just log the logout
+        a.logger.Info("User logged out", zap.Uint("user_id", userID))
+        return nil
+}</span>
+
+// generateAccessToken generates a JWT access token for the user
+func (a *authService) generateAccessToken(user *models.User) (string, error) <span class="cov8" title="1">{
+        userScopes := models.GetDefaultScopes(user.Role)
+        claims := &amp;Claims{
+                UserID:   user.ID,
+                Username: user.Username,
+                Email:    user.Email,
+                Role:     user.Role,
+                Scopes:   userScopes,
+                RegisteredClaims: jwt.RegisteredClaims{
+                        ExpiresAt: jwt.NewNumericDate(time.Now().Add(a.jwtConfig.Expiration)),
+                        IssuedAt:  jwt.NewNumericDate(time.Now()),
+                        NotBefore: jwt.NewNumericDate(time.Now()),
+                        Issuer:    "server_management_system",
+                        Subject:   fmt.Sprintf("%d", user.ID),
+                },
+        }
+
+        token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+        return token.SignedString([]byte(a.jwtConfig.Secret))
+}</span>
+
+// generateRefreshToken generates a JWT refresh token for the user
+func (a *authService) generateRefreshToken(user *models.User) (string, error) <span class="cov8" title="1">{
+        userScopes := models.GetDefaultScopes(user.Role)
+        claims := &amp;Claims{
+                UserID:   user.ID,
+                Username: user.Username,
+                Email:    user.Email,
+                Role:     user.Role,
+                Scopes:   userScopes,
+                RegisteredClaims: jwt.RegisteredClaims{
+                        ExpiresAt: jwt.NewNumericDate(time.Now().Add(a.jwtConfig.Expiration * 7)), // 7x longer than access token
+                        IssuedAt:  jwt.NewNumericDate(time.Now()),
+                        NotBefore: jwt.NewNumericDate(time.Now()),
+                        Issuer:    "server_management_system",
+                        Subject:   fmt.Sprintf("%d", user.ID),
+                },
+        }
+
+        token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+        return token.SignedString([]byte(a.jwtConfig.Secret))
+}</span>
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package services
+
+import (
+        "bytes"
+        "context"
+        "encoding/json"
+        "fmt"
+        "html/template"
+        "os"
+        "strings"
+        "time"
+
+        "github.com/elastic/go-elasticsearch/v9"
+        "github.com/th1enq/server_management_system/internal/configs"
+        "github.com/th1enq/server_management_system/internal/models"
+        "go.uber.org/zap"
+        "gopkg.in/gomail.v2"
+)
+
+type ReportService interface {
+        GenerateReport(ctx context.Context, startOfDay, endOfDay time.Time) (*models.DailyReport, error)
+        SendReportToEmail(ctx context.Context, report *models.DailyReport, emailTo, msg string) error
+        SendReportForDateRange(ctx context.Context, startDate, endDate time.Time, emailTo string) error
+        SendReportForDaily(ctx context.Context, date time.Time) error
+}
+
+type reportService struct {
+        cfg       configs.Email
+        esClient  *elasticsearch.Client
+        serverSrv ServerService
+        logger    *zap.Logger
+}
+
+func NewReportService(cfg configs.Email, esClient *elasticsearch.Client, serverSrv ServerService, logger *zap.Logger) ReportService <span class="cov8" title="1">{
+        return &amp;reportService{
+                cfg:       cfg,
+                logger:    logger,
+                esClient:  esClient,
+                serverSrv: serverSrv,
+        }
+}</span>
+
+// SendDailyReport implements ReportService.
+func (s *reportService) SendReportToEmail(ctx context.Context, report *models.DailyReport, emailTo, msg string) error <span class="cov8" title="1">{
+        emailTemplate, err := os.ReadFile("template/email.html")
+        if err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("failed to read email template: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">tmpl := string(emailTemplate)
+
+        t, err := template.New("report").Parse(tmpl)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to parse template: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">var buf bytes.Buffer
+        if err := t.Execute(&amp;buf, report); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to execute template: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">m := gomail.NewMessage()
+        m.SetHeader("From", s.cfg.From)
+        m.SetHeader("To", emailTo)
+        m.SetHeader("Subject", msg)
+        m.SetBody("text/html", buf.String())
+
+        d := gomail.NewDialer(
+                s.cfg.SMTPHost,
+                s.cfg.SMTPPort,
+                s.cfg.Username,
+                s.cfg.Password,
+        )
+
+        if err := d.DialAndSend(m); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to send email: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">s.logger.Info("Report sent successfully",
+                zap.String("emailTo", emailTo),
+                zap.String("subject", msg),
+        )
+
+        return nil</span>
+}
+
+// SendReportForDateRange implements ReportService.
+func (s *reportService) SendReportForDateRange(ctx context.Context, startDate time.Time, endDate time.Time, emailTo string) error <span class="cov8" title="1">{
+        if startDate.After(endDate) </span><span class="cov8" title="1">{
+                return fmt.Errorf("start date must be before end date")
+        }</span>
+
+        <span class="cov8" title="1">report, err := s.GenerateReport(ctx, startDate, endDate)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to generate report :%w", err)
+        }</span>
+
+        <span class="cov8" title="1">msg := fmt.Sprintf("Server Report - %s to %s", startDate, endDate)
+
+        return s.SendReportToEmail(ctx, report, emailTo, msg)</span>
+}
+
+func (s *reportService) SendReportForDaily(ctx context.Context, date time.Time) error <span class="cov8" title="1">{
+        startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+        endOfDay := startOfDay.Add(24 * time.Hour)
+
+        report, err := s.GenerateReport(ctx, startOfDay, endOfDay)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to generate report for daily: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">msg := fmt.Sprintf("Daily Server Report - %s", date.Format("2006-01-02"))
+        emailTo := s.cfg.AdminEmail
+
+        return s.SendReportToEmail(ctx, report, emailTo, msg)</span>
+}
+
+func (s *reportService) GenerateReport(ctx context.Context, startOfDay, endOfDay time.Time) (*models.DailyReport, error) <span class="cov8" title="1">{
+        serverStats, err := s.serverSrv.GetServerStats(ctx)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to get server stats: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">onlineServer := serverStats["online"]
+        offlineServer := serverStats["offline"]
+
+        avgUpTime, detail, err := s.calculateAverageUptime(ctx, startOfDay, endOfDay)
+        if err != nil </span><span class="cov0" title="0">{
+                s.logger.With(zap.Error(err)).Error("Failed to calculate average uptime")
+                avgUpTime = 0
+        }</span>
+
+        <span class="cov8" title="1">report := &amp;models.DailyReport{
+                StartOfDay:   startOfDay,
+                EndOfDay:     endOfDay,
+                TotalServers: onlineServer + offlineServer,
+                OnlineCount:  onlineServer,
+                OfflineCount: offlineServer,
+                AvgUptime:    avgUpTime,
+                Detail:       detail,
+        }
+
+        return report, nil</span>
+}
+
+func (s *reportService) calculateAverageUptime(ctx context.Context, startTime, endTime time.Time) (float64, []models.ServerUpTime, error) <span class="cov8" title="1">{
+        servers, err := s.serverSrv.GetAllServers(ctx)
+        if err != nil </span><span class="cov8" title="1">{
+                return 0, nil, err
+        }</span>
+        <span class="cov8" title="1">if len(servers) == 0 </span><span class="cov8" title="1">{
+                return 0, nil, nil
+        }</span>
+
+        <span class="cov0" title="0">var singleUpTime []models.ServerUpTime
+
+        totalUpTime := 0.0
+        for _, server := range servers </span><span class="cov0" title="0">{
+                uptime, err := s.calculateServerUpTime(ctx, &amp;server.ServerID, startTime, endTime)
+                if err != nil </span><span class="cov0" title="0">{
+                        s.logger.With(zap.Error(err)).Error("Failed to calculate uptime for server", zap.String("serverID", server.ServerID))
+                        continue</span>
+                }
+                <span class="cov0" title="0">singleUpTime = append(singleUpTime, models.ServerUpTime{
+                        Server:    server,
+                        AvgUpTime: uptime,
+                })
+                totalUpTime += uptime</span>
+        }
+        <span class="cov0" title="0">return totalUpTime / float64(len(servers)), singleUpTime, nil</span>
+}
+
+func (s *reportService) calculateServerUpTime(ctx context.Context, serverID *string, startTime, endTime time.Time) (float64, error) <span class="cov8" title="1">{
+        // Validate input parameters
+        if serverID == nil || *serverID == "" </span><span class="cov8" title="1">{
+                return 0, fmt.Errorf("serverID cannot be nil or empty")
+        }</span>
+
+        <span class="cov8" title="1">if startTime.After(endTime) </span><span class="cov8" title="1">{
+                return 0, fmt.Errorf("startTime cannot be after endTime")
+        }</span>
+
+        <span class="cov0" title="0">query := fmt.Sprintf(`{
+                "query": {
+                        "bool": {
+                                "must": [
+                                        { "term": { "server_id": "%s" }},
+                                        { "range": { "timestamp": { "gte": "%s", "lt": "%s" }}}
+                                ]
+                        }
+                },
+                "sort": [
+                        { "@timestamp": { "order": "asc" }}
+                ],
+                "size": 10000
+        }`, *serverID, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
+
+        res, err := s.esClient.Search(
+                s.esClient.Search.WithContext(ctx),
+                s.esClient.Search.WithIndex("vcs-sms-server-checks-*"),
+                s.esClient.Search.WithBody(strings.NewReader(query)),
+                s.esClient.Search.WithTrackTotalHits(true),
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("elasticsearch search failed: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer res.Body.Close()
+
+        if res.IsError() </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("elasticsearch error: %s", res.String())
+        }</span>
+
+        <span class="cov0" title="0">var body struct {
+                Hits struct {
+                        Hits []struct {
+                                Source models.ServerStatusLog `json:"_source"`
+                        } `json:"hits"`
+                } `json:"hits"`
+        }
+
+        if err := json.NewDecoder(res.Body).Decode(&amp;body); err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("failed to decode response: %w", err)
+        }</span>
+
+        // Handle case when no data found
+        <span class="cov0" title="0">if len(body.Hits.Hits) == 0 </span><span class="cov0" title="0">{
+                // Return 0% uptime if no monitoring data exists
+                return 0, nil
+        }</span>
+
+        // Calculate uptime percentage
+        <span class="cov0" title="0">var totalDuration time.Duration
+        var uptimeDuration time.Duration
+
+        // Get first log entry
+        firstLog := body.Hits.Hits[0].Source
+        lastTime := firstLog.CheckedAt
+        lastStatus := firstLog.Status
+
+        // Handle the period from startTime to first check
+        if firstLog.CheckedAt.After(startTime) </span><span class="cov0" title="0">{
+                initialDuration := firstLog.CheckedAt.Sub(startTime)
+                totalDuration += initialDuration
+                // Assume server was in same state as first recorded status
+                if firstLog.Status == models.ServerStatusOn </span><span class="cov0" title="0">{
+                        uptimeDuration += initialDuration
+                }</span>
+        } else<span class="cov0" title="0"> {
+                // First check is before or at startTime, use startTime as reference
+                lastTime = startTime
+        }</span>
+
+        // Process all status changes
+        <span class="cov0" title="0">for i := 1; i &lt; len(body.Hits.Hits); i++ </span><span class="cov0" title="0">{
+                currentLog := body.Hits.Hits[i].Source
+
+                // Calculate duration for previous status
+                duration := currentLog.CheckedAt.Sub(lastTime)
+                totalDuration += duration
+
+                if lastStatus == models.ServerStatusOn </span><span class="cov0" title="0">{
+                        uptimeDuration += duration
+                }</span>
+
+                <span class="cov0" title="0">lastTime = currentLog.CheckedAt
+                lastStatus = currentLog.Status</span>
+        }
+
+        // Handle the period from last check to endTime
+        <span class="cov0" title="0">if lastTime.Before(endTime) </span><span class="cov0" title="0">{
+                finalDuration := endTime.Sub(lastTime)
+                totalDuration += finalDuration
+
+                if lastStatus == models.ServerStatusOn </span><span class="cov0" title="0">{
+                        uptimeDuration += finalDuration
+                }</span>
+        }
+
+        // Avoid division by zero
+        <span class="cov0" title="0">if totalDuration == 0 </span><span class="cov0" title="0">{
+                return 0, nil
+        }</span>
+
+        // Calculate percentage and ensure it's between 0-100
+        <span class="cov0" title="0">percentage := float64(uptimeDuration) / float64(totalDuration) * 100
+        if percentage &lt; 0 </span><span class="cov0" title="0">{
+                percentage = 0
+        }</span> else<span class="cov0" title="0"> if percentage &gt; 100 </span><span class="cov0" title="0">{
+                percentage = 100
+        }</span>
+
+        <span class="cov0" title="0">return percentage, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package services
+
+import (
+        "context"
+        "encoding/json"
+        "fmt"
+        "net"
+        "sync"
+        "time"
+
+        "github.com/gammazero/workerpool"
+        "github.com/redis/go-redis/v9"
+        "github.com/th1enq/server_management_system/internal/models"
+        "github.com/th1enq/server_management_system/internal/repositories"
+        "github.com/th1enq/server_management_system/internal/utils"
+        "github.com/xuri/excelize/v2"
+        "go.uber.org/zap"
+)
+
+type ServerService interface {
+        CreateServer(ctx context.Context, server *models.Server) error
+        GetServer(ctx context.Context, id uint) (*models.Server, error)
+        ListServers(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) (*models.ServerListResponse, error)
+        UpdateServer(ctx context.Context, id uint, updates map[string]interface{}) (*models.Server, error)
+        DeleteServer(ctx context.Context, id uint) error
+        ImportServers(ctx context.Context, filePath string) (*models.ImportResult, error)
+        ExportServers(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) (string, error)
+        UpdateServerStatus(ctx context.Context, serverID string, status models.ServerStatus) error
+        GetServerStats(ctx context.Context) (map[string]int64, error)
+        GetAllServers(ctx context.Context) ([]models.Server, error)
+        CheckServerStatus(ctx context.Context) error
+        CheckServer(ctx context.Context, server models.Server)
+}
+
+type serverService struct {
+        logger      *zap.Logger
+        serverRepo  repositories.ServerRepository
+        redisClient *redis.Client
+}
+
+func NewServerService(serverRepo repositories.ServerRepository, redisClient *redis.Client, logger *zap.Logger) ServerService <span class="cov0" title="0">{
+        return &amp;serverService{
+                serverRepo:  serverRepo,
+                redisClient: redisClient,
+                logger:      logger,
+        }
+}</span>
+
+// CreateServer implements ServerService.
+func (s *serverService) CreateServer(ctx context.Context, server *models.Server) error <span class="cov8" title="1">{
+        if server.ServerID == "" || server.ServerName == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("server_id and server_name are required")
+        }</span>
+        <span class="cov8" title="1">existing, _ := s.serverRepo.GetByServerID(ctx, server.ServerID)
+        if existing != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("server is already exists")
+        }</span>
+
+        <span class="cov8" title="1">existing, _ = s.serverRepo.GetByServerName(ctx, server.ServerName)
+        if existing != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("server is already exists")
+        }</span>
+
+        <span class="cov8" title="1">err := s.serverRepo.Create(ctx, server)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create server: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">s.logger.Info("Server created successfully",
+                zap.Uint("id", server.ID),
+                zap.String("server_id", server.ServerID),
+                zap.String("server_name", server.ServerName),
+        )
+
+        return nil</span>
+}
+
+// DeleteServer implements ServerService.
+func (s *serverService) DeleteServer(ctx context.Context, id uint) error <span class="cov8" title="1">{
+        server, err := s.serverRepo.GetByID(ctx, id)
+        if err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("server not found")
+        }</span>
+        <span class="cov8" title="1">if err := s.serverRepo.Delete(ctx, id); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to delete server: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">s.logger.Info("Server deleted successfully",
+                zap.Uint("id", server.ID),
+                zap.String("server_id", server.ServerID),
+                zap.String("server_name", server.ServerName),
+        )
+
+        return nil</span>
+}
+
+// ImportServers implements ServerService.
+func (s *serverService) ImportServers(ctx context.Context, filePath string) (*models.ImportResult, error) <span class="cov8" title="1">{
+        file, err := excelize.OpenFile(filePath)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to open file: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer file.Close()
+
+        sheets := file.GetSheetList()
+        if len(sheets) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("no sheets found in file")
+        }</span>
+
+        // Get all rows to count them first
+        <span class="cov0" title="0">allRows, err := file.GetRows(sheets[0])
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get rows: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">rowCount := len(allRows)
+        if rowCount &lt; 2 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("file must contain at least 2 rows (header + data)")
+        }</span>
+
+        <span class="cov0" title="0">s.logger.Info("Starting import",
+                zap.String("file", filePath),
+                zap.Int("total_rows", rowCount),
+        )
+
+        result := &amp;models.ImportResult{
+                SuccessServers: make([]string, 0),
+                FailureServers: make([]string, 0),
+        }
+
+        // Validate header (first row)
+        if len(allRows) &gt; 0 </span><span class="cov0" title="0">{
+                err := utils.Validate(allRows[0])
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("header validation failed: %w", err)
+                }</span>
+        }
+
+        <span class="cov0" title="0">servers := make([]models.Server, 0)
+
+        // Process data rows (skip header)
+        for i := 1; i &lt; len(allRows); i++ </span><span class="cov0" title="0">{
+                row := allRows[i]
+
+                server, err := utils.ParseToServer(row)
+                if err != nil </span><span class="cov0" title="0">{
+                        result.FailureCount++
+                        result.FailureServers = append(result.FailureServers,
+                                fmt.Sprintf("Row %d: %s", i+1, err.Error()))
+                        continue</span>
+                }
+                <span class="cov0" title="0">servers = append(servers, server)</span>
+        }
+
+        <span class="cov0" title="0">if len(servers) == 0 </span><span class="cov0" title="0">{
+                s.logger.Info("No valid servers found in file",
+                        zap.String("file", filePath),
+                        zap.Int("total_rows", rowCount),
+                        zap.Int("valid_rows", 0),
+                )
+                return result, nil
+        }</span>
+
+        // Create batches
+        <span class="cov0" title="0">var batches [][]models.Server
+        batchSize := 150
+
+        for i := 0; i &lt; len(servers); i += batchSize </span><span class="cov0" title="0">{
+                end := i + batchSize
+                if end &gt; len(servers) </span><span class="cov0" title="0">{
+                        end = len(servers)
+                }</span>
+                <span class="cov0" title="0">batches = append(batches, servers[i:end])</span>
+        }
+
+        // Process batches with proper concurrency control
+        <span class="cov0" title="0">workerPool := workerpool.New(15) // Reduce workers to avoid overwhelming DB
+
+        var mu sync.Mutex
+
+        for batchIndex, batch := range batches </span><span class="cov0" title="0">{
+
+                // Capture variables to avoid race condition
+                currentBatch := batch
+                currentIndex := batchIndex
+
+                s.logger.Info("Processing batch",
+                        zap.Int("batch_index", currentIndex),
+                        zap.Int("batch_size", len(currentBatch)),
+                        zap.Int("total_batches", len(batches)),
+                )
+
+                workerPool.Submit(func() </span><span class="cov0" title="0">{
+
+                        // Try batch insert first
+                        if err := s.serverRepo.BatchCreate(ctx, currentBatch); err != nil </span><span class="cov0" title="0">{
+                                // Fallback to individual inserts
+                                for _, sv := range currentBatch </span><span class="cov0" title="0">{
+                                        if err := s.serverRepo.Create(ctx, &amp;sv); err != nil </span><span class="cov0" title="0">{
+                                                mu.Lock()
+                                                result.FailureCount++
+                                                result.FailureServers = append(result.FailureServers,
+                                                        fmt.Sprintf("Server '%s': %s", sv.ServerID, err.Error()))
+                                                mu.Unlock()
+                                        }</span> else<span class="cov0" title="0"> {
+                                                mu.Lock()
+                                                result.SuccessCount++
+                                                result.SuccessServers = append(result.SuccessServers, sv.ServerID)
+                                                mu.Unlock()
+                                        }</span>
+                                }
+                        } else<span class="cov0" title="0"> {
+                                mu.Lock()
+                                // Batch insert successful
+                                result.SuccessCount += len(currentBatch)
+                                for _, sv := range currentBatch </span><span class="cov0" title="0">{
+                                        result.SuccessServers = append(result.SuccessServers, sv.ServerID)
+                                }</span>
+                                <span class="cov0" title="0">mu.Unlock()</span>
+                        }
+                })
+        }
+
+        // Wait for all workers to complete
+        <span class="cov0" title="0">workerPool.StopWait()
+
+        s.logger.Info("Import completed",
+                zap.String("file", filePath),
+                zap.Int("total_rows", rowCount),
+                zap.Int("success_count", result.SuccessCount),
+                zap.Int("failure_count", result.FailureCount),
+        )
+
+        return result, nil</span>
+}
+
+// ExportServers implements ServerService.
+func (s *serverService) ExportServers(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) (string, error) <span class="cov8" title="1">{
+        servers, _, err := s.serverRepo.List(ctx, filter, pagination)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("failed to get servers: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">file := excelize.NewFile()
+        streamWriter, err := file.NewStreamWriter("Sheet1")
+        if err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+
+        <span class="cov8" title="1">for rowIndex, server := range servers </span><span class="cov8" title="1">{
+                cell, _ := excelize.CoordinatesToCellName(1, rowIndex+1)
+                err = streamWriter.SetRow(cell, []interface{}{
+                        server.ServerID,
+                        server.ServerName,
+                        server.Status,
+                        server.Description,
+                        server.IPv4,
+                        server.Disk,
+                        server.RAM,
+                        server.Location,
+                        server.OS,
+                })
+                if err != nil </span><span class="cov0" title="0">{
+                        return "", err
+                }</span>
+        }
+        <span class="cov8" title="1">if err := streamWriter.Flush(); err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov8" title="1">filePath := fmt.Sprintf("./exports/servers_%d.xlsx", time.Now().Unix())
+        if err := file.SaveAs(filePath); err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("failed to save file: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">s.logger.Info("Servers exported successfully",
+                zap.String("file_path", filePath),
+                zap.Int("total_servers", len(servers)),
+        )
+
+        return filePath, nil</span>
+}
+
+// GetServer implements ServerService.
+func (s *serverService) GetServer(ctx context.Context, id uint) (*models.Server, error) <span class="cov8" title="1">{
+        // Try to get from cache first
+        cacheKey := fmt.Sprintf("server:%d", id)
+
+        // Try to get server from Redis
+        serverJSON, err := s.redisClient.Get(ctx, cacheKey).Result()
+        if err == nil </span><span class="cov0" title="0">{
+                // Cache hit
+                var server models.Server
+                if err := json.Unmarshal([]byte(serverJSON), &amp;server); err == nil </span><span class="cov0" title="0">{
+                        return &amp;server, nil
+                }</span>
+        }
+
+        // Cache miss, get from database
+        <span class="cov8" title="1">server, err := s.serverRepo.GetByID(ctx, id)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("server not found: %w", err)
+        }</span>
+
+        // Store in cache for future requests
+        <span class="cov8" title="1">if serverJSON, err := json.Marshal(server); err == nil </span><span class="cov8" title="1">{
+                s.redisClient.Set(ctx, cacheKey, serverJSON, 30*time.Minute)
+        }</span>
+
+        <span class="cov8" title="1">return server, nil</span>
+}
+
+// GetServerStats implements ServerService.
+func (s *serverService) GetServerStats(ctx context.Context) (map[string]int64, error) <span class="cov0" title="0">{
+        // Try to get stats from cache first
+        cacheKey := "server:stats"
+        statsJSON, err := s.redisClient.Get(ctx, cacheKey).Result()
+        if err == nil </span><span class="cov0" title="0">{
+                // Cache hit
+                var stats map[string]int64
+                if err := json.Unmarshal([]byte(statsJSON), &amp;stats); err == nil </span><span class="cov0" title="0">{
+                        return stats, nil
+                }</span>
+        }
+
+        // Cache miss, calculate stats
+        <span class="cov0" title="0">stats := make(map[string]int64)
+
+        // Count total servers
+        var total int64
+        if servers, err := s.serverRepo.GetAll(ctx); err == nil </span><span class="cov0" title="0">{
+                total = int64(len(servers))
+        }</span>
+        <span class="cov0" title="0">stats["total"] = total
+
+        // Count by status
+        onlineCount, _ := s.serverRepo.CountByStatus(ctx, "ON")
+        stats["online"] = onlineCount
+
+        offlineCount, _ := s.serverRepo.CountByStatus(ctx, "OFF")
+        stats["offline"] = offlineCount
+
+        // Store in cache for future requests
+        if statsJSON, err := json.Marshal(stats); err == nil </span><span class="cov0" title="0">{
+                s.redisClient.Set(ctx, cacheKey, statsJSON, 5*time.Minute)
+        }</span>
+
+        <span class="cov0" title="0">return stats, nil</span>
+}
+
+// ListServers implements ServerService.
+func (s *serverService) ListServers(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) (*models.ServerListResponse, error) <span class="cov0" title="0">{
+        // Generate cache key based on filter and pagination
+        cacheKey := fmt.Sprintf("servers:list:%v:%d:%d", filter, pagination.Page, pagination.PageSize)
+
+        // Try to get from cache
+        responseJSON, err := s.redisClient.Get(ctx, cacheKey).Result()
+        if err == nil </span><span class="cov0" title="0">{
+                // Cache hit
+                var response models.ServerListResponse
+                if err := json.Unmarshal([]byte(responseJSON), &amp;response); err == nil </span><span class="cov0" title="0">{
+                        return &amp;response, nil
+                }</span>
+        }
+
+        // Cache miss, get from database
+        <span class="cov0" title="0">servers, total, err := s.serverRepo.List(ctx, filter, pagination)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list servers: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">response := &amp;models.ServerListResponse{
+                Total:   total,
+                Servers: servers,
+                Page:    pagination.Page,
+                Size:    pagination.PageSize,
+        }
+
+        // Store in cache for future requests
+        if responseJSON, err := json.Marshal(response); err == nil </span><span class="cov0" title="0">{
+                s.redisClient.Set(ctx, cacheKey, responseJSON, 5*time.Minute)
+        }</span>
+
+        <span class="cov0" title="0">return response, nil</span>
+}
+
+// UpdateServer implements ServerService.
+func (s *serverService) UpdateServer(ctx context.Context, id uint, updates map[string]interface{}) (*models.Server, error) <span class="cov8" title="1">{
+        server, err := s.serverRepo.GetByID(ctx, id)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("server not found")
+        }</span>
+
+        <span class="cov8" title="1">delete(updates, "server_id")
+        delete(updates, "id")
+
+        for key, value := range updates </span><span class="cov8" title="1">{
+                switch key </span>{
+                case "server_name":<span class="cov8" title="1">
+                        if name, ok := value.(string); ok &amp;&amp; name != server.ServerName </span><span class="cov8" title="1">{
+                                existing, _ := s.serverRepo.GetByServerName(ctx, name)
+                                if existing != nil &amp;&amp; existing.ID != server.ID </span><span class="cov8" title="1">{
+                                        return nil, fmt.Errorf("server with name is already exists")
+                                }</span>
+                                <span class="cov8" title="1">server.ServerName = name</span>
+                        }
+                case "status":<span class="cov8" title="1">
+                        if status, ok := value.(string); ok </span><span class="cov8" title="1">{
+                                server.Status = models.ServerStatus(status)
+                        }</span>
+                case "ipv4":<span class="cov8" title="1">
+                        if ipv4, ok := value.(string); ok </span><span class="cov8" title="1">{
+                                server.IPv4 = ipv4
+                        }</span>
+                case "location":<span class="cov0" title="0">
+                        if loc, ok := value.(string); ok </span><span class="cov0" title="0">{
+                                server.Location = loc
+                        }</span>
+                case "os":<span class="cov0" title="0">
+                        if os, ok := value.(string); ok </span><span class="cov0" title="0">{
+                                server.OS = os
+                        }</span>
+                case "cpu":<span class="cov0" title="0">
+                        if cpu, ok := value.(float64); ok </span><span class="cov0" title="0">{
+                                server.CPU = int(cpu)
+                        }</span>
+                case "ram":<span class="cov0" title="0">
+                        if ram, ok := value.(float64); ok </span><span class="cov0" title="0">{
+                                server.RAM = int(ram)
+                        }</span>
+                case "disk":<span class="cov0" title="0">
+                        if disk, ok := value.(float64); ok </span><span class="cov0" title="0">{
+                                server.Disk = int(disk)
+                        }</span>
+                }
+        }
+        <span class="cov8" title="1">if err := s.serverRepo.Update(ctx, server); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        // Invalidate caches
+        <span class="cov8" title="1">s.invalidateServerCaches(ctx, server)
+
+        s.logger.Info("Server updated successfully",
+                zap.Uint("id", server.ID),
+                zap.String("server_id", server.ServerID),
+                zap.String("server_name", server.ServerName),
+        )
+
+        return server, nil</span>
+}
+
+// UpdateServerStatus implements ServerService.
+func (s *serverService) UpdateServerStatus(ctx context.Context, serverID string, status models.ServerStatus) error <span class="cov8" title="1">{
+        // Check if server exists
+        server, err := s.serverRepo.GetByServerID(ctx, serverID)
+        if err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("server not found: %w", err)
+        }</span>
+
+        // Update the status
+        <span class="cov8" title="1">if err := s.serverRepo.UpdateStatus(ctx, serverID, status); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to update server status: %w", err)
+        }</span>
+
+        // Invalidate caches
+        <span class="cov8" title="1">s.invalidateServerCaches(ctx, server)
+
+        s.logger.Info("Server status updated successfully",
+                zap.String("server_id", serverID),
+                zap.String("status", string(status)),
+        )
+
+        return nil</span>
+}
+
+func (s *serverService) GetAllServers(ctx context.Context) ([]models.Server, error) <span class="cov8" title="1">{
+        // Try to get from cache first
+        cacheKey := "servers:all"
+
+        // Try to get servers from Redis
+        serversJSON, err := s.redisClient.Get(ctx, cacheKey).Result()
+        if err == nil </span><span class="cov0" title="0">{
+                // Cache hit
+                var servers []models.Server
+                if err := json.Unmarshal([]byte(serversJSON), &amp;servers); err == nil </span><span class="cov0" title="0">{
+                        return servers, nil
+                }</span>
+        }
+
+        // Cache miss, get from database
+        <span class="cov8" title="1">servers, err := s.serverRepo.GetAll(ctx)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get all servers: %w", err)
+        }</span>
+
+        // Store in cache for future requests
+        <span class="cov8" title="1">if serversJSON, err := json.Marshal(servers); err == nil </span><span class="cov8" title="1">{
+                s.redisClient.Set(ctx, cacheKey, serversJSON, 30*time.Minute)
+        }</span>
+
+        <span class="cov8" title="1">return servers, nil</span>
+}
+
+// Helper method to invalidate all related caches
+func (s *serverService) invalidateServerCaches(ctx context.Context, server *models.Server) <span class="cov8" title="1">{
+        // Delete server cache
+        s.redisClient.Del(ctx, fmt.Sprintf("server:%d", server.ID))
+
+        // Delete server by server_id cache
+        s.redisClient.Del(ctx, fmt.Sprintf("server:byServerID:%s", server.ServerID))
+
+        // Delete stats cache
+        s.redisClient.Del(ctx, "server:stats")
+
+        // Delete list caches - using pattern matching
+        pattern := "servers:list:*"
+        iter := s.redisClient.Scan(ctx, 0, pattern, 0).Iterator()
+        for iter.Next(ctx) </span><span class="cov0" title="0">{
+                s.redisClient.Del(ctx, iter.Val())
+        }</span>
+}
+
+func (s *serverService) CheckServerStatus(ctx context.Context) error <span class="cov8" title="1">{
+        s.logger.Info("Starting server health check")
+
+        // Get all servers
+        servers, err := s.serverRepo.GetAll(ctx)
+        if err != nil </span><span class="cov8" title="1">{
+                s.logger.Error("Failed to get servers", zap.Error(err))
+                return err
+        }</span>
+
+        <span class="cov8" title="1">s.logger.Info("Checking servers", zap.Int("count", len(servers)))
+
+        for _, server := range servers </span><span class="cov8" title="1">{
+                go s.CheckServer(ctx, server)
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (s *serverService) CheckServer(ctx context.Context, server models.Server) <span class="cov8" title="1">{
+        startTime := time.Now()
+        status := models.ServerStatusOff
+
+        // Try to ping the server
+        if server.IPv4 != "" </span><span class="cov8" title="1">{
+                timeout := 5 * time.Second // Default timeout since config might not have Monitoring
+                conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:80", server.IPv4), timeout)
+                if err == nil </span><span class="cov0" title="0">{
+                        conn.Close()
+                        status = models.ServerStatusOn
+                }</span>
+        }
+
+        <span class="cov8" title="1">if server.Status != status </span><span class="cov8" title="1">{
+                err := s.serverRepo.UpdateStatus(ctx, server.ServerID, status)
+                if err != nil </span><span class="cov0" title="0">{
+                        s.logger.Error("Failed to update server status",
+                                zap.Error(err),
+                                zap.String("server_id", server.ServerID),
+                                zap.String("status", string(status)),
+                        )
+                }</span>
+        }
+
+        <span class="cov8" title="1">responseTime := time.Since(startTime).Milliseconds()
+        s.logger.Info("Server checked",
+                zap.String("server_id", server.ServerID),
+                zap.String("status", string(status)),
+                zap.Int64("response_time", responseTime),
+        )</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package services
+
+import (
+        "context"
+        "fmt"
+
+        "github.com/th1enq/server_management_system/internal/models"
+        "github.com/th1enq/server_management_system/internal/repositories"
+        "go.uber.org/zap"
+)
+
+type UserService interface {
+        CreateUser(ctx context.Context, user *models.User) error
+        GetUserByID(ctx context.Context, id uint) (*models.User, error)
+        GetUserByUsername(ctx context.Context, username string) (*models.User, error)
+        GetUserByEmail(ctx context.Context, email string) (*models.User, error)
+        UpdateUser(ctx context.Context, id uint, updates map[string]interface{}) (*models.User, error)
+        DeleteUser(ctx context.Context, id uint) error
+        ListUsers(ctx context.Context, limit, offset int) ([]*models.User, error)
+        UpdateLastLogin(ctx context.Context, userID uint) error
+}
+
+type userService struct {
+        userRepo repositories.UserRepository
+        logger   *zap.Logger
+}
+
+func NewUserService(userRepo repositories.UserRepository, logger *zap.Logger) UserService <span class="cov0" title="0">{
+        return &amp;userService{
+                userRepo: userRepo,
+                logger:   logger,
+        }
+}</span>
+
+// CreateUser implements UserService.
+func (u *userService) CreateUser(ctx context.Context, user *models.User) error <span class="cov8" title="1">{
+        if user.Username == "" || user.Password == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("username and password are required")
+        }</span>
+        <span class="cov8" title="1">if user.Email == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("email is required")
+        }</span>
+
+        <span class="cov8" title="1">existing, _ := u.userRepo.GetByUsername(ctx, user.Username)
+        if existing != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("user already exists")
+        }</span>
+
+        <span class="cov8" title="1">err := u.userRepo.Create(ctx, user)
+        if err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("failed to create user: %w", err)
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+// DeleteUser implements UserService.
+func (u *userService) DeleteUser(ctx context.Context, id uint) error <span class="cov8" title="1">{
+        user, err := u.userRepo.GetByID(ctx, id)
+        if err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("user not found: %w", err)
+        }</span>
+        <span class="cov8" title="1">if err := u.userRepo.Delete(ctx, id); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("failed to delete user: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">u.logger.Info("User deleted successfully",
+                zap.Uint("id", user.ID),
+                zap.String("username", user.Username),
+                zap.String("email", user.Email),
+        )
+
+        return nil</span>
+}
+
+// UpdateUser implements UserService.
+func (u *userService) UpdateUser(ctx context.Context, id uint, updates map[string]interface{}) (*models.User, error) <span class="cov8" title="1">{
+        user, err := u.userRepo.GetByID(ctx, id)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("user not found: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if len(updates) == 0 </span><span class="cov8" title="1">{
+                return user, nil // No updates to apply
+        }</span>
+
+        <span class="cov8" title="1">for key, value := range updates </span><span class="cov8" title="1">{
+                switch key </span>{
+                case "role":<span class="cov8" title="1">
+                        if role, ok := value.(string); ok </span><span class="cov8" title="1">{
+                                // Validate role
+                                if role != string(models.RoleUser) &amp;&amp; role != string(models.RoleAdmin) </span><span class="cov8" title="1">{
+                                        return nil, fmt.Errorf("invalid role: %s", role)
+                                }</span>
+                                <span class="cov8" title="1">user.Role = models.UserRole(role)</span>
+                        } else<span class="cov0" title="0"> {
+                                return nil, fmt.Errorf("invalid role value: %v", value)
+                        }</span>
+                case "password":<span class="cov8" title="1">
+                        if password, ok := value.(string); ok &amp;&amp; password != "" </span><span class="cov8" title="1">{
+                                if err := user.SetPassword(password); err != nil </span><span class="cov0" title="0">{
+                                        return nil, fmt.Errorf("failed to set password: %w", err)
+                                }</span>
+                        } else<span class="cov0" title="0"> {
+                                return nil, fmt.Errorf("invalid password value: %v", value)
+                        }</span>
+                }
+        }
+
+        <span class="cov8" title="1">if err := u.userRepo.Update(ctx, user); err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to update user: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">u.logger.Info("User updated successfully",
+                zap.Uint("id", user.ID),
+                zap.String("username", user.Username),
+                zap.String("email", user.Email),
+                zap.String("role", string(user.Role)),
+        )
+
+        return user, nil</span>
+}
+
+// GetUserByID implements UserService.
+func (u *userService) GetUserByID(ctx context.Context, id uint) (*models.User, error) <span class="cov8" title="1">{
+        user, err := u.userRepo.GetByID(ctx, id)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to get user by ID: %w", err)
+        }</span>
+        <span class="cov8" title="1">return user, nil</span>
+}
+
+// GetUserByUsername implements UserService.
+func (u *userService) GetUserByUsername(ctx context.Context, username string) (*models.User, error) <span class="cov8" title="1">{
+        user, err := u.userRepo.GetByUsername(ctx, username)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to get user by username: %w", err)
+        }</span>
+        <span class="cov8" title="1">return user, nil</span>
+}
+
+// GetUserByEmail implements UserService.
+func (u *userService) GetUserByEmail(ctx context.Context, email string) (*models.User, error) <span class="cov8" title="1">{
+        user, err := u.userRepo.GetByEmail(ctx, email)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to get user by email: %w", err)
+        }</span>
+        <span class="cov8" title="1">return user, nil</span>
+}
+
+// ListUsers implements UserService.
+func (u *userService) ListUsers(ctx context.Context, limit, offset int) ([]*models.User, error) <span class="cov8" title="1">{
+        users, err := u.userRepo.List(ctx, limit, offset)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to list users: %w", err)
+        }</span>
+        <span class="cov8" title="1">return users, nil</span>
+}
+
+// UpdateLastLogin implements UserService.
+func (u *userService) UpdateLastLogin(ctx context.Context, userID uint) error <span class="cov8" title="1">{
+        err := u.userRepo.UpdateLastLogin(ctx, userID)
+        if err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("failed to update last login: %w", err)
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

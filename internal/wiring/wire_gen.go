@@ -8,16 +8,17 @@ package wiring
 
 import (
 	"github.com/google/wire"
+	"github.com/th1enq/server_management_system/internal/api"
+	"github.com/th1enq/server_management_system/internal/api/http"
+	"github.com/th1enq/server_management_system/internal/api/jobs"
 	"github.com/th1enq/server_management_system/internal/app"
 	"github.com/th1enq/server_management_system/internal/configs"
-	"github.com/th1enq/server_management_system/internal/controller"
 	"github.com/th1enq/server_management_system/internal/dataaccess"
 	"github.com/th1enq/server_management_system/internal/dataaccess/cache"
 	"github.com/th1enq/server_management_system/internal/dataaccess/database"
 	"github.com/th1enq/server_management_system/internal/dataaccess/elasticsearch"
 	"github.com/th1enq/server_management_system/internal/handler"
-	"github.com/th1enq/server_management_system/internal/handler/http"
-	"github.com/th1enq/server_management_system/internal/handler/jobs"
+	"github.com/th1enq/server_management_system/internal/middleware"
 	"github.com/th1enq/server_management_system/internal/repositories"
 	"github.com/th1enq/server_management_system/internal/services"
 	"github.com/th1enq/server_management_system/internal/utils"
@@ -31,7 +32,7 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Stand
 		return nil, nil, err
 	}
 	server := config.Server
-	log := config.Logging
+	log := config.Log
 	logger, cleanup, err := utils.LoadLogger(log)
 	if err != nil {
 		return nil, nil, err
@@ -58,7 +59,7 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Stand
 		return nil, nil, err
 	}
 	serverService := services.NewServerService(serverRepository, client, logger)
-	serverHandler := controller.NewServerHandler(serverService, logger)
+	serverHandler := handler.NewServerHandler(serverService, logger)
 	email := config.Email
 	elasticSearch := config.Elasticsearch
 	elasticsearchClient, cleanup5, err := elasticsearch.LoadElasticSearch(elasticSearch, logger)
@@ -70,12 +71,19 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Stand
 		return nil, nil, err
 	}
 	reportService := services.NewReportService(email, elasticsearchClient, serverService, logger)
-	reportHandler := controller.NewReportHandler(reportService, logger)
-	handler := http.NewHandler(serverHandler, reportHandler)
-	httpServer := http.NewServer(server, logger, handler)
+	reportHandler := handler.NewReportHandler(reportService, logger)
+	userRepository := repositories.NewUserRepository(db)
+	userService := services.NewUserService(userRepository, logger)
+	jwt := config.JWT
+	authService := services.NewAuthService(userService, jwt, logger)
+	authHandler := handler.NewAuthHandler(authService, userService, logger)
+	authMiddleware := middleware.NewAuthMiddleware(authService, logger)
+	httpHandler := http.NewHandler(serverHandler, reportHandler, authHandler, authMiddleware)
+	httpServer := http.NewServer(server, logger, httpHandler)
 	cron := config.Cron
 	sendDailyReport := jobs.NewSendDailyReport(reportService)
-	standaloneServer := app.NewStandaloneServer(httpServer, logger, cron, sendDailyReport)
+	intervalCheckStatus := jobs.NewIntervalCheckStatus(serverService)
+	standaloneServer := app.NewStandaloneServer(httpServer, logger, cron, sendDailyReport, intervalCheckStatus)
 	return standaloneServer, func() {
 		cleanup5()
 		cleanup4()
@@ -87,4 +95,4 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Stand
 
 // wire.go:
 
-var WireSet = wire.NewSet(app.WireSet, configs.WireSet, controller.WireSet, dataaccess.WireSet, handler.WireSet, repositories.WireSet, services.WireSet, utils.WireSet)
+var WireSet = wire.NewSet(app.WireSet, configs.WireSet, handler.WireSet, dataaccess.WireSet, api.WireSet, repositories.WireSet, services.WireSet, middleware.WireSet, utils.WireSet)

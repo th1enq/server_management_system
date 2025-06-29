@@ -55,7 +55,9 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">github.com/th1enq/server_management_system/internal/repositories/server_repository.go (93.3%)</option>
+				<option value="file0">github.com/th1enq/server_management_system/internal/repositories/server_repository.go (94.7%)</option>
+				
+				<option value="file1">github.com/th1enq/server_management_system/internal/repositories/user_repository.go (92.6%)</option>
 				
 				</select>
 			</div>
@@ -85,8 +87,7 @@ import (
         "fmt"
 
         "github.com/jackc/pgx/v5"
-        "github.com/jackc/pgx/v5/pgxpool"
-        "github.com/th1enq/server_management_system/internal/database"
+        "github.com/th1enq/server_management_system/internal/dataaccess/database"
         "github.com/th1enq/server_management_system/internal/models"
         "gorm.io/gorm"
 )
@@ -111,16 +112,12 @@ type serverRepository struct {
         pg database.PgxPoolInterface
 }
 
-func NewServerRepository(db *gorm.DB, pg *pgxpool.Pool) ServerRepository <span class="cov9" title="16">{
-        var pgInterface database.PgxPoolInterface
-        if pg != nil </span><span class="cov0" title="0">{
-                pgInterface = &amp;database.PgxPoolWrapper{Pool: pg}
-        }</span>
-        <span class="cov9" title="16">return &amp;serverRepository{
+func NewServerRepository(db *gorm.DB, pg database.PgxPoolInterface) ServerRepository <span class="cov9" title="16">{
+        return &amp;serverRepository{
                 db: db,
-                pg: pgInterface,
-        }</span>
-}
+                pg: pg,
+        }
+}</span>
 
 // GetServersIP implements ServerRepository.
 func (s *serverRepository) GetServersIP(ctx context.Context) ([]string, error) <span class="cov3" title="2">{
@@ -285,6 +282,101 @@ func (s *serverRepository) Update(ctx context.Context, server *models.Server) er
 // UpdateStatus implements ServerRepository.
 func (s *serverRepository) UpdateStatus(ctx context.Context, serverID string, status models.ServerStatus) error <span class="cov1" title="1">{
         return s.db.WithContext(ctx).Model(&amp;models.Server{}).Where("server_id = ?", serverID).Update("status", status).Error
+}</span>
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package repositories
+
+import (
+        "context"
+        "time"
+
+        "github.com/th1enq/server_management_system/internal/models"
+        "gorm.io/gorm"
+)
+
+type UserRepository interface {
+        Create(ctx context.Context, user *models.User) error
+        GetByUsername(ctx context.Context, username string) (*models.User, error)
+        GetByID(ctx context.Context, id uint) (*models.User, error)
+        GetByEmail(ctx context.Context, email string) (*models.User, error)
+        Update(ctx context.Context, user *models.User) error
+        Delete(ctx context.Context, id uint) error
+        List(ctx context.Context, limit, offset int) ([]*models.User, error)
+        UpdateLastLogin(ctx context.Context, userID uint) error
+}
+
+type userRepository struct {
+        db *gorm.DB
+}
+
+func NewUserRepository(db *gorm.DB) UserRepository <span class="cov10" title="15">{
+        return &amp;userRepository{
+                db: db,
+        }
+}</span>
+
+// Create implements UserRepository.
+func (u *userRepository) Create(ctx context.Context, user *models.User) error <span class="cov9" title="14">{
+        if err := user.SetPassword(user.Password); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov9" title="14">return u.db.WithContext(ctx).Create(user).Error</span>
+}
+
+// Delete implements UserRepository.
+func (u *userRepository) Delete(ctx context.Context, id uint) error <span class="cov1" title="1">{
+        return u.db.WithContext(ctx).Delete(&amp;models.User{}, id).Error
+}</span>
+
+// GetByUsername implements UserRepository.
+func (u *userRepository) GetByUsername(ctx context.Context, username string) (*models.User, error) <span class="cov3" title="2">{
+        var user models.User
+        err := u.db.WithContext(ctx).Where("username = ?", username).First(&amp;user).Error
+        if err != nil </span><span class="cov1" title="1">{
+                return nil, err
+        }</span>
+        <span class="cov1" title="1">return &amp;user, nil</span>
+}
+
+// GetByID implements UserRepository.
+func (u *userRepository) GetByID(ctx context.Context, id uint) (*models.User, error) <span class="cov6" title="5">{
+        var user models.User
+        err := u.db.WithContext(ctx).First(&amp;user, id).Error
+        if err != nil </span><span class="cov3" title="2">{
+                return nil, err
+        }</span>
+        <span class="cov4" title="3">return &amp;user, nil</span>
+}
+
+// GetByEmail implements UserRepository.
+func (u *userRepository) GetByEmail(ctx context.Context, email string) (*models.User, error) <span class="cov3" title="2">{
+        var user models.User
+        err := u.db.WithContext(ctx).Where("email = ?", email).First(&amp;user).Error
+        if err != nil </span><span class="cov1" title="1">{
+                return nil, err
+        }</span>
+        <span class="cov1" title="1">return &amp;user, nil</span>
+}
+
+// List implements UserRepository.
+func (u *userRepository) List(ctx context.Context, limit, offset int) ([]*models.User, error) <span class="cov5" title="4">{
+        var users []*models.User
+        err := u.db.WithContext(ctx).Limit(limit).Offset(offset).Find(&amp;users).Error
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov5" title="4">return users, nil</span>
+}
+
+// Update implements UserRepository.
+func (u *userRepository) Update(ctx context.Context, user *models.User) error <span class="cov1" title="1">{
+        return u.db.WithContext(ctx).Save(user).Error
+}</span>
+
+// UpdateLastLogin implements UserRepository.
+func (u *userRepository) UpdateLastLogin(ctx context.Context, userID uint) error <span class="cov3" title="2">{
+        return u.db.WithContext(ctx).Model(&amp;models.User{}).Where("id = ?", userID).Update("last_login", time.Now()).Error
 }</span>
 </pre>
 		

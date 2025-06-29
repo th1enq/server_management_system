@@ -7,11 +7,12 @@ package wiring
 
 import (
 	"github.com/google/wire"
+	"github.com/th1enq/server_management_system/internal/api"
 	"github.com/th1enq/server_management_system/internal/app"
 	"github.com/th1enq/server_management_system/internal/configs"
-	"github.com/th1enq/server_management_system/internal/controller"
 	"github.com/th1enq/server_management_system/internal/dataaccess"
 	"github.com/th1enq/server_management_system/internal/handler"
+	"github.com/th1enq/server_management_system/internal/middleware"
 	"github.com/th1enq/server_management_system/internal/repositories"
 	"github.com/th1enq/server_management_system/internal/services"
 	"github.com/th1enq/server_management_system/internal/utils"
@@ -20,11 +21,12 @@ import (
 var WireSet = wire.NewSet(
 	app.WireSet,
 	configs.WireSet,
-	controller.WireSet,
-	dataaccess.WireSet,
 	handler.WireSet,
+	dataaccess.WireSet,
+	api.WireSet,
 	repositories.WireSet,
 	services.WireSet,
+	middleware.WireSet,
 	utils.WireSet,
 )
 

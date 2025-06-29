@@ -1,0 +1,288 @@
+package middleware
+
+import (
+	"net/http"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/th1enq/server_management_system/internal/models"
+	"github.com/th1enq/server_management_system/internal/services"
+	"go.uber.org/zap"
+)
+
+type AuthMiddleware struct {
+	authService services.AuthService
+	logger      *zap.Logger
+}
+
+func NewAuthMiddleware(authService services.AuthService, logger *zap.Logger) *AuthMiddleware {
+	return &AuthMiddleware{
+		authService: authService,
+		logger:      logger,
+	}
+}
+
+// RequireAuth is a middleware that requires authentication
+func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := m.extractTokenFromHeader(c)
+		if token == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization token required"})
+			c.Abort()
+			return
+		}
+
+		claims, err := m.authService.ValidateToken(token)
+		if err != nil {
+			m.logger.Warn("Invalid token", zap.Error(err))
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			c.Abort()
+			return
+		}
+
+		// Store user info in context
+		c.Set("user_id", claims.UserID)
+		c.Set("username", claims.Username)
+		c.Set("email", claims.Email)
+		c.Set("role", string(claims.Role))
+		c.Set("scopes", claims.Scopes)
+		c.Set("claims", claims)
+
+		c.Next()
+	}
+}
+
+// RequireRole is a middleware that requires a specific role
+func (m *AuthMiddleware) RequireRole(requiredRole string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// First check if user is authenticated
+		role, exists := c.Get("role")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+			c.Abort()
+			return
+		}
+
+		userRole, ok := role.(string)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid role data"})
+			c.Abort()
+			return
+		}
+
+		if userRole != requiredRole {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// RequireAdmin is a middleware that requires admin role
+func (m *AuthMiddleware) RequireAdmin() gin.HandlerFunc {
+	return m.RequireRole("admin")
+}
+
+// RequireScope is a middleware that requires a specific API scope
+func (m *AuthMiddleware) RequireScope(requiredScope string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// First check if user is authenticated
+		scopes, exists := c.Get("scopes")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+			c.Abort()
+			return
+		}
+
+		userScopes, ok := scopes.([]models.APIScope)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid scope data"})
+			c.Abort()
+			return
+		}
+
+		// Check if user has the required scope
+		hasScope := false
+		for _, scope := range userScopes {
+			if string(scope) == requiredScope {
+				hasScope = true
+				break
+			}
+		}
+
+		if !hasScope {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient scope permissions"})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// RequireAnyScope is a middleware that requires any of the specified scopes
+func (m *AuthMiddleware) RequireAnyScope(requiredScopes ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// First check if user is authenticated
+		scopes, exists := c.Get("scopes")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+			c.Abort()
+			return
+		}
+
+		userScopes, ok := scopes.([]models.APIScope)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid scope data"})
+			c.Abort()
+			return
+		}
+
+		// Check if user has any of the required scopes
+		hasScope := false
+		for _, userScope := range userScopes {
+			for _, requiredScope := range requiredScopes {
+				if string(userScope) == requiredScope {
+					hasScope = true
+					break
+				}
+			}
+			if hasScope {
+				break
+			}
+		}
+
+		if !hasScope {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient scope permissions"})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// OptionalAuth is a middleware that optionally extracts user info if token is provided
+func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := m.extractTokenFromHeader(c)
+		if token != "" {
+			claims, err := m.authService.ValidateToken(token)
+			if err == nil {
+				// Store user info in context
+				c.Set("user_id", claims.UserID)
+				c.Set("username", claims.Username)
+				c.Set("email", claims.Email)
+				c.Set("role", string(claims.Role))
+				c.Set("scopes", claims.Scopes)
+				c.Set("claims", claims)
+			}
+		}
+		c.Next()
+	}
+}
+
+// extractTokenFromHeader extracts the Bearer token from the Authorization header
+func (m *AuthMiddleware) extractTokenFromHeader(c *gin.Context) string {
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		return ""
+	}
+
+	// Check if the header starts with "Bearer "
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		return ""
+	}
+
+	// Extract the token part
+	return strings.TrimPrefix(authHeader, "Bearer ")
+}
+
+// GetUserID extracts user ID from gin context
+func GetUserID(c *gin.Context) (uint, bool) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		return 0, false
+	}
+
+	id, ok := userID.(uint)
+	return id, ok
+}
+
+// GetUsername extracts username from gin context
+func GetUsername(c *gin.Context) (string, bool) {
+	username, exists := c.Get("username")
+	if !exists {
+		return "", false
+	}
+
+	name, ok := username.(string)
+	return name, ok
+}
+
+// GetUserRole extracts user role from gin context
+func GetUserRole(c *gin.Context) (string, bool) {
+	role, exists := c.Get("role")
+	if !exists {
+		return "", false
+	}
+
+	userRole, ok := role.(string)
+	return userRole, ok
+}
+
+// GetClaims extracts JWT claims from gin context
+func GetClaims(c *gin.Context) (*services.Claims, bool) {
+	claims, exists := c.Get("claims")
+	if !exists {
+		return nil, false
+	}
+
+	userClaims, ok := claims.(*services.Claims)
+	return userClaims, ok
+}
+
+// GetScopes extracts user scopes from gin context
+func GetScopes(c *gin.Context) ([]models.APIScope, bool) {
+	scopes, exists := c.Get("scopes")
+	if !exists {
+		return nil, false
+	}
+
+	userScopes, ok := scopes.([]models.APIScope)
+	return userScopes, ok
+}
+
+// HasScope checks if the user has a specific scope
+func HasScope(c *gin.Context, requiredScope string) bool {
+	scopes, exists := GetScopes(c)
+	if !exists {
+		return false
+	}
+
+	for _, scope := range scopes {
+		if string(scope) == requiredScope {
+			return true
+		}
+	}
+	return false
+}
+
+// HasAnyScope checks if the user has any of the specified scopes
+func HasAnyScope(c *gin.Context, requiredScopes ...string) bool {
+	scopes, exists := GetScopes(c)
+	if !exists {
+		return false
+	}
+
+	for _, userScope := range scopes {
+		for _, requiredScope := range requiredScopes {
+			if string(userScope) == requiredScope {
+				return true
+			}
+		}
+	}
+	return false
+}

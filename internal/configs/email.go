@@ -1,10 +1,10 @@
 package configs
 
 type Email struct {
-	SMTPHost   string `mapstructure:"smtp_host"`
-	SMTPPort   int    `mapstructure:"smtp_port"`
-	Username   string `mapstructure:"username"`
-	Password   string `mapstructure:"password"`
-	From       string `mapstructure:"from"`
-	AdminEmail string `mapstructure:"admin_email"`
+	SMTPHost   string `yaml:"smtp_host"`
+	SMTPPort   int    `yaml:"smtp_port"`
+	Username   string `yaml:"username"`
+	Password   string `yaml:"password"`
+	From       string `yaml:"from"`
+	AdminEmail string `yaml:"admin_email"`
 }

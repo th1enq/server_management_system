@@ -14,7 +14,7 @@ type Config struct {
 	Server        Server        `yaml:"server"`
 	Database      Database      `yaml:"database"`
 	Cache         Cache         `yaml:"cache"`
-	Logging       Log           `yaml:"logging"`
+	Log           Log           `yaml:"log"`
 	JWT           JWT           `yaml:"jwt"`
 	Cron          Cron          `yaml:"cron"`
 	Elasticsearch ElasticSearch `yaml:"elasticsearch"`

@@ -121,8 +121,8 @@ func (s *reportService) GenerateReport(ctx context.Context, startOfDay, endOfDay
 		return nil, fmt.Errorf("failed to get server stats: %w", err)
 	}
 
-	onlineServer := serverStats["ON"]
-	offlineServer := serverStats["OFF"]
+	onlineServer := serverStats["online"]
+	offlineServer := serverStats["offline"]
 
 	avgUpTime, detail, err := s.calculateAverageUptime(ctx, startOfDay, endOfDay)
 	if err != nil {
@@ -139,6 +139,7 @@ func (s *reportService) GenerateReport(ctx context.Context, startOfDay, endOfDay
 		AvgUptime:    avgUpTime,
 		Detail:       detail,
 	}
+
 	return report, nil
 }
 
@@ -177,6 +178,11 @@ func (s *reportService) calculateServerUpTime(ctx context.Context, serverID *str
 
 	if startTime.After(endTime) {
 		return 0, fmt.Errorf("startTime cannot be after endTime")
+	}
+
+	// Check if Elasticsearch client is available
+	if s.esClient == nil {
+		return 0, fmt.Errorf("elasticsearch client is not available")
 	}
 
 	query := fmt.Sprintf(`{

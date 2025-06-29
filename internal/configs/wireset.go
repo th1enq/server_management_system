@@ -7,7 +7,7 @@ var WireSet = wire.NewSet(
 	wire.FieldsOf(new(Config), "Server"),
 	wire.FieldsOf(new(Config), "Database"),
 	wire.FieldsOf(new(Config), "Cache"),
-	wire.FieldsOf(new(Config), "Logging"),
+	wire.FieldsOf(new(Config), "Log"),
 	wire.FieldsOf(new(Config), "Cron"),
 	wire.FieldsOf(new(Config), "JWT"),
 	wire.FieldsOf(new(Config), "Elasticsearch"),

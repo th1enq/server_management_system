@@ -6,4 +6,5 @@ var WireSet = wire.NewSet(
 	NewReportService,
 	NewServerService,
 	NewUserService,
+	NewAuthService,
 )

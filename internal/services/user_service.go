@@ -11,8 +11,13 @@ import (
 
 type UserService interface {
 	CreateUser(ctx context.Context, user *models.User) error
+	GetUserByID(ctx context.Context, id uint) (*models.User, error)
+	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
 	UpdateUser(ctx context.Context, id uint, updates map[string]interface{}) (*models.User, error)
 	DeleteUser(ctx context.Context, id uint) error
+	ListUsers(ctx context.Context, limit, offset int) ([]*models.User, error)
+	UpdateLastLogin(ctx context.Context, userID uint) error
 }
 
 type userService struct {
@@ -82,13 +87,16 @@ func (u *userService) UpdateUser(ctx context.Context, id uint, updates map[strin
 		switch key {
 		case "role":
 			if role, ok := value.(string); ok {
-				// Validate role
-				if role != string(models.UserRoleAdmin) && role != string(models.UserRoleUser) {
-					return nil, fmt.Errorf("invalid role: %s", role)
+				switch role {
+				case string(models.RoleAdmin):
+					user.Role = models.RoleAdmin
+				case string(models.RoleUser):
+					user.Role = models.RoleUser
+				default:
+					return nil, fmt.Errorf("invalid role value: %s", role)
 				}
-				user.Role = models.UserRole(role)
 			} else {
-				return nil, fmt.Errorf("invalid role value: %v", value)
+				return nil, fmt.Errorf("invalid type: %v", value)
 			}
 		case "password":
 			if password, ok := value.(string); ok && password != "" {
@@ -113,4 +121,49 @@ func (u *userService) UpdateUser(ctx context.Context, id uint, updates map[strin
 	)
 
 	return user, nil
+}
+
+// GetUserByID implements UserService.
+func (u *userService) GetUserByID(ctx context.Context, id uint) (*models.User, error) {
+	user, err := u.userRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by ID: %w", err)
+	}
+	return user, nil
+}
+
+// GetUserByUsername implements UserService.
+func (u *userService) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
+	user, err := u.userRepo.GetByUsername(ctx, username)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by username: %w", err)
+	}
+	return user, nil
+}
+
+// GetUserByEmail implements UserService.
+func (u *userService) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
+	user, err := u.userRepo.GetByEmail(ctx, email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by email: %w", err)
+	}
+	return user, nil
+}
+
+// ListUsers implements UserService.
+func (u *userService) ListUsers(ctx context.Context, limit, offset int) ([]*models.User, error) {
+	users, err := u.userRepo.List(ctx, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list users: %w", err)
+	}
+	return users, nil
+}
+
+// UpdateLastLogin implements UserService.
+func (u *userService) UpdateLastLogin(ctx context.Context, userID uint) error {
+	err := u.userRepo.UpdateLastLogin(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update last login: %w", err)
+	}
+	return nil
 }

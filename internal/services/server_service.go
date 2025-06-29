@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -27,6 +28,8 @@ type ServerService interface {
 	UpdateServerStatus(ctx context.Context, serverID string, status models.ServerStatus) error
 	GetServerStats(ctx context.Context) (map[string]int64, error)
 	GetAllServers(ctx context.Context) ([]models.Server, error)
+	CheckServerStatus(ctx context.Context) error
+	CheckServer(ctx context.Context, server models.Server)
 }
 
 type serverService struct {
@@ -330,10 +333,10 @@ func (s *serverService) GetServerStats(ctx context.Context) (map[string]int64, e
 	stats["total"] = total
 
 	// Count by status
-	onlineCount, _ := s.serverRepo.CountByStatus(ctx, "ON")
+	onlineCount, _ := s.serverRepo.CountByStatus(ctx, models.ServerStatusOn)
 	stats["online"] = onlineCount
 
-	offlineCount, _ := s.serverRepo.CountByStatus(ctx, "OFF")
+	offlineCount, _ := s.serverRepo.CountByStatus(ctx, models.ServerStatusOff)
 	stats["offline"] = offlineCount
 
 	// Store in cache for future requests
@@ -515,4 +518,55 @@ func (s *serverService) invalidateServerCaches(ctx context.Context, server *mode
 	for iter.Next(ctx) {
 		s.redisClient.Del(ctx, iter.Val())
 	}
+}
+
+func (s *serverService) CheckServerStatus(ctx context.Context) error {
+	s.logger.Info("Starting server health check")
+
+	// Get all servers
+	servers, err := s.serverRepo.GetAll(ctx)
+	if err != nil {
+		s.logger.Error("Failed to get servers", zap.Error(err))
+		return err
+	}
+
+	s.logger.Info("Checking servers", zap.Int("count", len(servers)))
+
+	for _, server := range servers {
+		go s.CheckServer(ctx, server)
+	}
+	return nil
+}
+
+func (s *serverService) CheckServer(ctx context.Context, server models.Server) {
+	startTime := time.Now()
+	status := models.ServerStatusOff
+
+	// Try to ping the server
+	if server.IPv4 != "" {
+		timeout := 5 * time.Second // Default timeout since config might not have Monitoring
+		conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:80", server.IPv4), timeout)
+		if err == nil {
+			conn.Close()
+			status = models.ServerStatusOn
+		}
+	}
+
+	if server.Status != status {
+		err := s.serverRepo.UpdateStatus(ctx, server.ServerID, status)
+		if err != nil {
+			s.logger.Error("Failed to update server status",
+				zap.Error(err),
+				zap.String("server_id", server.ServerID),
+				zap.String("status", string(status)),
+			)
+		}
+	}
+
+	responseTime := time.Since(startTime).Milliseconds()
+	s.logger.Info("Server checked",
+		zap.String("server_id", server.ServerID),
+		zap.String("status", string(status)),
+		zap.Int64("response_time", responseTime),
+	)
 }
