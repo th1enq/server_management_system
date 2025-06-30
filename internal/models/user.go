@@ -71,7 +71,6 @@ type User struct {
 	Role      UserRole  `gorm:"default:user" json:"role"`
 	FirstName string    `json:"first_name"`
 	LastName  string    `json:"last_name"`
-	LastLogin time.Time `json:"last_login"`
 	IsActive  bool      `gorm:"default:true" json:"is_active"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`

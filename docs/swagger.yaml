@@ -155,8 +155,6 @@ definitions:
         type: integer
       is_active:
         type: boolean
-      last_login:
-        type: string
       last_name:
         type: string
       role:
@@ -362,6 +360,40 @@ paths:
       security:
       - BearerAuth: []
       summary: Update user profile
+      tags:
+      - auth
+  /api/v1/auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Refresh access token using refresh token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/services.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Refresh JWT token
       tags:
       - auth
   /api/v1/auth/register:
@@ -941,40 +973,6 @@ paths:
       summary: Update user
       tags:
       - users
-  /v1/auth/refresh:
-    post:
-      consumes:
-      - application/json
-      description: Refresh access token using refresh token
-      parameters:
-      - description: Refresh token
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/handler.RefreshTokenRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/services.AuthResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Refresh JWT token
-      tags:
-      - auth
 securityDefinitions:
   BearerAuth:
     description: Type "Bearer" followed by a space and JWT token.

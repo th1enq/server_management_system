@@ -17,7 +17,6 @@ type UserService interface {
 	UpdateUser(ctx context.Context, id uint, updates map[string]interface{}) (*models.User, error)
 	DeleteUser(ctx context.Context, id uint) error
 	ListUsers(ctx context.Context, limit, offset int) ([]*models.User, error)
-	UpdateLastLogin(ctx context.Context, userID uint) error
 }
 
 type userService struct {
@@ -157,13 +156,4 @@ func (u *userService) ListUsers(ctx context.Context, limit, offset int) ([]*mode
 		return nil, fmt.Errorf("failed to list users: %w", err)
 	}
 	return users, nil
-}
-
-// UpdateLastLogin implements UserService.
-func (u *userService) UpdateLastLogin(ctx context.Context, userID uint) error {
-	err := u.userRepo.UpdateLastLogin(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("failed to update last login: %w", err)
-	}
-	return nil
 }

@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -310,42 +309,6 @@ func (suite *UserRepositorySuite) TestListEmpty() {
 	foundUsers, err := suite.repo.List(suite.T().Context(), 10, 0)
 	assert.NoError(suite.T(), err)
 	assert.Len(suite.T(), foundUsers, 0)
-}
-
-func (suite *UserRepositorySuite) TestUpdateLastLogin() {
-	// Create a test user
-	user := &models.User{
-		Username:  "testlogin",
-		Password:  "password123",
-		Email:     "testlogin@example.com",
-		FirstName: "Test",
-		LastName:  "Login",
-		Role:      models.RoleUser,
-		IsActive:  true,
-	}
-
-	err := suite.repo.Create(suite.T().Context(), user)
-	assert.NoError(suite.T(), err)
-
-	// Store the original last login time
-	originalLastLogin := user.LastLogin
-
-	// Update last login
-	err = suite.repo.UpdateLastLogin(suite.T().Context(), user.ID)
-	assert.NoError(suite.T(), err)
-
-	// Verify the last login was updated
-	updatedUser, err := suite.repo.GetByID(suite.T().Context(), user.ID)
-	assert.NoError(suite.T(), err)
-
-	// The last login should have been updated (won't be zero time)
-	assert.False(suite.T(), updatedUser.LastLogin.Equal(originalLastLogin))
-	assert.True(suite.T(), updatedUser.LastLogin.After(time.Now().Add(-time.Minute)))
-}
-
-func (suite *UserRepositorySuite) TestUpdateLastLoginNonExistentUser() {
-	err := suite.repo.UpdateLastLogin(suite.T().Context(), 999)
-	assert.NoError(suite.T(), err) // GORM doesn't return error for UPDATE on non-existent record
 }
 
 // TestUserRepositorySuite runs the test suite

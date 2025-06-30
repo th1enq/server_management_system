@@ -1264,44 +1264,6 @@ func TestServerService_GetAllServers_Success_FromCache(t *testing.T) {
 	// No repo calls should be made since we're getting from cache
 }
 
-// Test Redis cache functionality for ListServers
-func TestServerService_ListServers_Success_FromCache(t *testing.T) {
-	mockRepo, redisClient, logger := createTestServerService()
-
-	serverSrv := &serverService{
-		serverRepo:  mockRepo,
-		redisClient: redisClient,
-		logger:      logger,
-	}
-
-	ctx := context.Background()
-
-	filter := models.ServerFilter{Status: "ON"}
-	pagination := models.Pagination{Page: 1, PageSize: 10}
-
-	response := &models.ServerListResponse{
-		Total: 2,
-		Servers: []models.Server{
-			{ID: 1, ServerID: "test-001", ServerName: "Server 1"},
-		},
-		Page: 1,
-		Size: 10,
-	}
-
-	// Prepare cache data
-	cacheKey := fmt.Sprintf("servers:list:%v:%d:%d", filter, pagination.Page, pagination.PageSize)
-	responseJSON, _ := json.Marshal(response)
-	redisClient.Set(ctx, cacheKey, responseJSON, 5*time.Minute)
-
-	// Test
-	result, err := serverSrv.ListServers(ctx, filter, pagination)
-
-	// Assertions
-	assert.NoError(t, err)
-	assert.Equal(t, response, result)
-	// No repo calls should be made since we're getting from cache
-}
-
 // Test UpdateServer with different field types
 func TestServerService_UpdateServer_AllFields(t *testing.T) {
 	mockRepo, redisClient, logger := createTestServerService()

@@ -116,7 +116,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 // @Success 200 {object} services.AuthResponse
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
-// @Router /v1/auth/refresh [post]
+// @Router /api/v1/auth/refresh [post]
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	var req RefreshTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/th1enq/server_management_system/internal/configs"
 	"github.com/th1enq/server_management_system/internal/models"
 	"go.uber.org/zap"
 )
@@ -17,6 +16,7 @@ type AuthService interface {
 	ValidateToken(tokenString string) (*Claims, error)
 	RefreshToken(ctx context.Context, refreshToken string) (*AuthResponse, error)
 	Logout(ctx context.Context, userID uint) error
+	LogoutWithToken(ctx context.Context, token string) error
 }
 
 type AuthResponse struct {
@@ -29,25 +29,26 @@ type AuthResponse struct {
 }
 
 type Claims struct {
-	UserID   uint              `json:"user_id"`
-	Username string            `json:"username"`
-	Email    string            `json:"email"`
-	Role     models.UserRole   `json:"role"`
-	Scopes   []models.APIScope `json:"scopes"`
+	UserID    uint              `json:"user_id"`
+	Username  string            `json:"username"`
+	Email     string            `json:"email"`
+	Role      models.UserRole   `json:"role"`
+	Scopes    []models.APIScope `json:"scopes"`
+	TokenType string            `json:"token_type"`
 	jwt.RegisteredClaims
 }
 
 type authService struct {
-	userService UserService
-	jwtConfig   configs.JWT
-	logger      *zap.Logger
+	userService  UserService
+	tokenService TokenService
+	logger       *zap.Logger
 }
 
-func NewAuthService(userService UserService, jwtConfig configs.JWT, logger *zap.Logger) AuthService {
+func NewAuthService(userService UserService, tokenService TokenService, logger *zap.Logger) AuthService {
 	return &authService{
-		userService: userService,
-		jwtConfig:   jwtConfig,
-		logger:      logger,
+		userService:  userService,
+		tokenService: tokenService,
+		logger:       logger,
 	}
 }
 
@@ -72,22 +73,28 @@ func (a *authService) Login(ctx context.Context, username, password string) (*Au
 		return nil, fmt.Errorf("invalid credentials")
 	}
 
-	// Update last login
-	if err := a.userService.UpdateLastLogin(ctx, user.ID); err != nil {
-		a.logger.Error("Failed to update last login", zap.Uint("user_id", user.ID), zap.Error(err))
-	}
-
 	// Generate tokens
-	accessToken, err := a.generateAccessToken(user)
+	accessToken, err := a.tokenService.GenerateAccessToken(user)
 	if err != nil {
 		a.logger.Error("Failed to generate access token", zap.Uint("user_id", user.ID), zap.Error(err))
 		return nil, fmt.Errorf("failed to generate token")
 	}
 
-	refreshToken, err := a.generateRefreshToken(user)
+	refreshToken, err := a.tokenService.GenerateRefreshToken(user)
 	if err != nil {
 		a.logger.Error("Failed to generate refresh token", zap.Uint("user_id", user.ID), zap.Error(err))
 		return nil, fmt.Errorf("failed to generate token")
+	}
+
+	// Add tokens to Redis whitelist
+	if err := a.tokenService.AddTokenToWhitelist(ctx, accessToken, time.Hour*24); err != nil {
+		a.logger.Error("Failed to add access token to whitelist", zap.Error(err))
+		return nil, fmt.Errorf("failed to whitelist token")
+	}
+
+	if err := a.tokenService.AddTokenToWhitelist(ctx, refreshToken, time.Hour*24*7); err != nil {
+		a.logger.Error("Failed to add refresh token to whitelist", zap.Error(err))
+		return nil, fmt.Errorf("failed to whitelist token")
 	}
 
 	a.logger.Info("User logged in successfully", zap.String("username", username), zap.Uint("user_id", user.ID))
@@ -103,7 +110,7 @@ func (a *authService) Login(ctx context.Context, username, password string) (*Au
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		TokenType:    "Bearer",
-		ExpiresIn:    int64(a.jwtConfig.Expiration.Seconds()),
+		ExpiresIn:    int64(24 * 60 * 60), // 24 hours in seconds
 		User:         user,
 		Scopes:       scopeStrings,
 	}, nil
@@ -111,42 +118,40 @@ func (a *authService) Login(ctx context.Context, username, password string) (*Au
 
 // Register implements AuthService.
 func (a *authService) Register(ctx context.Context, user *models.User) (*AuthResponse, error) {
-	// Set default values
-	if user.Role == "" {
-		user.Role = models.RoleUser
-	}
-	user.IsActive = true
-
 	// Create user
 	if err := a.userService.CreateUser(ctx, user); err != nil {
 		a.logger.Error("Failed to create user", zap.String("username", user.Username), zap.Error(err))
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	// Get the created user (to get the ID)
-	createdUser, err := a.userService.GetUserByUsername(ctx, user.Username)
-	if err != nil {
-		a.logger.Error("Failed to get created user", zap.String("username", user.Username), zap.Error(err))
-		return nil, fmt.Errorf("failed to get created user")
-	}
-
 	// Generate tokens
-	accessToken, err := a.generateAccessToken(createdUser)
+	accessToken, err := a.tokenService.GenerateAccessToken(user)
 	if err != nil {
-		a.logger.Error("Failed to generate access token", zap.Uint("user_id", createdUser.ID), zap.Error(err))
+		a.logger.Error("Failed to generate access token", zap.Uint("user_id", user.ID), zap.Error(err))
 		return nil, fmt.Errorf("failed to generate token")
 	}
 
-	refreshToken, err := a.generateRefreshToken(createdUser)
+	refreshToken, err := a.tokenService.GenerateRefreshToken(user)
 	if err != nil {
-		a.logger.Error("Failed to generate refresh token", zap.Uint("user_id", createdUser.ID), zap.Error(err))
+		a.logger.Error("Failed to generate refresh token", zap.Uint("user_id", user.ID), zap.Error(err))
 		return nil, fmt.Errorf("failed to generate token")
 	}
 
-	a.logger.Info("User registered successfully", zap.String("username", user.Username), zap.Uint("user_id", createdUser.ID))
+	// Add tokens to Redis whitelist
+	if err := a.tokenService.AddTokenToWhitelist(ctx, accessToken, time.Hour*24); err != nil {
+		a.logger.Error("Failed to add access token to whitelist", zap.Error(err))
+		return nil, fmt.Errorf("failed to whitelist token")
+	}
+
+	if err := a.tokenService.AddTokenToWhitelist(ctx, refreshToken, time.Hour*24*7); err != nil {
+		a.logger.Error("Failed to add refresh token to whitelist", zap.Error(err))
+		return nil, fmt.Errorf("failed to whitelist token")
+	}
+
+	a.logger.Info("User registered successfully", zap.String("username", user.Username), zap.Uint("user_id", user.ID))
 
 	// Get user scopes
-	userScopes := models.GetDefaultScopes(createdUser.Role)
+	userScopes := models.GetDefaultScopes(user.Role)
 	scopeStrings := make([]string, len(userScopes))
 	for i, scope := range userScopes {
 		scopeStrings[i] = string(scope)
@@ -156,30 +161,15 @@ func (a *authService) Register(ctx context.Context, user *models.User) (*AuthRes
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		TokenType:    "Bearer",
-		ExpiresIn:    int64(a.jwtConfig.Expiration.Seconds()),
-		User:         createdUser,
+		ExpiresIn:    int64(24 * 60 * 60), // 24 hours in seconds
+		User:         user,
 		Scopes:       scopeStrings,
 	}, nil
 }
 
 // ValidateToken implements AuthService.
 func (a *authService) ValidateToken(tokenString string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return []byte(a.jwtConfig.Secret), nil
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("invalid token: %w", err)
-	}
-
-	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
-		return claims, nil
-	}
-
-	return nil, fmt.Errorf("invalid token claims")
+	return a.tokenService.ValidateToken(tokenString)
 }
 
 // RefreshToken implements AuthService.
@@ -188,6 +178,10 @@ func (a *authService) RefreshToken(ctx context.Context, refreshToken string) (*A
 	claims, err := a.ValidateToken(refreshToken)
 	if err != nil {
 		return nil, fmt.Errorf("invalid refresh token: %w", err)
+	}
+
+	if claims.TokenType != "refresh" {
+		return nil, fmt.Errorf("invalid refresh token")
 	}
 
 	// Get user
@@ -202,15 +196,29 @@ func (a *authService) RefreshToken(ctx context.Context, refreshToken string) (*A
 	}
 
 	// Generate new tokens
-	newAccessToken, err := a.generateAccessToken(user)
+	newAccessToken, err := a.tokenService.GenerateAccessToken(user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token")
 	}
 
-	newRefreshToken, err := a.generateRefreshToken(user)
+	newRefreshToken, err := a.tokenService.GenerateRefreshToken(user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token")
 	}
+
+	// Add new tokens to whitelist and remove old refresh token
+	if err := a.tokenService.AddTokenToWhitelist(ctx, newAccessToken, time.Hour*24); err != nil {
+		a.logger.Error("Failed to add new access token to whitelist", zap.Error(err))
+		return nil, fmt.Errorf("failed to whitelist token")
+	}
+
+	if err := a.tokenService.AddTokenToWhitelist(ctx, newRefreshToken, time.Hour*24*7); err != nil {
+		a.logger.Error("Failed to add new refresh token to whitelist", zap.Error(err))
+		return nil, fmt.Errorf("failed to whitelist token")
+	}
+
+	// Remove old refresh token from whitelist
+	a.tokenService.RemoveTokenFromWhitelist(ctx, refreshToken)
 
 	// Get user scopes
 	userScopes := models.GetDefaultScopes(user.Role)
@@ -223,7 +231,7 @@ func (a *authService) RefreshToken(ctx context.Context, refreshToken string) (*A
 		AccessToken:  newAccessToken,
 		RefreshToken: newRefreshToken,
 		TokenType:    "Bearer",
-		ExpiresIn:    int64(a.jwtConfig.Expiration.Seconds()),
+		ExpiresIn:    int64(24 * 60 * 60), // 24 hours in seconds
 		User:         user,
 		Scopes:       scopeStrings,
 	}, nil
@@ -231,52 +239,23 @@ func (a *authService) RefreshToken(ctx context.Context, refreshToken string) (*A
 
 // Logout implements AuthService.
 func (a *authService) Logout(ctx context.Context, userID uint) error {
-	// In a real implementation, you might want to blacklist the token
-	// For now, we'll just log the logout
+	// Remove all user tokens from whitelist
+	a.tokenService.RemoveUserTokensFromWhitelist(ctx, userID)
 	a.logger.Info("User logged out", zap.Uint("user_id", userID))
 	return nil
 }
 
-// generateAccessToken generates a JWT access token for the user
-func (a *authService) generateAccessToken(user *models.User) (string, error) {
-	userScopes := models.GetDefaultScopes(user.Role)
-	claims := &Claims{
-		UserID:   user.ID,
-		Username: user.Username,
-		Email:    user.Email,
-		Role:     user.Role,
-		Scopes:   userScopes,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(a.jwtConfig.Expiration)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-			Issuer:    "server_management_system",
-			Subject:   fmt.Sprintf("%d", user.ID),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(a.jwtConfig.Secret))
+// LogoutWithToken implements AuthService - logout using specific token
+func (a *authService) LogoutWithToken(ctx context.Context, token string) error {
+	// Remove the specific token from whitelist
+	a.tokenService.RemoveTokenFromWhitelist(ctx, token)
+	a.logger.Info("Token revoked during logout", zap.String("token_prefix", token[:min(20, len(token))]))
+	return nil
 }
 
-// generateRefreshToken generates a JWT refresh token for the user
-func (a *authService) generateRefreshToken(user *models.User) (string, error) {
-	userScopes := models.GetDefaultScopes(user.Role)
-	claims := &Claims{
-		UserID:   user.ID,
-		Username: user.Username,
-		Email:    user.Email,
-		Role:     user.Role,
-		Scopes:   userScopes,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(a.jwtConfig.Expiration * 7)), // 7x longer than access token
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-			Issuer:    "server_management_system",
-			Subject:   fmt.Sprintf("%d", user.ID),
-		},
+func min(a, b int) int {
+	if a < b {
+		return a
 	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(a.jwtConfig.Secret))
+	return b
 }

@@ -69,11 +69,6 @@ func (m *MockUserService) ListUsers(ctx context.Context, limit, offset int) ([]*
 	return args.Get(0).([]*models.User), args.Error(1)
 }
 
-func (m *MockUserService) UpdateLastLogin(ctx context.Context, userID uint) error {
-	args := m.Called(ctx, userID)
-	return args.Error(0)
-}
-
 func createTestAuthService() (*authService, *MockUserService) {
 	mockUserService := &MockUserService{}
 	jwtConfig := configs.JWT{
@@ -106,7 +101,6 @@ func TestAuthService_Login_Success(t *testing.T) {
 	user.SetPassword("password123")
 
 	mockUserService.On("GetUserByUsername", ctx, "testuser").Return(user, nil)
-	mockUserService.On("UpdateLastLogin", ctx, uint(1)).Return(nil)
 
 	// Test
 	result, err := authSrv.Login(ctx, "testuser", "password123")

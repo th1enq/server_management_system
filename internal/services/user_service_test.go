@@ -63,11 +63,6 @@ func (m *MockUserRepository) List(ctx context.Context, limit, offset int) ([]*mo
 	return args.Get(0).([]*models.User), args.Error(1)
 }
 
-func (m *MockUserRepository) UpdateLastLogin(ctx context.Context, userID uint) error {
-	args := m.Called(ctx, userID)
-	return args.Error(0)
-}
-
 func createTestUserService() (*userService, *MockUserRepository) {
 	mockRepo := &MockUserRepository{}
 	logger := zap.NewNop()
@@ -647,34 +642,5 @@ func TestUserService_ListUsers_RepositoryError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, users)
 	assert.Contains(t, err.Error(), "failed to list users")
-	mockRepo.AssertExpectations(t)
-}
-
-func TestUserService_UpdateLastLogin_Success(t *testing.T) {
-	userSrv, mockRepo := createTestUserService()
-	ctx := context.Background()
-
-	mockRepo.On("UpdateLastLogin", ctx, uint(1)).Return(nil)
-
-	// Test
-	err := userSrv.UpdateLastLogin(ctx, 1)
-
-	// Assertions
-	assert.NoError(t, err)
-	mockRepo.AssertExpectations(t)
-}
-
-func TestUserService_UpdateLastLogin_RepositoryError(t *testing.T) {
-	userSrv, mockRepo := createTestUserService()
-	ctx := context.Background()
-
-	mockRepo.On("UpdateLastLogin", ctx, uint(1)).Return(errors.New("database error"))
-
-	// Test
-	err := userSrv.UpdateLastLogin(ctx, 1)
-
-	// Assertions
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to update last login")
 	mockRepo.AssertExpectations(t)
 }

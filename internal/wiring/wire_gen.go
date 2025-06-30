@@ -75,7 +75,8 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Stand
 	userRepository := repositories.NewUserRepository(db)
 	userService := services.NewUserService(userRepository, logger)
 	jwt := config.JWT
-	authService := services.NewAuthService(userService, jwt, logger)
+	tokenService := services.NewTokenService(jwt, logger, client)
+	authService := services.NewAuthService(userService, tokenService, logger)
 	authHandler := handler.NewAuthHandler(authService, userService, logger)
 	authMiddleware := middleware.NewAuthMiddleware(authService, logger)
 	httpHandler := http.NewHandler(serverHandler, reportHandler, authHandler, authMiddleware)

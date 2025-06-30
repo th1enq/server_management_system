@@ -349,20 +349,6 @@ func (s *serverService) GetServerStats(ctx context.Context) (map[string]int64, e
 
 // ListServers implements ServerService.
 func (s *serverService) ListServers(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) (*models.ServerListResponse, error) {
-	// Generate cache key based on filter and pagination
-	cacheKey := fmt.Sprintf("servers:list:%v:%d:%d", filter, pagination.Page, pagination.PageSize)
-
-	// Try to get from cache
-	responseJSON, err := s.redisClient.Get(ctx, cacheKey).Result()
-	if err == nil {
-		// Cache hit
-		var response models.ServerListResponse
-		if err := json.Unmarshal([]byte(responseJSON), &response); err == nil {
-			return &response, nil
-		}
-	}
-
-	// Cache miss, get from database
 	servers, total, err := s.serverRepo.List(ctx, filter, pagination)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list servers: %w", err)
@@ -373,11 +359,6 @@ func (s *serverService) ListServers(ctx context.Context, filter models.ServerFil
 		Servers: servers,
 		Page:    pagination.Page,
 		Size:    pagination.PageSize,
-	}
-
-	// Store in cache for future requests
-	if responseJSON, err := json.Marshal(response); err == nil {
-		s.redisClient.Set(ctx, cacheKey, responseJSON, 5*time.Minute)
 	}
 
 	return response, nil
@@ -511,13 +492,6 @@ func (s *serverService) invalidateServerCaches(ctx context.Context, server *mode
 
 	// Delete stats cache
 	s.redisClient.Del(ctx, "server:stats")
-
-	// Delete list caches - using pattern matching
-	pattern := "servers:list:*"
-	iter := s.redisClient.Scan(ctx, 0, pattern, 0).Iterator()
-	for iter.Next(ctx) {
-		s.redisClient.Del(ctx, iter.Val())
-	}
 }
 
 func (s *serverService) CheckServerStatus(ctx context.Context) error {

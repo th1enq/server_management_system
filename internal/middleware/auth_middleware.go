@@ -39,6 +39,12 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		if claims.TokenType != "access" {
+			m.logger.Warn("Invalid token type", zap.String("token_type", claims.TokenType))
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token type"})
+			c.Abort()
+			return
+		}
 
 		// Store user info in context
 		c.Set("user_id", claims.UserID)
@@ -209,80 +215,4 @@ func GetUserID(c *gin.Context) (uint, bool) {
 
 	id, ok := userID.(uint)
 	return id, ok
-}
-
-// GetUsername extracts username from gin context
-func GetUsername(c *gin.Context) (string, bool) {
-	username, exists := c.Get("username")
-	if !exists {
-		return "", false
-	}
-
-	name, ok := username.(string)
-	return name, ok
-}
-
-// GetUserRole extracts user role from gin context
-func GetUserRole(c *gin.Context) (string, bool) {
-	role, exists := c.Get("role")
-	if !exists {
-		return "", false
-	}
-
-	userRole, ok := role.(string)
-	return userRole, ok
-}
-
-// GetClaims extracts JWT claims from gin context
-func GetClaims(c *gin.Context) (*services.Claims, bool) {
-	claims, exists := c.Get("claims")
-	if !exists {
-		return nil, false
-	}
-
-	userClaims, ok := claims.(*services.Claims)
-	return userClaims, ok
-}
-
-// GetScopes extracts user scopes from gin context
-func GetScopes(c *gin.Context) ([]models.APIScope, bool) {
-	scopes, exists := c.Get("scopes")
-	if !exists {
-		return nil, false
-	}
-
-	userScopes, ok := scopes.([]models.APIScope)
-	return userScopes, ok
-}
-
-// HasScope checks if the user has a specific scope
-func HasScope(c *gin.Context, requiredScope string) bool {
-	scopes, exists := GetScopes(c)
-	if !exists {
-		return false
-	}
-
-	for _, scope := range scopes {
-		if string(scope) == requiredScope {
-			return true
-		}
-	}
-	return false
-}
-
-// HasAnyScope checks if the user has any of the specified scopes
-func HasAnyScope(c *gin.Context, requiredScopes ...string) bool {
-	scopes, exists := GetScopes(c)
-	if !exists {
-		return false
-	}
-
-	for _, userScope := range scopes {
-		for _, requiredScope := range requiredScopes {
-			if string(userScope) == requiredScope {
-				return true
-			}
-		}
-	}
-	return false
 }

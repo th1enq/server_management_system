@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"time"
 
 	"github.com/th1enq/server_management_system/internal/models"
 	"gorm.io/gorm"
@@ -16,7 +15,6 @@ type UserRepository interface {
 	Update(ctx context.Context, user *models.User) error
 	Delete(ctx context.Context, id uint) error
 	List(ctx context.Context, limit, offset int) ([]*models.User, error)
-	UpdateLastLogin(ctx context.Context, userID uint) error
 }
 
 type userRepository struct {
@@ -85,9 +83,4 @@ func (u *userRepository) List(ctx context.Context, limit, offset int) ([]*models
 // Update implements UserRepository.
 func (u *userRepository) Update(ctx context.Context, user *models.User) error {
 	return u.db.WithContext(ctx).Save(user).Error
-}
-
-// UpdateLastLogin implements UserRepository.
-func (u *userRepository) UpdateLastLogin(ctx context.Context, userID uint) error {
-	return u.db.WithContext(ctx).Model(&models.User{}).Where("id = ?", userID).Update("last_login", time.Now()).Error
 }
