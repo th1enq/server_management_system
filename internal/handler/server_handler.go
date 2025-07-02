@@ -170,6 +170,7 @@ func (h *ServerHandler) UpdateServer(c *gin.Context) {
 			"Invalid request body",
 			err.Error(),
 		))
+		return
 	}
 	server, err := h.serverSrv.UpdateServer(c.Request.Context(), uint(id), updateInfo)
 	if err != nil {

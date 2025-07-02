@@ -401,6 +401,159 @@ func TestUserService_UpdateUser_Success_PasswordUpdate(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
+func TestUserService_UpdateUser_Success_UsernameUpdate(t *testing.T) {
+	userSrv, mockRepo := createTestUserService()
+	ctx := context.Background()
+
+	user := &models.User{
+		ID:       1,
+		Username: "testuser",
+		Email:    "test@example.com",
+		Role:     models.RoleUser,
+	}
+
+	updates := map[string]interface{}{
+		"username": "newusername",
+	}
+
+	mockRepo.On("GetByID", ctx, uint(1)).Return(user, nil)
+	mockRepo.On("GetByUsername", ctx, "newusername").Return(nil, errors.New("user not found"))
+	mockRepo.On("Update", ctx, mock.AnythingOfType("*models.User")).Return(nil)
+
+	// Test
+	updatedUser, err := userSrv.UpdateUser(ctx, 1, updates)
+
+	// Assertions
+	assert.NoError(t, err)
+	assert.NotNil(t, updatedUser)
+	assert.Equal(t, "newusername", updatedUser.Username)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUserService_UpdateUser_Success_EmailUpdate(t *testing.T) {
+	userSrv, mockRepo := createTestUserService()
+	ctx := context.Background()
+
+	user := &models.User{
+		ID:       1,
+		Username: "testuser",
+		Email:    "test@example.com",
+		Role:     models.RoleUser,
+	}
+
+	updates := map[string]interface{}{
+		"email": "newemail@example.com",
+	}
+
+	mockRepo.On("GetByID", ctx, uint(1)).Return(user, nil)
+	mockRepo.On("GetByEmail", ctx, "newemail@example.com").Return(nil, errors.New("user not found"))
+	mockRepo.On("Update", ctx, mock.AnythingOfType("*models.User")).Return(nil)
+
+	// Test
+	updatedUser, err := userSrv.UpdateUser(ctx, 1, updates)
+
+	// Assertions
+	assert.NoError(t, err)
+	assert.NotNil(t, updatedUser)
+	assert.Equal(t, "newemail@example.com", updatedUser.Email)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUserService_UpdateUser_EmailAlreadyExists(t *testing.T) {
+	userSrv, mockRepo := createTestUserService()
+	ctx := context.Background()
+
+	user := &models.User{
+		ID:       1,
+		Username: "testuser",
+		Email:    "test@example.com",
+		Role:     models.RoleUser,
+	}
+
+	existingUser := &models.User{
+		ID:       2, // Different user ID
+		Username: "anotheruser",
+		Email:    "newemail@example.com",
+	}
+
+	updates := map[string]interface{}{
+		"email": "newemail@example.com",
+	}
+
+	mockRepo.On("GetByID", ctx, uint(1)).Return(user, nil)
+	mockRepo.On("GetByEmail", ctx, "newemail@example.com").Return(existingUser, nil)
+
+	// Test
+	updatedUser, err := userSrv.UpdateUser(ctx, 1, updates)
+
+	// Assertions
+	assert.Error(t, err)
+	assert.Nil(t, updatedUser)
+	assert.Contains(t, err.Error(), "email already exists")
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUserService_UpdateUser_UsernameAlreadyExists(t *testing.T) {
+	userSrv, mockRepo := createTestUserService()
+	ctx := context.Background()
+
+	user := &models.User{
+		ID:       1,
+		Username: "testuser",
+		Email:    "test@example.com",
+		Role:     models.RoleUser,
+	}
+
+	existingUser := &models.User{
+		ID:       2, // Different user ID
+		Username: "newusername",
+		Email:    "another@example.com",
+	}
+
+	updates := map[string]interface{}{
+		"username": "newusername",
+	}
+
+	mockRepo.On("GetByID", ctx, uint(1)).Return(user, nil)
+	mockRepo.On("GetByUsername", ctx, "newusername").Return(existingUser, nil)
+
+	// Test
+	updatedUser, err := userSrv.UpdateUser(ctx, 1, updates)
+
+	// Assertions
+	assert.Error(t, err)
+	assert.Nil(t, updatedUser)
+	assert.Contains(t, err.Error(), "username already exists")
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUserService_UpdateUser_InvalidUsername(t *testing.T) {
+	userSrv, mockRepo := createTestUserService()
+	ctx := context.Background()
+
+	user := &models.User{
+		ID:       1,
+		Username: "testuser",
+		Email:    "test@example.com",
+		Role:     models.RoleUser,
+	}
+
+	updates := map[string]interface{}{
+		"username": 123, // Invalid type
+	}
+
+	mockRepo.On("GetByID", ctx, uint(1)).Return(user, nil)
+
+	// Test
+	updatedUser, err := userSrv.UpdateUser(ctx, 1, updates)
+
+	// Assertions
+	assert.Error(t, err)
+	assert.Nil(t, updatedUser)
+	assert.Contains(t, err.Error(), "invalid username value")
+	mockRepo.AssertExpectations(t)
+}
+
 func TestUserService_UpdateUser_InvalidPassword(t *testing.T) {
 	userSrv, mockRepo := createTestUserService()
 	ctx := context.Background()
@@ -642,5 +795,203 @@ func TestUserService_ListUsers_RepositoryError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, users)
 	assert.Contains(t, err.Error(), "failed to list users")
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUserService_UpdateUser_InvalidEmail(t *testing.T) {
+	userSrv, mockRepo := createTestUserService()
+	ctx := context.Background()
+
+	user := &models.User{
+		ID:       1,
+		Username: "testuser",
+		Email:    "test@example.com",
+		Role:     models.RoleUser,
+	}
+
+	updates := map[string]interface{}{
+		"email": 123, // Invalid type
+	}
+
+	mockRepo.On("GetByID", ctx, uint(1)).Return(user, nil)
+
+	// Test
+	updatedUser, err := userSrv.UpdateUser(ctx, 1, updates)
+
+	// Assertions
+	assert.Error(t, err)
+	assert.Nil(t, updatedUser)
+	assert.Contains(t, err.Error(), "invalid email value")
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUserService_UpdateUser_Success_FirstNameUpdate(t *testing.T) {
+	userSrv, mockRepo := createTestUserService()
+	ctx := context.Background()
+
+	user := &models.User{
+		ID:        1,
+		Username:  "testuser",
+		Email:     "test@example.com",
+		Role:      models.RoleUser,
+		FirstName: "John",
+	}
+
+	updates := map[string]interface{}{
+		"first_name": "Robert",
+	}
+
+	mockRepo.On("GetByID", ctx, uint(1)).Return(user, nil)
+	mockRepo.On("Update", ctx, mock.AnythingOfType("*models.User")).Return(nil)
+
+	// Test
+	updatedUser, err := userSrv.UpdateUser(ctx, 1, updates)
+
+	// Assertions
+	assert.NoError(t, err)
+	assert.NotNil(t, updatedUser)
+	assert.Equal(t, "Robert", updatedUser.FirstName)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUserService_UpdateUser_InvalidFirstName(t *testing.T) {
+	userSrv, mockRepo := createTestUserService()
+	ctx := context.Background()
+
+	user := &models.User{
+		ID:        1,
+		Username:  "testuser",
+		Email:     "test@example.com",
+		Role:      models.RoleUser,
+		FirstName: "John",
+	}
+
+	updates := map[string]interface{}{
+		"first_name": 123, // Invalid type
+	}
+
+	mockRepo.On("GetByID", ctx, uint(1)).Return(user, nil)
+
+	// Test
+	updatedUser, err := userSrv.UpdateUser(ctx, 1, updates)
+
+	// Assertions
+	assert.Error(t, err)
+	assert.Nil(t, updatedUser)
+	assert.Contains(t, err.Error(), "invalid first_name value")
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUserService_UpdateUser_Success_LastNameUpdate(t *testing.T) {
+	userSrv, mockRepo := createTestUserService()
+	ctx := context.Background()
+
+	user := &models.User{
+		ID:       1,
+		Username: "testuser",
+		Email:    "test@example.com",
+		Role:     models.RoleUser,
+		LastName: "Smith",
+	}
+
+	updates := map[string]interface{}{
+		"last_name": "Johnson",
+	}
+
+	mockRepo.On("GetByID", ctx, uint(1)).Return(user, nil)
+	mockRepo.On("Update", ctx, mock.AnythingOfType("*models.User")).Return(nil)
+
+	// Test
+	updatedUser, err := userSrv.UpdateUser(ctx, 1, updates)
+
+	// Assertions
+	assert.NoError(t, err)
+	assert.NotNil(t, updatedUser)
+	assert.Equal(t, "Johnson", updatedUser.LastName)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUserService_UpdateUser_InvalidLastName(t *testing.T) {
+	userSrv, mockRepo := createTestUserService()
+	ctx := context.Background()
+
+	user := &models.User{
+		ID:       1,
+		Username: "testuser",
+		Email:    "test@example.com",
+		Role:     models.RoleUser,
+		LastName: "Smith",
+	}
+
+	updates := map[string]interface{}{
+		"last_name": 123, // Invalid type
+	}
+
+	mockRepo.On("GetByID", ctx, uint(1)).Return(user, nil)
+
+	// Test
+	updatedUser, err := userSrv.UpdateUser(ctx, 1, updates)
+
+	// Assertions
+	assert.Error(t, err)
+	assert.Nil(t, updatedUser)
+	assert.Contains(t, err.Error(), "invalid last_name value")
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUserService_UpdateUser_Success_IsActiveUpdate(t *testing.T) {
+	userSrv, mockRepo := createTestUserService()
+	ctx := context.Background()
+
+	user := &models.User{
+		ID:       1,
+		Username: "testuser",
+		Email:    "test@example.com",
+		Role:     models.RoleUser,
+		IsActive: true,
+	}
+
+	updates := map[string]interface{}{
+		"is_active": false,
+	}
+
+	mockRepo.On("GetByID", ctx, uint(1)).Return(user, nil)
+	mockRepo.On("Update", ctx, mock.AnythingOfType("*models.User")).Return(nil)
+
+	// Test
+	updatedUser, err := userSrv.UpdateUser(ctx, 1, updates)
+
+	// Assertions
+	assert.NoError(t, err)
+	assert.NotNil(t, updatedUser)
+	assert.False(t, updatedUser.IsActive)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUserService_UpdateUser_InvalidIsActive(t *testing.T) {
+	userSrv, mockRepo := createTestUserService()
+	ctx := context.Background()
+
+	user := &models.User{
+		ID:       1,
+		Username: "testuser",
+		Email:    "test@example.com",
+		Role:     models.RoleUser,
+		IsActive: true,
+	}
+
+	updates := map[string]interface{}{
+		"is_active": "false", // Invalid type, should be boolean
+	}
+
+	mockRepo.On("GetByID", ctx, uint(1)).Return(user, nil)
+
+	// Test
+	updatedUser, err := userSrv.UpdateUser(ctx, 1, updates)
+
+	// Assertions
+	assert.Error(t, err)
+	assert.Nil(t, updatedUser)
+	assert.Contains(t, err.Error(), "invalid is_active value")
 	mockRepo.AssertExpectations(t)
 }

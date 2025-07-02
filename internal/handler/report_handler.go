@@ -96,7 +96,7 @@ func (h *ReportHandler) SendReportByDate(c *gin.Context) {
 		return
 	}
 
-	endDate, err := time.ParseInLocation("2006-01-02 15:04:05 ", req.EndDate, loc)
+	endDate, err := time.ParseInLocation("2006-01-02 15:04:05", req.EndDate, loc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
 			models.CodeBadRequest,

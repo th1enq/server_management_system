@@ -6,10 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/th1enq/server_management_system/internal/configs"
 	"github.com/th1enq/server_management_system/internal/models"
 	"go.uber.org/zap"
 )
@@ -69,20 +67,61 @@ func (m *MockUserService) ListUsers(ctx context.Context, limit, offset int) ([]*
 	return args.Get(0).([]*models.User), args.Error(1)
 }
 
-func createTestAuthService() (*authService, *MockUserService) {
+type MockTokenService struct {
+	mock.Mock
+}
+
+func (m *MockTokenService) GenerateAccessToken(user *models.User) (string, error) {
+	args := m.Called(user)
+	return args.String(0), args.Error(1)
+}
+func (m *MockTokenService) GenerateRefreshToken(user *models.User) (string, error) {
+	args := m.Called(user)
+	return args.String(0), args.Error(1)
+}
+func (m *MockTokenService) ValidateToken(tokenString string) (*Claims, error) {
+	args := m.Called(tokenString)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*Claims), args.Error(1)
+}
+func (m *MockTokenService) ParseTokenClaims(tokenString string) (*Claims, error) {
+	args := m.Called(tokenString)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*Claims), args.Error(1)
+}
+func (m *MockTokenService) AddTokenToWhitelist(ctx context.Context, token string, expiration time.Duration) error {
+	args := m.Called(ctx, token, expiration)
+	return args.Error(0)
+}
+func (m *MockTokenService) IsTokenWhitelisted(ctx context.Context, token string) bool {
+	args := m.Called(ctx, token)
+	return args.Bool(0)
+}
+func (m *MockTokenService) RemoveTokenFromWhitelist(ctx context.Context, token string) {
+	m.Called(ctx, token)
+	// This method doesn't return anything in the interface
+}
+func (m *MockTokenService) RemoveUserTokensFromWhitelist(ctx context.Context, userID uint) {
+	m.Called(ctx, userID)
+	// This method doesn't return anything in the interface
+}
+
+func createTestAuthService() (AuthService, *MockUserService, *MockTokenService) {
 	mockUserService := &MockUserService{}
+	mockTokenService := &MockTokenService{}
 	logger := zap.NewNop()
 
-	authSrv := &authService{
-		userService: mockUserService,
-		logger:      logger,
-	}
+	authSrv := NewAuthService(mockUserService, mockTokenService, logger)
 
-	return authSrv, mockUserService
+	return authSrv, mockUserService, mockTokenService
 }
 
 func TestAuthService_Login_Success(t *testing.T) {
-	authSrv, mockUserService := createTestAuthService()
+	authSrv, mockUserService, mockTokenService := createTestAuthService()
 	ctx := context.Background()
 
 	// Create a test user with hashed password
@@ -96,6 +135,11 @@ func TestAuthService_Login_Success(t *testing.T) {
 	user.SetPassword("password123")
 
 	mockUserService.On("GetUserByUsername", ctx, "testuser").Return(user, nil)
+
+	mockTokenService.On("GenerateAccessToken", user).Return("access_token", nil)
+	mockTokenService.On("GenerateRefreshToken", user).Return("refresh_token", nil)
+	mockTokenService.On("AddTokenToWhitelist", ctx, "access_token", mock.AnythingOfType("time.Duration")).Return(nil)
+	mockTokenService.On("AddTokenToWhitelist", ctx, "refresh_token", mock.AnythingOfType("time.Duration")).Return(nil)
 
 	// Test
 	result, err := authSrv.Login(ctx, "testuser", "password123")
@@ -114,7 +158,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 }
 
 func TestAuthService_Login_UserNotFound(t *testing.T) {
-	authSrv, mockUserService := createTestAuthService()
+	authSrv, mockUserService, _ := createTestAuthService()
 	ctx := context.Background()
 
 	mockUserService.On("GetUserByUsername", ctx, "nonexistent").Return(nil, errors.New("user not found"))
@@ -131,7 +175,7 @@ func TestAuthService_Login_UserNotFound(t *testing.T) {
 }
 
 func TestAuthService_Login_InactiveUser(t *testing.T) {
-	authSrv, mockUserService := createTestAuthService()
+	authSrv, mockUserService, _ := createTestAuthService()
 	ctx := context.Background()
 
 	user := &models.User{
@@ -156,7 +200,7 @@ func TestAuthService_Login_InactiveUser(t *testing.T) {
 }
 
 func TestAuthService_Login_InvalidPassword(t *testing.T) {
-	authSrv, mockUserService := createTestAuthService()
+	authSrv, mockUserService, _ := createTestAuthService()
 	ctx := context.Background()
 
 	user := &models.User{
@@ -182,26 +226,35 @@ func TestAuthService_Login_InvalidPassword(t *testing.T) {
 }
 
 func TestAuthService_Register_Success(t *testing.T) {
-	authSrv, mockUserService := createTestAuthService()
+	authSrv, mockUserService, mockTokenService := createTestAuthService()
 	ctx := context.Background()
 
+	// Create input user with the exact state it will have when passed to CreateUser
 	user := &models.User{
 		Username: "newuser",
 		Email:    "new@example.com",
 		Password: "password123",
 	}
 
-	createdUser := &models.User{
-		ID:       1,
-		Username: "newuser",
-		Email:    "new@example.com",
-		Role:     models.RoleUser,
-		IsActive: true,
-	}
-	createdUser.SetPassword("password123")
+	// Create a matcher that can match the user based only on Username and Email
+	userMatcher := mock.MatchedBy(func(u *models.User) bool {
+		return u.Username == "newuser" && u.Email == "new@example.com"
+	})
 
-	mockUserService.On("CreateUser", ctx, mock.AnythingOfType("*models.User")).Return(nil)
-	mockUserService.On("GetUserByUsername", ctx, "newuser").Return(createdUser, nil)
+	// Mock the create user call with any user that matches our criteria
+	mockUserService.On("CreateUser", ctx, userMatcher).Return(nil).Run(func(args mock.Arguments) {
+		// Update the user passed in with proper ID, role, etc.
+		u := args.Get(1).(*models.User)
+		u.ID = 1
+		u.Role = models.RoleUser
+		u.IsActive = true
+	})
+
+	// Set up token mocks with the same matcher
+	mockTokenService.On("GenerateAccessToken", userMatcher).Return("access_token", nil)
+	mockTokenService.On("GenerateRefreshToken", userMatcher).Return("refresh_token", nil)
+	mockTokenService.On("AddTokenToWhitelist", ctx, "access_token", mock.AnythingOfType("time.Duration")).Return(nil)
+	mockTokenService.On("AddTokenToWhitelist", ctx, "refresh_token", mock.AnythingOfType("time.Duration")).Return(nil)
 
 	// Test
 	result, err := authSrv.Register(ctx, user)
@@ -212,7 +265,7 @@ func TestAuthService_Register_Success(t *testing.T) {
 	assert.Equal(t, "Bearer", result.TokenType)
 	assert.NotEmpty(t, result.AccessToken)
 	assert.NotEmpty(t, result.RefreshToken)
-	assert.Equal(t, createdUser.ID, result.User.ID)
+	assert.Equal(t, uint(1), result.User.ID)
 	assert.Equal(t, models.RoleUser, result.User.Role)
 	assert.True(t, result.User.IsActive)
 
@@ -220,7 +273,7 @@ func TestAuthService_Register_Success(t *testing.T) {
 }
 
 func TestAuthService_Register_CreateUserFails(t *testing.T) {
-	authSrv, mockUserService := createTestAuthService()
+	authSrv, mockUserService, _ := createTestAuthService()
 	ctx := context.Background()
 
 	user := &models.User{
@@ -241,83 +294,42 @@ func TestAuthService_Register_CreateUserFails(t *testing.T) {
 
 	mockUserService.AssertExpectations(t)
 }
-
 func TestAuthService_ValidateToken_Success(t *testing.T) {
-	authSrv, _ := createTestAuthService()
+	authSrv, _, mockTokenService := createTestAuthService()
 
-	// Create a test user
-	user := &models.User{
-		ID:       1,
+	mockTokenService.On("ValidateToken", "valid.token.here").Return(&Claims{
+		UserID:   1,
 		Username: "testuser",
-		Email:    "test@example.com",
 		Role:     models.RoleUser,
-	}
+	}, nil)
 
-	// Generate a token
-	token, err := authSrv.generateAccessToken(user)
-	assert.NoError(t, err)
-
-	// Test
-	claims, err := authSrv.ValidateToken(token)
-
-	// Assertions
+	claims, err := authSrv.ValidateToken("valid.token.here")
 	assert.NoError(t, err)
 	assert.NotNil(t, claims)
-	assert.Equal(t, user.ID, claims.UserID)
-	assert.Equal(t, user.Username, claims.Username)
-	assert.Equal(t, user.Email, claims.Email)
-	assert.Equal(t, user.Role, claims.Role)
+	assert.Equal(t, uint(1), claims.UserID)
+	assert.Equal(t, "testuser", claims.Username)
+	assert.Equal(t, models.RoleUser, claims.Role)
 }
 
 func TestAuthService_ValidateToken_InvalidToken(t *testing.T) {
-	authSrv, _ := createTestAuthService()
+	authSrv, _, mockTokenService := createTestAuthService()
 
-	// Test with invalid token
+	mockTokenService.On("ValidateToken", "invalid.token.here").Return(nil, errors.New("invalid token"))
+
 	claims, err := authSrv.ValidateToken("invalid.token.here")
-
-	// Assertions
 	assert.Error(t, err)
 	assert.Nil(t, claims)
 	assert.Contains(t, err.Error(), "invalid token")
-}
-
-func TestAuthService_RefreshToken_Success(t *testing.T) {
-	authSrv, mockUserService := createTestAuthService()
-	ctx := context.Background()
-
-	user := &models.User{
-		ID:       1,
-		Username: "testuser",
-		Email:    "test@example.com",
-		Role:     models.RoleUser,
-		IsActive: true,
-	}
-
-	// Generate a refresh token
-	refreshToken, err := authSrv.generateRefreshToken(user)
-	assert.NoError(t, err)
-
-	mockUserService.On("GetUserByID", ctx, uint(1)).Return(user, nil)
-
-	// Test
-	result, err := authSrv.RefreshToken(ctx, refreshToken)
-
-	// Assertions
-	assert.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Equal(t, "Bearer", result.TokenType)
-	assert.NotEmpty(t, result.AccessToken)
-	assert.NotEmpty(t, result.RefreshToken)
-	assert.Equal(t, user.ID, result.User.ID)
-
-	mockUserService.AssertExpectations(t)
+	mockTokenService.AssertExpectations(t)
 }
 
 func TestAuthService_RefreshToken_InvalidToken(t *testing.T) {
-	authSrv, _ := createTestAuthService()
+	authSrv, _, mockTokenService := createTestAuthService()
 	ctx := context.Background()
 
 	// Test with invalid refresh token
+	mockTokenService.On("ValidateToken", "invalid.token.here").Return(nil, errors.New("invalid refresh token"))
+
 	result, err := authSrv.RefreshToken(ctx, "invalid.token.here")
 
 	// Assertions
@@ -326,10 +338,11 @@ func TestAuthService_RefreshToken_InvalidToken(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid refresh token")
 }
 
-func TestAuthService_RefreshToken_UserNotFound(t *testing.T) {
-	authSrv, mockUserService := createTestAuthService()
+func TestAuthService_RefreshToken_Success(t *testing.T) {
+	authSrv, mockUserService, mockTokenService := createTestAuthService()
 	ctx := context.Background()
 
+	// Set up user
 	user := &models.User{
 		ID:       1,
 		Username: "testuser",
@@ -338,14 +351,88 @@ func TestAuthService_RefreshToken_UserNotFound(t *testing.T) {
 		IsActive: true,
 	}
 
-	// Generate a refresh token
-	refreshToken, err := authSrv.generateRefreshToken(user)
-	assert.NoError(t, err)
+	// Mock token validation
+	mockTokenService.On("ValidateToken", "valid.refresh.token").Return(&Claims{
+		UserID:    1,
+		Username:  "testuser",
+		Email:     "test@example.com",
+		Role:      models.RoleUser,
+		TokenType: "refresh",
+	}, nil)
 
-	mockUserService.On("GetUserByID", ctx, uint(1)).Return(nil, errors.New("user not found"))
+	// Mock user service
+	mockUserService.On("GetUserByID", ctx, uint(1)).Return(user, nil)
+
+	// Mock token generation
+	mockTokenService.On("GenerateAccessToken", user).Return("new_access_token", nil)
+	mockTokenService.On("GenerateRefreshToken", user).Return("new_refresh_token", nil)
+
+	// Mock token whitelist operations
+	mockTokenService.On("AddTokenToWhitelist", ctx, "new_access_token", mock.AnythingOfType("time.Duration")).Return(nil)
+	mockTokenService.On("AddTokenToWhitelist", ctx, "new_refresh_token", mock.AnythingOfType("time.Duration")).Return(nil)
+	mockTokenService.On("RemoveTokenFromWhitelist", ctx, "valid.refresh.token")
 
 	// Test
-	result, err := authSrv.RefreshToken(ctx, refreshToken)
+	result, err := authSrv.RefreshToken(ctx, "valid.refresh.token")
+
+	// Assertions
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "Bearer", result.TokenType)
+	assert.Equal(t, "new_access_token", result.AccessToken)
+	assert.Equal(t, "new_refresh_token", result.RefreshToken)
+	assert.Equal(t, user.ID, result.User.ID)
+	assert.True(t, len(result.Scopes) > 0)
+
+	mockUserService.AssertExpectations(t)
+	mockTokenService.AssertExpectations(t)
+}
+
+func TestAuthService_Logout(t *testing.T) {
+	authSrv, _, mockTokenService := createTestAuthService()
+	ctx := context.Background()
+
+	mockTokenService.On("RemoveUserTokensFromWhitelist", ctx, uint(1)).Return(nil)
+
+	// Test
+	err := authSrv.Logout(ctx, 1)
+
+	// Assertions
+	assert.NoError(t, err)
+	mockTokenService.AssertExpectations(t)
+}
+
+func TestAuthService_LogoutWithToken(t *testing.T) {
+	authSrv, _, mockTokenService := createTestAuthService()
+	ctx := context.Background()
+
+	// Mock token service
+	mockTokenService.On("RemoveTokenFromWhitelist", ctx, "token.to.revoke")
+
+	// Test
+	err := authSrv.LogoutWithToken(ctx, "token.to.revoke")
+
+	// Assertions
+	assert.NoError(t, err)
+	mockTokenService.AssertExpectations(t)
+}
+
+func TestAuthService_RefreshToken_UserNotFound(t *testing.T) {
+	authSrv, mockUserService, mockTokenService := createTestAuthService()
+	ctx := context.Background()
+
+	// Mock token validation
+	mockTokenService.On("ValidateToken", "valid.refresh.token").Return(&Claims{
+		UserID:    999, // Non-existent user
+		Username:  "testuser",
+		TokenType: "refresh",
+	}, nil)
+
+	// Mock user service to return error for non-existent user
+	mockUserService.On("GetUserByID", ctx, uint(999)).Return(nil, errors.New("user not found"))
+
+	// Test
+	result, err := authSrv.RefreshToken(ctx, "valid.refresh.token")
 
 	// Assertions
 	assert.Error(t, err)
@@ -353,28 +440,34 @@ func TestAuthService_RefreshToken_UserNotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "user not found")
 
 	mockUserService.AssertExpectations(t)
+	mockTokenService.AssertExpectations(t)
 }
 
 func TestAuthService_RefreshToken_InactiveUser(t *testing.T) {
-	authSrv, mockUserService := createTestAuthService()
+	authSrv, mockUserService, mockTokenService := createTestAuthService()
 	ctx := context.Background()
 
-	user := &models.User{
+	// Set up inactive user
+	inactiveUser := &models.User{
 		ID:       1,
 		Username: "testuser",
 		Email:    "test@example.com",
 		Role:     models.RoleUser,
-		IsActive: false, // User is inactive
+		IsActive: false,
 	}
 
-	// Generate a refresh token
-	refreshToken, err := authSrv.generateRefreshToken(user)
-	assert.NoError(t, err)
+	// Mock token validation
+	mockTokenService.On("ValidateToken", "valid.refresh.token").Return(&Claims{
+		UserID:    1,
+		Username:  "testuser",
+		TokenType: "refresh",
+	}, nil)
 
-	mockUserService.On("GetUserByID", ctx, uint(1)).Return(user, nil)
+	// Mock user service
+	mockUserService.On("GetUserByID", ctx, uint(1)).Return(inactiveUser, nil)
 
 	// Test
-	result, err := authSrv.RefreshToken(ctx, refreshToken)
+	result, err := authSrv.RefreshToken(ctx, "valid.refresh.token")
 
 	// Assertions
 	assert.Error(t, err)
@@ -382,95 +475,197 @@ func TestAuthService_RefreshToken_InactiveUser(t *testing.T) {
 	assert.Contains(t, err.Error(), "account is disabled")
 
 	mockUserService.AssertExpectations(t)
+	mockTokenService.AssertExpectations(t)
 }
 
-func TestAuthService_Logout(t *testing.T) {
-	authSrv, _ := createTestAuthService()
+func TestAuthService_RefreshToken_InvalidTokenType(t *testing.T) {
+	authSrv, _, mockTokenService := createTestAuthService()
 	ctx := context.Background()
 
+	// Mock token validation with wrong token type (access instead of refresh)
+	mockTokenService.On("ValidateToken", "access.token.not.refresh").Return(&Claims{
+		UserID:    1,
+		Username:  "testuser",
+		TokenType: "access", // Wrong token type
+	}, nil)
+
 	// Test
-	err := authSrv.Logout(ctx, 1)
+	result, err := authSrv.RefreshToken(ctx, "access.token.not.refresh")
 
 	// Assertions
-	assert.NoError(t, err)
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "invalid refresh token")
+
+	mockTokenService.AssertExpectations(t)
 }
 
-func TestAuthService_GenerateAccessToken(t *testing.T) {
-	authSrv, _ := createTestAuthService()
+func TestAuthService_RefreshToken_AccessTokenGenerationFails(t *testing.T) {
+	authSrv, mockUserService, mockTokenService := createTestAuthService()
+	ctx := context.Background()
 
+	// Set up user
 	user := &models.User{
 		ID:       1,
 		Username: "testuser",
 		Email:    "test@example.com",
 		Role:     models.RoleUser,
+		IsActive: true,
 	}
 
+	// Mock token validation
+	mockTokenService.On("ValidateToken", "valid.refresh.token").Return(&Claims{
+		UserID:    1,
+		Username:  "testuser",
+		TokenType: "refresh",
+	}, nil)
+
+	// Mock user service
+	mockUserService.On("GetUserByID", ctx, uint(1)).Return(user, nil)
+
+	// Mock token generation failure
+	mockTokenService.On("GenerateAccessToken", user).Return("", errors.New("token generation failed"))
+
 	// Test
-	token, err := authSrv.generateAccessToken(user)
+	result, err := authSrv.RefreshToken(ctx, "valid.refresh.token")
 
 	// Assertions
-	assert.NoError(t, err)
-	assert.NotEmpty(t, token)
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "failed to generate access token")
 
-	// Validate the generated token
-	parsedToken, err := jwt.ParseWithClaims(token, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(authSrv.jwtConfig.Secret), nil
-	})
-
-	assert.NoError(t, err)
-	assert.True(t, parsedToken.Valid)
-
-	claims, ok := parsedToken.Claims.(*Claims)
-	assert.True(t, ok)
-	assert.Equal(t, user.ID, claims.UserID)
-	assert.Equal(t, user.Username, claims.Username)
-	assert.Equal(t, user.Email, claims.Email)
-	assert.Equal(t, user.Role, claims.Role)
+	mockUserService.AssertExpectations(t)
+	mockTokenService.AssertExpectations(t)
 }
 
-func TestAuthService_GenerateRefreshToken(t *testing.T) {
-	authSrv, _ := createTestAuthService()
+func TestAuthService_RefreshToken_RefreshTokenGenerationFails(t *testing.T) {
+	authSrv, mockUserService, mockTokenService := createTestAuthService()
+	ctx := context.Background()
 
+	// Set up user
 	user := &models.User{
 		ID:       1,
 		Username: "testuser",
 		Email:    "test@example.com",
 		Role:     models.RoleUser,
+		IsActive: true,
 	}
 
+	// Mock token validation
+	mockTokenService.On("ValidateToken", "valid.refresh.token").Return(&Claims{
+		UserID:    1,
+		Username:  "testuser",
+		TokenType: "refresh",
+	}, nil)
+
+	// Mock user service
+	mockUserService.On("GetUserByID", ctx, uint(1)).Return(user, nil)
+
+	// Mock access token generation success
+	mockTokenService.On("GenerateAccessToken", user).Return("new_access_token", nil)
+
+	// Mock refresh token generation failure
+	mockTokenService.On("GenerateRefreshToken", user).Return("", errors.New("refresh token generation failed"))
+
 	// Test
-	token, err := authSrv.generateRefreshToken(user)
+	result, err := authSrv.RefreshToken(ctx, "valid.refresh.token")
+
+	// Assertions
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "failed to generate refresh token")
+
+	mockUserService.AssertExpectations(t)
+	mockTokenService.AssertExpectations(t)
+}
+
+func TestAuthService_RefreshToken_WhitelistFails(t *testing.T) {
+	authSrv, mockUserService, mockTokenService := createTestAuthService()
+	ctx := context.Background()
+
+	// Set up user
+	user := &models.User{
+		ID:       1,
+		Username: "testuser",
+		Email:    "test@example.com",
+		Role:     models.RoleUser,
+		IsActive: true,
+	}
+
+	// Mock token validation
+	mockTokenService.On("ValidateToken", "valid.refresh.token").Return(&Claims{
+		UserID:    1,
+		Username:  "testuser",
+		TokenType: "refresh",
+	}, nil)
+
+	// Mock user service
+	mockUserService.On("GetUserByID", ctx, uint(1)).Return(user, nil)
+
+	// Mock token generation success
+	mockTokenService.On("GenerateAccessToken", user).Return("new_access_token", nil)
+	mockTokenService.On("GenerateRefreshToken", user).Return("new_refresh_token", nil)
+
+	// Mock token whitelist operations
+	mockTokenService.On("AddTokenToWhitelist", ctx, "new_access_token", mock.AnythingOfType("time.Duration")).Return(nil)
+	mockTokenService.On("AddTokenToWhitelist", ctx, "new_refresh_token", mock.AnythingOfType("time.Duration")).Return(nil)
+	mockTokenService.On("RemoveTokenFromWhitelist", ctx, "valid.refresh.token")
+
+	// Test
+	result, err := authSrv.RefreshToken(ctx, "valid.refresh.token")
 
 	// Assertions
 	assert.NoError(t, err)
-	assert.NotEmpty(t, token)
+	assert.NotNil(t, result)
+	assert.Equal(t, "Bearer", result.TokenType)
+	assert.Equal(t, "new_access_token", result.AccessToken)
+	assert.Equal(t, "new_refresh_token", result.RefreshToken)
+	assert.Equal(t, user.ID, result.User.ID)
+	assert.True(t, len(result.Scopes) > 0)
 
-	// Validate the generated token
-	parsedToken, err := jwt.ParseWithClaims(token, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(authSrv.jwtConfig.Secret), nil
-	})
-
-	assert.NoError(t, err)
-	assert.True(t, parsedToken.Valid)
-
-	claims, ok := parsedToken.Claims.(*Claims)
-	assert.True(t, ok)
-	assert.Equal(t, user.ID, claims.UserID)
-	assert.Equal(t, user.Username, claims.Username)
-	assert.Equal(t, user.Email, claims.Email)
-	assert.Equal(t, user.Role, claims.Role)
+	mockUserService.AssertExpectations(t)
+	mockTokenService.AssertExpectations(t)
 }
 
-func TestNewAuthService(t *testing.T) {
-	mockUserService := &MockUserService{}
-	config := configs.JWT{
-		Secret:     "test-secret",
-		Expiration: time.Hour,
+func TestAuthService_RefreshToken_RefreshWhitelistFails(t *testing.T) {
+	authSrv, mockUserService, mockTokenService := createTestAuthService()
+	ctx := context.Background()
+
+	// Set up user
+	user := &models.User{
+		ID:       1,
+		Username: "testuser",
+		Email:    "test@example.com",
+		Role:     models.RoleUser,
+		IsActive: true,
 	}
-	logger := zap.NewNop()
 
-	service := NewAuthService(mockUserService, config, logger)
+	// Mock token validation
+	mockTokenService.On("ValidateToken", "valid.refresh.token").Return(&Claims{
+		UserID:    1,
+		Username:  "testuser",
+		TokenType: "refresh",
+	}, nil)
 
-	assert.NotNil(t, service)
-	assert.IsType(t, &authService{}, service)
+	// Mock user service
+	mockUserService.On("GetUserByID", ctx, uint(1)).Return(user, nil)
+
+	// Mock token generation success
+	mockTokenService.On("GenerateAccessToken", user).Return("new_access_token", nil)
+	mockTokenService.On("GenerateRefreshToken", user).Return("new_refresh_token", nil)
+
+	// Mock access token whitelist success but refresh token whitelist failure
+	mockTokenService.On("AddTokenToWhitelist", ctx, "new_access_token", mock.AnythingOfType("time.Duration")).Return(nil)
+	mockTokenService.On("AddTokenToWhitelist", ctx, "new_refresh_token", mock.AnythingOfType("time.Duration")).Return(errors.New("refresh whitelist operation failed"))
+
+	// Test
+	result, err := authSrv.RefreshToken(ctx, "valid.refresh.token")
+
+	// Assertions
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "failed to whitelist token")
+
+	mockUserService.AssertExpectations(t)
+	mockTokenService.AssertExpectations(t)
 }

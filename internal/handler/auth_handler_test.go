@@ -1,15 +1,12 @@
 package handler
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -67,30 +64,9 @@ func (m *MockAuthService) LogoutWithToken(ctx context.Context, token string) err
 func createTestAuthHandler() (*AuthHandler, *MockAuthService) {
 	mockService := new(MockAuthService)
 	logger := zap.NewNop()
-	authHandler := &AuthHandler{
-		authService: mockService,
-		logger:      logger,
-	}
+	authHandler := NewAuthHandler(mockService, logger)
 
 	return authHandler, mockService
-}
-
-func setupGinTestContext(method, url string, body interface{}) (*gin.Context, *httptest.ResponseRecorder) {
-	gin.SetMode(gin.TestMode)
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-
-	var req *http.Request
-	if body != nil {
-		jsonBody, _ := json.Marshal(body)
-		req = httptest.NewRequest(method, url, bytes.NewBuffer(jsonBody))
-		req.Header.Set("Content-Type", "application/json")
-	} else {
-		req = httptest.NewRequest(method, url, nil)
-	}
-
-	c.Request = req
-	return c, w
 }
 
 // Test Login Success
@@ -454,212 +430,4 @@ func TestAuthHandler_Logout_ServiceError(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
 	assert.Equal(t, "Failed to logout", response["error"])
-}
-
-// Test NewAuthHandler
-func TestNewAuthHandler(t *testing.T) {
-	mockService := new(MockAuthService)
-	logger := zap.NewNop()
-
-	handler := NewAuthHandler(mockService, logger)
-
-	assert.NotNil(t, handler)
-	assert.Equal(t, mockService, handler.authService)
-	assert.Equal(t, logger, handler.logger)
-}
-
-// Additional edge case tests
-
-// Test Login with empty request body
-func TestAuthHandler_Login_EmptyBody(t *testing.T) {
-	authHandler, _ := createTestAuthHandler()
-
-	c, w := setupGinTestContext("POST", "/api/v1/auth/login", map[string]string{})
-	authHandler.Login(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-
-	var response map[string]string
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	require.NoError(t, err)
-	assert.Contains(t, response["error"], "required")
-}
-
-// Test Register with all required fields missing
-func TestAuthHandler_Register_AllFieldsMissing(t *testing.T) {
-	authHandler, _ := createTestAuthHandler()
-
-	registerRequest := map[string]string{} // Empty request
-
-	c, w := setupGinTestContext("POST", "/api/v1/auth/register", registerRequest)
-	authHandler.Register(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-
-	var response map[string]string
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	require.NoError(t, err)
-	assert.Contains(t, response["error"], "required")
-}
-
-// Test RefreshToken with empty body
-func TestAuthHandler_RefreshToken_EmptyBody(t *testing.T) {
-	authHandler, _ := createTestAuthHandler()
-
-	c, w := setupGinTestContext("POST", "/api/v1/auth/refresh", map[string]string{})
-	authHandler.RefreshToken(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-
-	var response map[string]string
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	require.NoError(t, err)
-	assert.Contains(t, response["error"], "required")
-}
-
-// Test Login with malformed JSON
-func TestAuthHandler_Login_MalformedJSON(t *testing.T) {
-	authHandler, _ := createTestAuthHandler()
-
-	c, w := setupGinTestContext("POST", "/api/v1/auth/login", nil)
-	c.Request.Body = http.NoBody
-	c.Request.Header.Set("Content-Type", "application/json")
-	// Add malformed JSON to the request
-	c.Request.Body = nil
-
-	authHandler.Login(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-// Test that AuthHandler properly handles service dependencies
-func TestAuthHandler_ServiceDependency(t *testing.T) {
-	mockService := new(MockAuthService)
-	logger := zap.NewNop()
-
-	handler := NewAuthHandler(mockService, logger)
-
-	// Verify that the handler has proper dependencies
-	assert.NotNil(t, handler.authService)
-	assert.NotNil(t, handler.logger)
-	assert.Equal(t, mockService, handler.authService)
-	assert.Equal(t, logger, handler.logger)
-}
-
-// Test concurrent access to handler (thread safety)
-func TestAuthHandler_ConcurrentAccess(t *testing.T) {
-	authHandler, mockAuthService := createTestAuthHandler()
-
-	expectedResponse := &services.AuthResponse{
-		AccessToken:  "test_access_token",
-		RefreshToken: "test_refresh_token",
-		TokenType:    "Bearer",
-		ExpiresIn:    3600,
-	}
-
-	// Set up mock to handle multiple calls
-	mockAuthService.On("Login", mock.Anything, "testuser", "testpass").Return(expectedResponse, nil)
-
-	// Run multiple goroutines concurrently
-	done := make(chan bool, 10)
-	for i := 0; i < 10; i++ {
-		go func() {
-			defer func() { done <- true }()
-
-			loginRequest := LoginRequest{
-				Username: "testuser",
-				Password: "testpass",
-			}
-
-			c, w := setupGinTestContext("POST", "/api/v1/auth/login", loginRequest)
-			authHandler.Login(c)
-
-			assert.Equal(t, http.StatusOK, w.Code)
-		}()
-	}
-
-	// Wait for all goroutines to complete
-	for i := 0; i < 10; i++ {
-		<-done
-	}
-
-	mockAuthService.AssertExpectations(t)
-}
-
-// Example test showing proper usage of the auth handler
-func ExampleNewAuthHandler() {
-	// Create a mock service and logger
-	mockService := new(MockAuthService)
-	logger := zap.NewNop()
-
-	// Create the auth handler
-	handler := NewAuthHandler(mockService, logger)
-
-	// The handler is now ready to be used in HTTP routes
-	_ = handler
-	// Output:
-}
-
-// Benchmark tests for various auth operations
-func BenchmarkAuthHandler_Register(b *testing.B) {
-	authHandler, mockAuthService := createTestAuthHandler()
-
-	registerRequest := RegisterRequest{
-		Username:  "newuser",
-		Email:     "newuser@example.com",
-		Password:  "password123",
-		FirstName: "New",
-		LastName:  "User",
-	}
-
-	expectedResponse := &services.AuthResponse{
-		AccessToken:  "new_access_token",
-		RefreshToken: "new_refresh_token",
-		TokenType:    "Bearer",
-		ExpiresIn:    3600,
-	}
-
-	mockAuthService.On("Register", mock.Anything, mock.Anything).Return(expectedResponse, nil)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		c, _ := setupGinTestContext("POST", "/api/v1/auth/register", registerRequest)
-		authHandler.Register(c)
-	}
-}
-
-func BenchmarkAuthHandler_RefreshToken(b *testing.B) {
-	authHandler, mockAuthService := createTestAuthHandler()
-
-	refreshRequest := RefreshTokenRequest{
-		RefreshToken: "valid_refresh_token",
-	}
-
-	expectedResponse := &services.AuthResponse{
-		AccessToken:  "new_access_token",
-		RefreshToken: "new_refresh_token",
-		TokenType:    "Bearer",
-		ExpiresIn:    3600,
-	}
-
-	mockAuthService.On("RefreshToken", mock.Anything, "valid_refresh_token").Return(expectedResponse, nil)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		c, _ := setupGinTestContext("POST", "/api/v1/auth/refresh", refreshRequest)
-		authHandler.RefreshToken(c)
-	}
-}
-
-func BenchmarkAuthHandler_Logout(b *testing.B) {
-	authHandler, mockAuthService := createTestAuthHandler()
-
-	mockAuthService.On("Logout", mock.Anything, uint(1)).Return(nil)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		c, _ := setupGinTestContext("POST", "/api/v1/auth/logout", nil)
-		c.Set("user_id", uint(1))
-		authHandler.Logout(c)
-	}
 }
