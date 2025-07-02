@@ -12,14 +12,16 @@ type Handler struct {
 	serverHandler  *handler.ServerHandler
 	reportHandler  *handler.ReportHandler
 	authHandler    *handler.AuthHandler
+	userHandler    *handler.UserHandler
 	authMiddleware *middleware.AuthMiddleware
 }
 
-func NewHandler(serverHandler *handler.ServerHandler, reportHandler *handler.ReportHandler, authHandler *handler.AuthHandler, authMiddleware *middleware.AuthMiddleware) *Handler {
+func NewHandler(serverHandler *handler.ServerHandler, reportHandler *handler.ReportHandler, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, authMiddleware *middleware.AuthMiddleware) *Handler {
 	return &Handler{
 		serverHandler:  serverHandler,
 		reportHandler:  reportHandler,
 		authHandler:    authHandler,
+		userHandler:    userHandler,
 		authMiddleware: authMiddleware,
 	}
 }
@@ -52,9 +54,6 @@ func (h *Handler) RegisterRoutes() *gin.Engine {
 	authProtected.Use(h.authMiddleware.RequireAuth())
 	{
 		authProtected.POST("/logout", h.authHandler.Logout)
-		authProtected.GET("/profile", h.authMiddleware.RequireScope("profile:read"), h.authHandler.GetProfile)
-		authProtected.PUT("/profile", h.authMiddleware.RequireScope("profile:write"), h.authHandler.UpdateProfile)
-		authProtected.POST("/change-password", h.authMiddleware.RequireScope("profile:write"), h.authHandler.ChangePassword)
 	}
 
 	// Protected server routes
@@ -85,12 +84,14 @@ func (h *Handler) RegisterRoutes() *gin.Engine {
 	// Admin-only user management routes
 	users := v1.Group("/users")
 	users.Use(h.authMiddleware.RequireAuth())
-	users.Use(h.authMiddleware.RequireAnyScope("admin:all", "user:read", "user:write", "user:delete"))
 	{
-		users.GET("/", h.authMiddleware.RequireAnyScope("admin:all", "user:read"), h.authHandler.ListUsers)
-		users.POST("/", h.authMiddleware.RequireAnyScope("admin:all", "user:write"), h.authHandler.CreateUser)
-		users.PUT("/:id", h.authMiddleware.RequireAnyScope("admin:all", "user:write"), h.authHandler.UpdateUser)
-		users.DELETE("/:id", h.authMiddleware.RequireAnyScope("admin:all", "user:delete"), h.authHandler.DeleteUser)
+		users.GET("/", h.authMiddleware.RequireAnyScope("admin:all", "user:read"), h.userHandler.ListUsers)
+		users.POST("/", h.authMiddleware.RequireAnyScope("admin:all", "user:write"), h.userHandler.CreateUser)
+		users.PUT("/:id", h.authMiddleware.RequireAnyScope("admin:all", "user:write"), h.userHandler.UpdateUser)
+		users.DELETE("/:id", h.authMiddleware.RequireAnyScope("admin:all", "user:delete"), h.userHandler.DeleteUser)
+		users.GET("/profile", h.authMiddleware.RequireAnyScope("profile:read"), h.userHandler.GetProfile)
+		users.PUT("/profile", h.authMiddleware.RequireScope("profile:write"), h.userHandler.UpdateProfile)
+		users.POST("/change-password", h.authMiddleware.RequireScope("profile:write"), h.userHandler.ChangePassword)
 	}
 
 	return router

@@ -97,6 +97,44 @@ func (u *userService) UpdateUser(ctx context.Context, id uint, updates map[strin
 			} else {
 				return nil, fmt.Errorf("invalid type: %v", value)
 			}
+		case "username":
+			if username, ok := value.(string); ok && username != "" {
+				existing, _ := u.userRepo.GetByUsername(ctx, username)
+				if existing != nil && existing.ID != user.ID {
+					return nil, fmt.Errorf("username already exists")
+				}
+				user.Username = username
+			} else {
+				return nil, fmt.Errorf("invalid username value: %v", value)
+			}
+		case "email":
+			if email, ok := value.(string); ok && email != "" {
+				existing, _ := u.userRepo.GetByEmail(ctx, email)
+				if existing != nil && existing.ID != user.ID {
+					return nil, fmt.Errorf("email already exists")
+				}
+				user.Email = email
+			} else {
+				return nil, fmt.Errorf("invalid email value: %v", value)
+			}
+		case "first_name":
+			if firstName, ok := value.(string); ok {
+				user.FirstName = firstName
+			} else {
+				return nil, fmt.Errorf("invalid first_name value: %v", value)
+			}
+		case "last_name":
+			if lastName, ok := value.(string); ok {
+				user.LastName = lastName
+			} else {
+				return nil, fmt.Errorf("invalid last_name value: %v", value)
+			}
+		case "is_active":
+			if isActive, ok := value.(bool); ok {
+				user.IsActive = isActive
+			} else {
+				return nil, fmt.Errorf("invalid is_active value: %v", value)
+			}
 		case "password":
 			if password, ok := value.(string); ok && password != "" {
 				if err := user.SetPassword(password); err != nil {

@@ -77,9 +77,10 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Stand
 	jwt := config.JWT
 	tokenService := services.NewTokenService(jwt, logger, client)
 	authService := services.NewAuthService(userService, tokenService, logger)
-	authHandler := handler.NewAuthHandler(authService, userService, logger)
+	authHandler := handler.NewAuthHandler(authService, logger)
+	userHandler := handler.NewUserHandler(userService, logger)
 	authMiddleware := middleware.NewAuthMiddleware(authService, logger)
-	httpHandler := http.NewHandler(serverHandler, reportHandler, authHandler, authMiddleware)
+	httpHandler := http.NewHandler(serverHandler, reportHandler, authHandler, userHandler, authMiddleware)
 	httpServer := http.NewServer(server, logger, httpHandler)
 	cron := config.Cron
 	sendDailyReport := jobs.NewSendDailyReport(reportService)

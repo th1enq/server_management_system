@@ -249,13 +249,6 @@ func (a *authService) Logout(ctx context.Context, userID uint) error {
 func (a *authService) LogoutWithToken(ctx context.Context, token string) error {
 	// Remove the specific token from whitelist
 	a.tokenService.RemoveTokenFromWhitelist(ctx, token)
-	a.logger.Info("Token revoked during logout", zap.String("token_prefix", token[:min(20, len(token))]))
+	a.logger.Info("Token revoked during logout")
 	return nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

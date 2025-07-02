@@ -71,15 +71,10 @@ func (m *MockUserService) ListUsers(ctx context.Context, limit, offset int) ([]*
 
 func createTestAuthService() (*authService, *MockUserService) {
 	mockUserService := &MockUserService{}
-	jwtConfig := configs.JWT{
-		Secret:     "test-secret",
-		Expiration: time.Hour,
-	}
 	logger := zap.NewNop()
 
 	authSrv := &authService{
 		userService: mockUserService,
-		jwtConfig:   jwtConfig,
 		logger:      logger,
 	}
 

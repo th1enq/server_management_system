@@ -6,4 +6,5 @@ var WireSet = wire.NewSet(
 	NewReportHandler,
 	NewServerHandler,
 	NewAuthHandler,
+	NewUserHandler,
 )

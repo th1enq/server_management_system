@@ -204,46 +204,6 @@ info:
   title: VCS Server Management System API
   version: "1.0"
 paths:
-  /api/v1/auth/change-password:
-    post:
-      consumes:
-      - application/json
-      description: Change the authenticated user's password
-      parameters:
-      - description: Password change data
-        in: body
-        name: request
-        required: true
-        schema:
-          additionalProperties:
-            type: string
-          type: object
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Change password
-      tags:
-      - auth
   /api/v1/auth/login:
     post:
       consumes:
@@ -297,69 +257,6 @@ paths:
       security:
       - BearerAuth: []
       summary: User logout
-      tags:
-      - auth
-  /api/v1/auth/profile:
-    get:
-      description: Get the authenticated user's profile information
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.User'
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get user profile
-      tags:
-      - auth
-    put:
-      consumes:
-      - application/json
-      description: Update the authenticated user's profile information
-      parameters:
-      - description: Profile updates
-        in: body
-        name: request
-        required: true
-        schema:
-          additionalProperties: true
-          type: object
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.User'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Update user profile
       tags:
       - auth
   /api/v1/auth/refresh:
@@ -798,7 +695,7 @@ paths:
       summary: Import servers from Excel file
       tags:
       - servers
-  /users:
+  /api/v1/users:
     get:
       description: Get a list of all users (admin only)
       parameters:
@@ -879,7 +776,7 @@ paths:
       summary: Create user
       tags:
       - users
-  /users/{id}:
+  /api/v1/users/{id}:
     delete:
       description: Delete a user (admin only)
       parameters:
@@ -973,6 +870,109 @@ paths:
       summary: Update user
       tags:
       - users
+  /api/v1/users/change-password:
+    post:
+      consumes:
+      - application/json
+      description: Change the authenticated user's password
+      parameters:
+      - description: Password change data
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Change password
+      tags:
+      - user
+  /api/v1/users/profile:
+    get:
+      description: Get the authenticated user's profile information
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.User'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user profile
+      tags:
+      - user
+    put:
+      consumes:
+      - application/json
+      description: Update the authenticated user's profile information
+      parameters:
+      - description: Profile updates
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.User'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update user profile
+      tags:
+      - user
 securityDefinitions:
   BearerAuth:
     description: Type "Bearer" followed by a space and JWT token.

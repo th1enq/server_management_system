@@ -59,7 +59,8 @@ wire: ## Generate Wire dependency injection code
 
 swagger: ## Generate Swagger documentation
 	@echo "Generating Swagger docs..."
-	@./scripts/gen_swagger.sh
+	@swag init -g cmd/server/main.go -o docs
+
 
 # Docker
 docker-up: ## Start Docker services
