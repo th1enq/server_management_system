@@ -161,7 +161,7 @@ func (t *tokenService) RemoveUserTokensFromWhitelist(ctx context.Context, userID
 	}
 
 	// Pattern to match all tokens for this user
-	pattern := fmt.Sprintf("token:whitelist:*")
+	pattern := "token:whitelist:*"
 
 	// Get all keys matching the pattern
 	keys, err := t.cache.Keys(ctx, pattern).Result()
