@@ -1,0 +1,48 @@
+package config
+
+import (
+	"fmt"
+	"os"
+	"server_management_system/configs"
+
+	"gopkg.in/yaml.v2"
+)
+
+type ConfigFilePath string
+
+type Config struct {
+	Server        Server        `yaml:"server"`
+	Postgres      Postgres      `yaml:"postgres"`
+	Redis         Redis         `yaml:"redis"`
+	Log           Log           `yaml:"log"`
+	JWT           JWT           `yaml:"jwt"`
+	Cron          Cron          `yaml:"cron"`
+	Elasticsearch ElasticSearch `yaml:"elasticsearch"`
+	SMTP          SMTP          `yaml:"smtp"`
+}
+
+func NewConfig(filePath ConfigFilePath) (Config, error) {
+	var (
+		configBytes = configs.DefaultConfigBytes
+		config      = Config{}
+		err         error
+	)
+
+	if filePath != "" {
+		configBytes, err = os.ReadFile(string(filePath))
+		if err != nil {
+			return Config{}, fmt.Errorf("failed to read YAML file: %w", err)
+		}
+	}
+
+	err = yaml.Unmarshal(configBytes, &config)
+	if err != nil {
+		return Config{}, fmt.Errorf("failed to unmarshal YAML: %w", err)
+	}
+	return config, nil
+}
+
+// Load loads config from default path for migration compatibility
+func Load() (Config, error) {
+	return NewConfig("configs/config.yaml")
+}
