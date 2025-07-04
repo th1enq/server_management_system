@@ -421,7 +421,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/models.ServerListResponse"
+                                            "$ref": "#/definitions/dto.ServerListResponse"
                                         }
                                     }
                                 }
@@ -655,7 +655,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/models.ImportResult"
+                                            "$ref": "#/definitions/dto.ImportResult"
                                         }
                                     }
                                 }
@@ -704,13 +704,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Update data",
-                        "name": "updates",
+                        "description": "Server update information",
+                        "name": "updateInfo",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.ServerUpdate"
                         }
                     }
                 ],
@@ -1242,6 +1241,81 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "dto.ImportResult": {
+            "type": "object",
+            "properties": {
+                "failure_count": {
+                    "type": "integer"
+                },
+                "failure_servers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "success_count": {
+                    "type": "integer"
+                },
+                "success_servers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "dto.ServerListResponse": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "servers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Server"
+                    }
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.ServerUpdate": {
+            "type": "object",
+            "properties": {
+                "cpu": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "disk": {
+                    "type": "integer"
+                },
+                "ipv4": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "os": {
+                    "type": "string"
+                },
+                "ram": {
+                    "type": "integer"
+                },
+                "server_name": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.ServerStatus"
+                }
+            }
+        },
         "handler.LoginRequest": {
             "type": "object",
             "required": [
@@ -1352,29 +1426,6 @@ const docTemplate = `{
                 }
             }
         },
-        "models.ImportResult": {
-            "type": "object",
-            "properties": {
-                "failure_count": {
-                    "type": "integer"
-                },
-                "failure_servers": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "success_count": {
-                    "type": "integer"
-                },
-                "success_servers": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
         "models.Server": {
             "type": "object",
             "properties": {
@@ -1418,26 +1469,6 @@ const docTemplate = `{
                 },
                 "status": {
                     "$ref": "#/definitions/models.ServerStatus"
-                }
-            }
-        },
-        "models.ServerListResponse": {
-            "type": "object",
-            "properties": {
-                "page": {
-                    "type": "integer"
-                },
-                "servers": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.Server"
-                    }
-                },
-                "size": {
-                    "type": "integer"
-                },
-                "total": {
-                    "type": "integer"
                 }
             }
         },

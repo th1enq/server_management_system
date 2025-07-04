@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/th1enq/server_management_system/internal/middleware"
 	"github.com/th1enq/server_management_system/internal/models"
+	"github.com/th1enq/server_management_system/internal/models/dto"
 	"github.com/th1enq/server_management_system/internal/services"
 
 	"go.uber.org/zap"
@@ -14,13 +15,13 @@ import (
 
 type UserHandler struct {
 	userService services.UserService
-	logger      *zap.Logger
+	log         *zap.Logger
 }
 
-func NewUserHandler(userService services.UserService, logger *zap.Logger) *UserHandler {
+func NewUserHandler(userService services.UserService, log *zap.Logger) *UserHandler {
 	return &UserHandler{
 		userService: userService,
-		logger:      logger,
+		log:         log,
 	}
 }
 
@@ -30,24 +31,41 @@ func NewUserHandler(userService services.UserService, logger *zap.Logger) *UserH
 // @Tags user
 // @Security BearerAuth
 // @Produce json
-// @Success 200 {object} models.User
-// @Failure 401 {object} map[string]string
-// @Failure 404 {object} map[string]string
+// @Success 200 {object} models.APIResponse{data=models.User}
+// @Failure 401 {object} models.APIResponse
+// @Failure 404 {object} models.APIResponse
 // @Router /api/v1/users/profile [get]
 func (h *UserHandler) GetProfile(c *gin.Context) {
 	userID, exists := middleware.GetUserID(c)
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		h.log.Warn("GetProfile: user ID not found in context")
+		c.JSON(http.StatusUnauthorized, models.NewErrorResponse(
+			models.CodeAuthError,
+			"Authentication required",
+			nil,
+		))
 		return
 	}
+
+	h.log.Info("GetProfile: fetching user profile", zap.Uint("userID", userID))
 
 	user, err := h.userService.GetUserByID(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		h.log.Error("GetProfile: user not found", zap.Uint("userID", userID), zap.Error(err))
+		c.JSON(http.StatusNotFound, models.NewErrorResponse(
+			models.CodeNotFound,
+			"User not found",
+			nil,
+		))
 		return
 	}
 
-	c.JSON(http.StatusOK, user)
+	h.log.Info("GetProfile: user profile retrieved successfully", zap.Uint("userID", userID))
+	c.JSON(http.StatusOK, models.NewSuccessResponse(
+		models.CodeSuccess,
+		"User profile retrieved successfully",
+		user,
+	))
 }
 
 // UpdateProfile updates the current user's profile
@@ -57,39 +75,52 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 // @Security BearerAuth
 // @Accept json
 // @Produce json
-// @Param request body map[string]interface{} true "Profile updates"
-// @Success 200 {object} models.User
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
+// @Param request body dto.ProfileUpdate true "Profile updates"
+// @Success 200 {object} models.APIResponse{data=models.User}
+// @Failure 400 {object} models.APIResponse
+// @Failure 401 {object} models.APIResponse
 // @Router /api/v1/users/profile [put]
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	userID, exists := middleware.GetUserID(c)
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		h.log.Warn("UpdateProfile: user ID not found in context")
+		c.JSON(http.StatusUnauthorized, models.NewErrorResponse(
+			models.CodeAuthError,
+			"Authentication required",
+			nil,
+		))
 		return
 	}
 
-	var updates map[string]interface{}
+	var updates dto.ProfileUpdate
 	if err := c.ShouldBindJSON(&updates); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		h.log.Warn("UpdateProfile: invalid request body", zap.Error(err))
+		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+			models.CodeBadRequest,
+			"Invalid request body",
+			err.Error(),
+		))
 		return
 	}
 
-	// Remove sensitive fields that shouldn't be updated via this endpoint
-	delete(updates, "id")
-	delete(updates, "username")
-	delete(updates, "role")
-	delete(updates, "is_active")
-	delete(updates, "created_at")
-	delete(updates, "updated_at")
+	h.log.Info("UpdateProfile: updating user profile", zap.Uint("userID", userID), zap.Any("updates", updates))
 
-	user, err := h.userService.UpdateUser(c.Request.Context(), userID, updates)
+	user, err := h.userService.UpdateProfile(c.Request.Context(), userID, updates)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		h.log.Error("UpdateProfile: failed to update user profile", zap.Uint("userID", userID), zap.Error(err))
+		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+			models.CodeBadRequest,
+			"Failed to update profile",
+			err.Error(),
+		))
 		return
 	}
-
-	c.JSON(http.StatusOK, user)
+	h.log.Info("UpdateProfile: user profile updated successfully", zap.Uint("userID", userID))
+	c.JSON(http.StatusOK, models.NewSuccessResponse(
+		models.CodeSuccess,
+		"User profile updated successfully",
+		user,
+	))
 }
 
 // ChangePassword allows the user to change their password
@@ -99,53 +130,50 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 // @Security BearerAuth
 // @Accept json
 // @Produce json
-// @Param request body map[string]string true "Password change data"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
+// @Param request body dto.PasswordUpdate true "Password change data"
+// @Success 200 {object} models.APIResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 401 {object} models.APIResponse
 // @Router /api/v1/users/change-password [post]
 func (h *UserHandler) ChangePassword(c *gin.Context) {
 	userID, exists := middleware.GetUserID(c)
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		h.log.Warn("ChangePassword: user ID not found in context")
+		c.JSON(http.StatusUnauthorized, models.NewErrorResponse(
+			models.CodeAuthError,
+			"Authentication required",
+			nil,
+		))
 		return
 	}
 
-	var req struct {
-		CurrentPassword string `json:"current_password" binding:"required"`
-		NewPassword     string `json:"new_password" binding:"required,min=6"`
-	}
-
+	var req dto.PasswordUpdate
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+			models.CodeBadRequest,
+			"Invalid request body",
+			err.Error(),
+		))
 		return
 	}
 
-	// Get current user
-	user, err := h.userService.GetUserByID(c.Request.Context(), userID)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+	h.log.Info("ChangePassword: changing password for user", zap.Uint("userID", userID))
+
+	if err := h.userService.UpdatePassword(c.Request.Context(), userID, req); err != nil {
+		h.log.Error("ChangePassword: failed to change password", zap.Uint("userID", userID), zap.Error(err))
+		c.JSON(http.StatusInternalServerError, models.NewErrorResponse(
+			models.CodeInternalServerError,
+			"Failed to change password",
+			err.Error(),
+		))
 		return
 	}
 
-	// Verify current password
-	if err := user.CheckPassword(req.CurrentPassword); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Current password is incorrect"})
-		return
-	}
-
-	// Update password
-	updates := map[string]interface{}{
-		"password": req.NewPassword,
-	}
-
-	_, err = h.userService.UpdateUser(c.Request.Context(), userID, updates)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update password"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Password updated successfully"})
+	c.JSON(http.StatusOK, models.NewSuccessResponse(
+		models.CodeSuccess,
+		"Password changed successfully",
+		nil,
+	))
 }
 
 // ListUsers returns a list of users (admin only)
@@ -156,9 +184,9 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 // @Produce json
 // @Param limit query int false "Limit" default(10)
 // @Param offset query int false "Offset" default(0)
-// @Success 200 {array} models.User
-// @Failure 401 {object} map[string]string
-// @Failure 403 {object} map[string]string
+// @Success 200 {object} models.APIResponse{data=[]models.User}
+// @Failure 401 {object} models.APIResponse
+// @Failure 403 {object} models.APIResponse
 // @Router /api/v1/users [get]
 func (h *UserHandler) ListUsers(c *gin.Context) {
 	// Parse query parameters
@@ -177,13 +205,24 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 		}
 	}
 
+	h.log.Info("ListUsers: fetching users", zap.Int("limit", limit), zap.Int("offset", offset))
+
 	users, err := h.userService.ListUsers(c.Request.Context(), limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
+		h.log.Error("ListUsers: failed to fetch users", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, models.NewErrorResponse(
+			models.CodeInternalServerError,
+			"Failed to fetch users",
+			err.Error(),
+		))
 		return
 	}
 
-	c.JSON(http.StatusOK, users)
+	c.JSON(http.StatusOK, models.NewSuccessResponse(
+		models.CodeSuccess,
+		"Users retrieved successfully",
+		users,
+	))
 }
 
 // CreateUser creates a new user (admin only)
@@ -195,40 +234,47 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 // @Produce json
 // @Param request body RegisterRequest true "User data"
 // @Success 201 {object} models.User
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 403 {object} map[string]string
+// @Failure 400 {object} models.APIResponse{data=models.User}
+// @Failure 401 {object} models.APIResponse
+// @Failure 403 {object} models.APIResponse
 // @Router /api/v1/users [post]
 func (h *UserHandler) CreateUser(c *gin.Context) {
-	var req RegisterRequest
+	var req dto.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		h.log.Warn("CreateUser: invalid request body", zap.Error(err))
+		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+			models.CodeBadRequest,
+			"Invalid request body",
+			err.Error(),
+		))
 		return
 	}
 
-	user := &models.User{
-		Username:  req.Username,
-		Email:     req.Email,
-		Password:  req.Password,
-		FirstName: req.FirstName,
-		LastName:  req.LastName,
-		Role:      models.RoleUser,
-		IsActive:  true,
-	}
+	h.log.Info("CreateUser: creating user",
+		zap.String("username", req.Username),
+		zap.String("email", req.Email),
+		zap.String("firstName", req.FirstName),
+		zap.String("lastName", req.LastName),
+	)
 
-	if err := h.userService.CreateUser(c.Request.Context(), user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	var createdUser *models.User
+	var err error
+
+	if createdUser, err = h.userService.CreateUser(c.Request.Context(), req); err != nil {
+		h.log.Error("CreateUser: failed to create user", zap.Error(err))
+		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+			models.CodeBadRequest,
+			"Failed to create user",
+			err.Error(),
+		))
 		return
 	}
 
-	// Get the created user
-	createdUser, err := h.userService.GetUserByUsername(c.Request.Context(), user.Username)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve created user"})
-		return
-	}
-
-	c.JSON(http.StatusCreated, createdUser)
+	c.JSON(http.StatusCreated, models.NewSuccessResponse(
+		models.CodeSuccess,
+		"User created successfully",
+		createdUser,
+	))
 }
 
 // UpdateUser updates a user (admin only)
@@ -239,34 +285,53 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "User ID"
-// @Param request body map[string]interface{} true "User updates"
-// @Success 200 {object} models.User
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 403 {object} map[string]string
-// @Failure 404 {object} map[string]string
+// @Param request body dto.UserUpdate true "User updates"
+// @Success 200 {object} models.APIResponse{data=models.User}
+// @Failure 400 {object} models.APIResponse
+// @Failure 401 {object} models.APIResponse
+// @Failure 403 {object} models.APIResponse
+// @Failure 404 {object} models.APIResponse
 // @Router /api/v1/users/{id} [put]
 func (h *UserHandler) UpdateUser(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		h.log.Warn("UpdateUser: invalid user ID", zap.Error(err))
+		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+			models.CodeBadRequest,
+			"Invalid user ID",
+			err.Error(),
+		))
 		return
 	}
 
-	var updates map[string]interface{}
+	var updates dto.UserUpdate
 	if err := c.ShouldBindJSON(&updates); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+			models.CodeBadRequest,
+			"Invalid request body",
+			err.Error(),
+		))
 		return
 	}
+
+	h.log.Info("UpdateUser: updating user", zap.Uint("id", uint(id)), zap.Any("updates", updates))
 
 	user, err := h.userService.UpdateUser(c.Request.Context(), uint(id), updates)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+			models.CodeBadRequest,
+			"Failed to update user",
+			err.Error(),
+		))
 		return
 	}
 
-	c.JSON(http.StatusOK, user)
+	c.JSON(http.StatusOK, models.NewSuccessResponse(
+		models.CodeSuccess,
+		"User updated successfully",
+		user,
+	))
 }
 
 // DeleteUser deletes a user (admin only)
@@ -275,24 +340,40 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 // @Tags users
 // @Security BearerAuth
 // @Param id path int true "User ID"
-// @Success 204
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 403 {object} map[string]string
-// @Failure 404 {object} map[string]string
+// @Success 200 {object} models.APIResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 401 {object} models.APIResponse
+// @Failure 403 {object} models.APIResponse
+// @Failure 404 {object} models.APIResponse
 // @Router /api/v1/users/{id} [delete]
 func (h *UserHandler) DeleteUser(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		h.log.Warn("DeleteUser: invalid user ID", zap.Error(err))
+		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+			models.CodeBadRequest,
+			"Invalid user ID",
+			err.Error(),
+		))
 		return
 	}
+
+	h.log.Info("DeleteUser: deleting user", zap.Uint("id", uint(id)))
 
 	if err := h.userService.DeleteUser(c.Request.Context(), uint(id)); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+			models.CodeBadRequest,
+			"Failed to delete user",
+			err.Error(),
+		))
 		return
 	}
 
-	c.Status(http.StatusNoContent)
+	h.log.Info("DeleteUser: user deleted successfully", zap.Uint("id", uint(id)))
+	c.JSON(http.StatusOK, models.NewSuccessResponse(
+		models.CodeSuccess,
+		"User deleted successfully",
+		nil,
+	))
 }

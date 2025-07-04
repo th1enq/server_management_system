@@ -1,4 +1,53 @@
 definitions:
+  dto.ImportResult:
+    properties:
+      failure_count:
+        type: integer
+      failure_servers:
+        items:
+          type: string
+        type: array
+      success_count:
+        type: integer
+      success_servers:
+        items:
+          type: string
+        type: array
+    type: object
+  dto.ServerListResponse:
+    properties:
+      page:
+        type: integer
+      servers:
+        items:
+          $ref: '#/definitions/models.Server'
+        type: array
+      size:
+        type: integer
+      total:
+        type: integer
+    type: object
+  dto.ServerUpdate:
+    properties:
+      cpu:
+        type: integer
+      description:
+        type: string
+      disk:
+        type: integer
+      ipv4:
+        type: string
+      location:
+        type: string
+      os:
+        type: string
+      ram:
+        type: integer
+      server_name:
+        type: string
+      status:
+        $ref: '#/definitions/models.ServerStatus'
+    type: object
   handler.LoginRequest:
     properties:
       password:
@@ -76,21 +125,6 @@ definitions:
       message:
         type: string
     type: object
-  models.ImportResult:
-    properties:
-      failure_count:
-        type: integer
-      failure_servers:
-        items:
-          type: string
-        type: array
-      success_count:
-        type: integer
-      success_servers:
-        items:
-          type: string
-        type: array
-    type: object
   models.Server:
     properties:
       cpu:
@@ -121,19 +155,6 @@ definitions:
         type: string
       status:
         $ref: '#/definitions/models.ServerStatus'
-    type: object
-  models.ServerListResponse:
-    properties:
-      page:
-        type: integer
-      servers:
-        items:
-          $ref: '#/definitions/models.Server'
-        type: array
-      size:
-        type: integer
-      total:
-        type: integer
     type: object
   models.ServerStatus:
     enum:
@@ -453,7 +474,7 @@ paths:
             - $ref: '#/definitions/models.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/models.ServerListResponse'
+                  $ref: '#/definitions/dto.ServerListResponse'
               type: object
         "400":
           description: Bad Request
@@ -549,13 +570,12 @@ paths:
         name: id
         required: true
         type: integer
-      - description: Update data
+      - description: Server update information
         in: body
-        name: updates
+        name: updateInfo
         required: true
         schema:
-          additionalProperties: true
-          type: object
+          $ref: '#/definitions/dto.ServerUpdate'
       produces:
       - application/json
       responses:
@@ -680,7 +700,7 @@ paths:
             - $ref: '#/definitions/models.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/models.ImportResult'
+                  $ref: '#/definitions/dto.ImportResult'
               type: object
         "400":
           description: Bad Request

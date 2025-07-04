@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/th1enq/server_management_system/internal/configs"
 	"github.com/th1enq/server_management_system/internal/models"
+	"github.com/th1enq/server_management_system/internal/models/dto"
 	"go.uber.org/zap"
 )
 
@@ -50,15 +51,15 @@ func (m *MockServerService) GetServer(ctx context.Context, id uint) (*models.Ser
 	return args.Get(0).(*models.Server), args.Error(1)
 }
 
-func (m *MockServerService) ListServers(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) (*models.ServerListResponse, error) {
+func (m *MockServerService) ListServers(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) (*dto.ServerListResponse, error) {
 	args := m.Called(ctx, filter, pagination)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*models.ServerListResponse), args.Error(1)
+	return args.Get(0).(*dto.ServerListResponse), args.Error(1)
 }
 
-func (m *MockServerService) UpdateServer(ctx context.Context, id uint, updates map[string]interface{}) (*models.Server, error) {
+func (m *MockServerService) UpdateServer(ctx context.Context, id uint, updates dto.ServerUpdate) (*models.Server, error) {
 	args := m.Called(ctx, id, updates)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -71,15 +72,15 @@ func (m *MockServerService) DeleteServer(ctx context.Context, id uint) error {
 	return args.Error(0)
 }
 
-func (m *MockServerService) ImportServers(ctx context.Context, filePath string) (*models.ImportResult, error) {
+func (m *MockServerService) ImportServers(ctx context.Context, filePath string) (*dto.ImportResult, error) {
 	args := m.Called(ctx, filePath)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*models.ImportResult), args.Error(1)
+	return args.Get(0).(*dto.ImportResult), args.Error(1)
 }
 
-func (m *MockServerService) ExportServers(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) (string, error) {
+func (m *MockServerService) ExportServers(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) (string, error) {
 	args := m.Called(ctx, filter, pagination)
 	return args.String(0), args.Error(1)
 }

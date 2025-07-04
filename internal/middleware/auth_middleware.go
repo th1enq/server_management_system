@@ -27,7 +27,11 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := m.extractTokenFromHeader(c)
 		if token == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization token required"})
+			c.JSON(http.StatusUnauthorized, models.NewErrorResponse(
+				models.CodeUnauthorized,
+				"Authentication required",
+				nil,
+			))
 			c.Abort()
 			return
 		}
@@ -35,13 +39,21 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 		claims, err := m.authService.ValidateToken(token)
 		if err != nil {
 			m.logger.Warn("Invalid token", zap.Error(err))
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			c.JSON(http.StatusUnauthorized, models.NewErrorResponse(
+				models.CodeUnauthorized,
+				"Invalid token",
+				nil,
+			))
 			c.Abort()
 			return
 		}
 		if claims.TokenType != "access" {
 			m.logger.Warn("Invalid token type", zap.String("token_type", claims.TokenType))
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token type"})
+			c.JSON(http.StatusUnauthorized, models.NewErrorResponse(
+				models.CodeUnauthorized,
+				"Invalid token type",
+				nil,
+			))
 			c.Abort()
 			return
 		}
@@ -64,20 +76,30 @@ func (m *AuthMiddleware) RequireRole(requiredRole string) gin.HandlerFunc {
 		// First check if user is authenticated
 		role, exists := c.Get("role")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+			c.JSON(http.StatusUnauthorized, models.NewErrorResponse(
+				models.CodeUnauthorized,
+				"Authentication required",
+				nil,
+			))
 			c.Abort()
 			return
 		}
 
 		userRole, ok := role.(string)
 		if !ok {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid role data"})
+			c.JSON(http.StatusInternalServerError, models.NewErrorResponse(
+				models.CodeInternalServerError,
+				"Invalid role data",
+				nil))
 			c.Abort()
 			return
 		}
 
 		if userRole != requiredRole {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+			c.JSON(http.StatusForbidden, models.NewErrorResponse(
+				models.CodeForbidden,
+				"Insufficient permissions",
+				nil))
 			c.Abort()
 			return
 		}
@@ -97,14 +119,20 @@ func (m *AuthMiddleware) RequireScope(requiredScope string) gin.HandlerFunc {
 		// First check if user is authenticated
 		scopes, exists := c.Get("scopes")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+			c.JSON(http.StatusUnauthorized, models.NewErrorResponse(
+				models.CodeUnauthorized,
+				"Authentication required",
+				nil))
 			c.Abort()
 			return
 		}
 
 		userScopes, ok := scopes.([]models.APIScope)
 		if !ok {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid scope data"})
+			c.JSON(http.StatusInternalServerError, models.NewErrorResponse(
+				models.CodeInternalServerError,
+				"Invalid scope data",
+				nil))
 			c.Abort()
 			return
 		}
@@ -119,7 +147,10 @@ func (m *AuthMiddleware) RequireScope(requiredScope string) gin.HandlerFunc {
 		}
 
 		if !hasScope {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient scope permissions"})
+			c.JSON(http.StatusForbidden, models.NewErrorResponse(
+				models.CodeForbidden,
+				"Insufficient scope permissions",
+				nil))
 			c.Abort()
 			return
 		}
@@ -134,14 +165,22 @@ func (m *AuthMiddleware) RequireAnyScope(requiredScopes ...string) gin.HandlerFu
 		// First check if user is authenticated
 		scopes, exists := c.Get("scopes")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+			c.JSON(http.StatusUnauthorized, models.NewErrorResponse(
+				models.CodeUnauthorized,
+				"Authentication required",
+				nil,
+			))
 			c.Abort()
 			return
 		}
 
 		userScopes, ok := scopes.([]models.APIScope)
 		if !ok {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid scope data"})
+			c.JSON(http.StatusInternalServerError, models.NewErrorResponse(
+				models.CodeInternalServerError,
+				"Invalid scope data",
+				nil,
+			))
 			c.Abort()
 			return
 		}
@@ -161,31 +200,15 @@ func (m *AuthMiddleware) RequireAnyScope(requiredScopes ...string) gin.HandlerFu
 		}
 
 		if !hasScope {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient scope permissions"})
+			c.JSON(http.StatusForbidden, models.NewErrorResponse(
+				models.CodeForbidden,
+				"Insufficient scope permissions",
+				nil,
+			))
 			c.Abort()
 			return
 		}
 
-		c.Next()
-	}
-}
-
-// OptionalAuth is a middleware that optionally extracts user info if token is provided
-func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		token := m.extractTokenFromHeader(c)
-		if token != "" {
-			claims, err := m.authService.ValidateToken(token)
-			if err == nil {
-				// Store user info in context
-				c.Set("user_id", claims.UserID)
-				c.Set("username", claims.Username)
-				c.Set("email", claims.Email)
-				c.Set("role", string(claims.Role))
-				c.Set("scopes", claims.Scopes)
-				c.Set("claims", claims)
-			}
-		}
 		c.Next()
 	}
 }

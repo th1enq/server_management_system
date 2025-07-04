@@ -4,5 +4,5 @@ import (
 	_ "embed"
 )
 
-//go:embed config.yaml
+//go:embed config.dev.yaml
 var DefaultConfigBytes []byte

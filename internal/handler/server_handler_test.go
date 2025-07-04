@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/th1enq/server_management_system/internal/models"
+	"github.com/th1enq/server_management_system/internal/models/dto"
 	"go.uber.org/zap"
 )
 
@@ -37,15 +38,15 @@ func (m *MockServerService) GetServer(ctx context.Context, id uint) (*models.Ser
 	return args.Get(0).(*models.Server), args.Error(1)
 }
 
-func (m *MockServerService) ListServers(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) (*models.ServerListResponse, error) {
+func (m *MockServerService) ListServers(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) (*dto.ServerListResponse, error) {
 	args := m.Called(ctx, filter, pagination)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*models.ServerListResponse), args.Error(1)
+	return args.Get(0).(*dto.ServerListResponse), args.Error(1)
 }
 
-func (m *MockServerService) UpdateServer(ctx context.Context, id uint, updates map[string]interface{}) (*models.Server, error) {
+func (m *MockServerService) UpdateServer(ctx context.Context, id uint, updates dto.ServerUpdate) (*models.Server, error) {
 	args := m.Called(ctx, id, updates)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -58,15 +59,15 @@ func (m *MockServerService) DeleteServer(ctx context.Context, id uint) error {
 	return args.Error(0)
 }
 
-func (m *MockServerService) ImportServers(ctx context.Context, filePath string) (*models.ImportResult, error) {
+func (m *MockServerService) ImportServers(ctx context.Context, filePath string) (*dto.ImportResult, error) {
 	args := m.Called(ctx, filePath)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*models.ImportResult), args.Error(1)
+	return args.Get(0).(*dto.ImportResult), args.Error(1)
 }
 
-func (m *MockServerService) ExportServers(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) (string, error) {
+func (m *MockServerService) ExportServers(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) (string, error) {
 	args := m.Called(ctx, filter, pagination)
 	return args.String(0), args.Error(1)
 }
@@ -240,7 +241,7 @@ func TestServerHandler_CreateServer_InternalError(t *testing.T) {
 func TestServerHandler_ListServer_Success(t *testing.T) {
 	serverHandler, mockService := createTestServerHandler()
 
-	response := &models.ServerListResponse{
+	response := &dto.ServerListResponse{
 		Total: 1,
 		Servers: []models.Server{
 			{
@@ -253,7 +254,7 @@ func TestServerHandler_ListServer_Success(t *testing.T) {
 		Size: 10,
 	}
 
-	mockService.On("ListServers", mock.Anything, mock.AnythingOfType("models.ServerFilter"), mock.AnythingOfType("models.Pagination")).Return(response, nil)
+	mockService.On("ListServers", mock.Anything, mock.AnythingOfType("dto.ServerFilter"), mock.AnythingOfType("dto.Pagination")).Return(response, nil)
 
 	c, w := setupGinTestContext("GET", "/api/v1/servers", nil)
 	serverHandler.ListServer(c)
@@ -265,14 +266,14 @@ func TestServerHandler_ListServer_Success(t *testing.T) {
 func TestServerHandler_ListServer_WithFilters(t *testing.T) {
 	serverHandler, mockService := createTestServerHandler()
 
-	response := &models.ServerListResponse{
+	response := &dto.ServerListResponse{
 		Total:   0,
 		Servers: []models.Server{},
 		Page:    1,
 		Size:    10,
 	}
 
-	mockService.On("ListServers", mock.Anything, mock.AnythingOfType("models.ServerFilter"), mock.AnythingOfType("models.Pagination")).Return(response, nil)
+	mockService.On("ListServers", mock.Anything, mock.AnythingOfType("dto.ServerFilter"), mock.AnythingOfType("dto.Pagination")).Return(response, nil)
 
 	c, w := setupGinTestContext("GET", "/api/v1/servers?server_id=test&status=ON&page=2&page_size=20", nil)
 	serverHandler.ListServer(c)
@@ -284,7 +285,7 @@ func TestServerHandler_ListServer_WithFilters(t *testing.T) {
 func TestServerHandler_ListServer_ServiceError(t *testing.T) {
 	serverHandler, mockService := createTestServerHandler()
 
-	mockService.On("ListServers", mock.Anything, mock.AnythingOfType("models.ServerFilter"), mock.AnythingOfType("models.Pagination")).Return(nil, errors.New("database error"))
+	mockService.On("ListServers", mock.Anything, mock.AnythingOfType("dto.ServerFilter"), mock.AnythingOfType("dto.Pagination")).Return(nil, errors.New("database error"))
 
 	c, w := setupGinTestContext("GET", "/api/v1/servers", nil)
 	serverHandler.ListServer(c)
@@ -443,7 +444,7 @@ func TestServerHandler_ImportServers_Success(t *testing.T) {
 	testFile := createTestExcelFile()
 	defer os.Remove(testFile)
 
-	result := &models.ImportResult{
+	result := &dto.ImportResult{
 		SuccessCount:   2,
 		SuccessServers: []string{"server1", "server2"},
 		FailureCount:   0,
@@ -521,7 +522,7 @@ func TestServerHandler_ExportServers_Success(t *testing.T) {
 	file.Close()
 	defer os.Remove(testFilePath)
 
-	mockService.On("ExportServers", mock.Anything, mock.AnythingOfType("models.ServerFilter"), mock.AnythingOfType("models.Pagination")).Return(testFilePath, nil)
+	mockService.On("ExportServers", mock.Anything, mock.AnythingOfType("dto.ServerFilter"), mock.AnythingOfType("dto.Pagination")).Return(testFilePath, nil)
 
 	c, w := setupGinTestContext("GET", "/api/v1/servers/export", nil)
 	serverHandler.ExportServers(c)
@@ -542,7 +543,7 @@ func TestServerHandler_ExportServers_WithFilters(t *testing.T) {
 	file.Close()
 	defer os.Remove(testFilePath)
 
-	mockService.On("ExportServers", mock.Anything, mock.AnythingOfType("models.ServerFilter"), mock.AnythingOfType("models.Pagination")).Return(testFilePath, nil)
+	mockService.On("ExportServers", mock.Anything, mock.AnythingOfType("dto.ServerFilter"), mock.AnythingOfType("dto.Pagination")).Return(testFilePath, nil)
 
 	c, w := setupGinTestContext("GET", "/api/v1/servers/export?server_id=test&status=ON&page_size=5000", nil)
 	serverHandler.ExportServers(c)
@@ -554,7 +555,7 @@ func TestServerHandler_ExportServers_WithFilters(t *testing.T) {
 func TestServerHandler_ExportServers_ServiceError(t *testing.T) {
 	serverHandler, mockService := createTestServerHandler()
 
-	mockService.On("ExportServers", mock.Anything, mock.AnythingOfType("models.ServerFilter"), mock.AnythingOfType("models.Pagination")).Return("", errors.New("export failed"))
+	mockService.On("ExportServers", mock.Anything, mock.AnythingOfType("dto.ServerFilter"), mock.AnythingOfType("dto.Pagination")).Return("", errors.New("export failed"))
 
 	c, w := setupGinTestContext("GET", "/api/v1/servers/export", nil)
 	serverHandler.ExportServers(c)

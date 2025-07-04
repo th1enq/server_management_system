@@ -5,16 +5,19 @@ import (
 	"fmt"
 
 	"github.com/th1enq/server_management_system/internal/models"
+	"github.com/th1enq/server_management_system/internal/models/dto"
 	"github.com/th1enq/server_management_system/internal/repositories"
 	"go.uber.org/zap"
 )
 
 type UserService interface {
-	CreateUser(ctx context.Context, user *models.User) error
+	CreateUser(ctx context.Context, req dto.CreateUserRequest) (*models.User, error)
 	GetUserByID(ctx context.Context, id uint) (*models.User, error)
 	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
 	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
-	UpdateUser(ctx context.Context, id uint, updates map[string]interface{}) (*models.User, error)
+	UpdateUser(ctx context.Context, id uint, updates dto.UserUpdate) (*models.User, error)
+	UpdateProfile(ctx context.Context, id uint, updates dto.ProfileUpdate) (*models.User, error)
+	UpdatePassword(ctx context.Context, id uint, updates dto.PasswordUpdate) error
 	DeleteUser(ctx context.Context, id uint) error
 	ListUsers(ctx context.Context, limit, offset int) ([]*models.User, error)
 }
@@ -32,24 +35,96 @@ func NewUserService(userRepo repositories.UserRepository, logger *zap.Logger) Us
 }
 
 // CreateUser implements UserService.
-func (u *userService) CreateUser(ctx context.Context, user *models.User) error {
-	if user.Username == "" || user.Password == "" {
-		return fmt.Errorf("username and password are required")
+func (u *userService) CreateUser(ctx context.Context, req dto.CreateUserRequest) (*models.User, error) {
+	user := &models.User{
+		Username:  req.Username,
+		Email:     req.Email,
+		Password:  req.Password,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
 	}
-	if user.Email == "" {
-		return fmt.Errorf("email is required")
+	user.SetPassword(req.Password)
+
+	if _, err := u.userRepo.GetByUsername(ctx, user.Username); err == nil {
+		u.logger.Error("Username already exists",
+			zap.String("username", user.Username),
+		)
+		return nil, fmt.Errorf("username already exists")
 	}
 
-	existing, _ := u.userRepo.GetByUsername(ctx, user.Username)
-	if existing != nil {
-		return fmt.Errorf("user already exists")
+	if _, err := u.userRepo.GetByEmail(ctx, user.Email); err == nil {
+		u.logger.Error("Email already exists",
+			zap.String("email", user.Email),
+		)
+		return nil, fmt.Errorf("email already exists")
 	}
 
-	err := u.userRepo.Create(ctx, user)
+	if err := u.userRepo.Create(ctx, user); err != nil {
+		u.logger.Error("Failed to create user",
+			zap.String("username", req.Username),
+			zap.String("email", req.Email),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	u.logger.Info("User created successfully",
+		zap.Uint("id", user.ID),
+		zap.String("username", user.Username),
+		zap.String("email", user.Email),
+	)
+
+	return user, nil
+}
+
+func (u *userService) UpdatePassword(ctx context.Context, id uint, updates dto.PasswordUpdate) error {
+	user, err := u.userRepo.GetByID(ctx, id)
 	if err != nil {
-		return fmt.Errorf("failed to create user: %w", err)
+		return fmt.Errorf("user not found: %w", err)
 	}
+
+	if user.CheckPassword(updates.OldPassword) != nil {
+		return fmt.Errorf("old password is incorrect")
+	}
+
+	if updates.NewPassword != updates.RepeatPassword {
+		return fmt.Errorf("new password and repeat password do not match")
+	}
+
+	user.SetPassword(updates.NewPassword)
+
+	if err := u.userRepo.Update(ctx, user); err != nil {
+		return fmt.Errorf("failed to update user password: %w", err)
+	}
+
+	u.logger.Info("User password updated successfully",
+		zap.Uint("id", user.ID),
+		zap.String("username", user.Username),
+	)
+
 	return nil
+}
+
+func (u *userService) UpdateProfile(ctx context.Context, id uint, updates dto.ProfileUpdate) (*models.User, error) {
+	user, err := u.userRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
+	user.FirstName = updates.FirstName
+	user.LastName = updates.LastName
+
+	if err := u.userRepo.Update(ctx, user); err != nil {
+		return nil, fmt.Errorf("failed to update user profile: %w", err)
+	}
+
+	u.logger.Info("User profile updated successfully",
+		zap.Uint("id", user.ID),
+		zap.String("username", user.Username),
+		zap.String("email", user.Email),
+	)
+
+	return user, nil
 }
 
 // DeleteUser implements UserService.
@@ -72,78 +147,34 @@ func (u *userService) DeleteUser(ctx context.Context, id uint) error {
 }
 
 // UpdateUser implements UserService.
-func (u *userService) UpdateUser(ctx context.Context, id uint, updates map[string]interface{}) (*models.User, error) {
+func (u *userService) UpdateUser(ctx context.Context, id uint, updates dto.UserUpdate) (*models.User, error) {
 	user, err := u.userRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
 	}
 
-	if len(updates) == 0 {
-		return user, nil // No updates to apply
+	user.Username = updates.Username
+	user.Email = updates.Email
+	if updates.Password != "" {
+		user.SetPassword(updates.Password)
+	}
+	user.Role = models.UserRole(updates.Role)
+	user.FirstName = updates.FirstName
+	user.LastName = updates.LastName
+	user.IsActive = updates.IsActive
+
+	if existUser, err := u.userRepo.GetByUsername(ctx, user.Username); err == nil && existUser.ID != user.ID {
+		u.logger.Error("Username already exists",
+			zap.String("username", user.Username),
+		)
+		return nil, fmt.Errorf("username already exists")
 	}
 
-	for key, value := range updates {
-		switch key {
-		case "role":
-			if role, ok := value.(string); ok {
-				switch role {
-				case string(models.RoleAdmin):
-					user.Role = models.RoleAdmin
-				case string(models.RoleUser):
-					user.Role = models.RoleUser
-				default:
-					return nil, fmt.Errorf("invalid role value: %s", role)
-				}
-			} else {
-				return nil, fmt.Errorf("invalid type: %v", value)
-			}
-		case "username":
-			if username, ok := value.(string); ok && username != "" {
-				existing, _ := u.userRepo.GetByUsername(ctx, username)
-				if existing != nil && existing.ID != user.ID {
-					return nil, fmt.Errorf("username already exists")
-				}
-				user.Username = username
-			} else {
-				return nil, fmt.Errorf("invalid username value: %v", value)
-			}
-		case "email":
-			if email, ok := value.(string); ok && email != "" {
-				existing, _ := u.userRepo.GetByEmail(ctx, email)
-				if existing != nil && existing.ID != user.ID {
-					return nil, fmt.Errorf("email already exists")
-				}
-				user.Email = email
-			} else {
-				return nil, fmt.Errorf("invalid email value: %v", value)
-			}
-		case "first_name":
-			if firstName, ok := value.(string); ok {
-				user.FirstName = firstName
-			} else {
-				return nil, fmt.Errorf("invalid first_name value: %v", value)
-			}
-		case "last_name":
-			if lastName, ok := value.(string); ok {
-				user.LastName = lastName
-			} else {
-				return nil, fmt.Errorf("invalid last_name value: %v", value)
-			}
-		case "is_active":
-			if isActive, ok := value.(bool); ok {
-				user.IsActive = isActive
-			} else {
-				return nil, fmt.Errorf("invalid is_active value: %v", value)
-			}
-		case "password":
-			if password, ok := value.(string); ok && password != "" {
-				if err := user.SetPassword(password); err != nil {
-					return nil, fmt.Errorf("failed to set password: %w", err)
-				}
-			} else {
-				return nil, fmt.Errorf("invalid password value: %v", value)
-			}
-		}
+	if existUser, err := u.userRepo.GetByEmail(ctx, user.Email); err == nil && existUser.ID != user.ID {
+		u.logger.Error("Email already exists",
+			zap.String("email", user.Email),
+		)
+		return nil, fmt.Errorf("email already exists")
 	}
 
 	if err := u.userRepo.Update(ctx, user); err != nil {

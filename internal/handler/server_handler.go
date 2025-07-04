@@ -6,7 +6,9 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/th1enq/server_management_system/internal/models"
+	"github.com/th1enq/server_management_system/internal/models/dto"
 	"github.com/th1enq/server_management_system/internal/services"
 	"go.uber.org/zap"
 )
@@ -37,8 +39,15 @@ func NewServerHandler(serverSrv services.ServerService, logger *zap.Logger) *Ser
 // @Security BearerAuth
 // @Router /api/v1/servers [post]
 func (h *ServerHandler) CreateServer(c *gin.Context) {
+	h.logger.Info("Starting create server request",
+		zap.String("request_id", c.GetString("request_id")),
+		zap.String("user_id", c.GetString("user_id")))
+
 	var server models.Server
 	if err := c.ShouldBindBodyWithJSON(&server); err != nil {
+		h.logger.Error("Failed to bind request body",
+			zap.Error(err),
+			zap.String("request_id", c.GetString("request_id")))
 		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
 			models.CodeBadRequest,
 			"Invalid request body",
@@ -47,8 +56,18 @@ func (h *ServerHandler) CreateServer(c *gin.Context) {
 		return
 	}
 
+	h.logger.Info("Creating server",
+		zap.String("server_id", server.ServerID),
+		zap.String("server_name", server.ServerName),
+		zap.String("request_id", c.GetString("request_id")))
+
 	err := h.serverSrv.CreateServer(c.Request.Context(), &server)
 	if err != nil {
+		h.logger.Error("Failed to create server",
+			zap.Error(err),
+			zap.String("server_id", server.ServerID),
+			zap.String("server_name", server.ServerName),
+			zap.String("request_id", c.GetString("request_id")))
 
 		code := models.CodeInternalServerError
 		status := http.StatusInternalServerError
@@ -64,6 +83,13 @@ func (h *ServerHandler) CreateServer(c *gin.Context) {
 		c.JSON(status, models.NewErrorResponse(code, "Failed to create server", err.Error()))
 		return
 	}
+
+	h.logger.Info("Server created successfully",
+		zap.String("server_id", server.ServerID),
+		zap.String("server_name", server.ServerName),
+		zap.Uint("id", server.ID),
+		zap.String("request_id", c.GetString("request_id")))
+
 	c.JSON(http.StatusCreated, models.NewSuccessResponse(
 		models.CodeCreated,
 		"Server created successfully",
@@ -87,16 +113,23 @@ func (h *ServerHandler) CreateServer(c *gin.Context) {
 // @Param page_size query int false "Page size" default(10)
 // @Param sort query string false "Sort field" default(created_time)
 // @Param order query string false "Sort order" default(desc)
-// @Success 200 {object} models.APIResponse{data=models.ServerListResponse}
+// @Success 200 {object} models.APIResponse{data=dto.ServerListResponse}
 // @Failure 400 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
 // @Security BearerAuth
 // @Router /api/v1/servers [get]
 func (h *ServerHandler) ListServer(c *gin.Context) {
-	var filter models.ServerFilter
-	var pagination models.Pagination
+	h.logger.Info("Starting list servers request",
+		zap.String("request_id", c.GetString("request_id")),
+		zap.String("user_id", c.GetString("user_id")))
+
+	var filter dto.ServerFilter
+	var pagination dto.Pagination
 
 	if err := c.ShouldBindQuery(&filter); err != nil {
+		h.logger.Error("Failed to bind filter parameters",
+			zap.Error(err),
+			zap.String("request_id", c.GetString("request_id")))
 		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
 			models.CodeBadRequest,
 			"Invalid filter parameters",
@@ -106,23 +139,29 @@ func (h *ServerHandler) ListServer(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindQuery(&pagination); err != nil {
+		h.logger.Error("Failed to bind pagination parameters",
+			zap.Error(err),
+			zap.String("request_id", c.GetString("request_id")))
 		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
 			models.CodeBadRequest,
-			"Invalid pagnination parameters",
+			"Invalid pagination parameters",
 			err.Error(),
 		))
 		return
 	}
 
-	if pagination.Page < 1 {
-		pagination.Page = 1
-	}
-	if pagination.PageSize < 1 || pagination.PageSize > 100 {
-		pagination.PageSize = 10
-	}
+	h.logger.Info("Listing servers with filters",
+		zap.Any("filter", filter),
+		zap.Any("pagination", pagination),
+		zap.String("request_id", c.GetString("request_id")))
 
 	response, err := h.serverSrv.ListServers(c.Request.Context(), filter, pagination)
 	if err != nil {
+		h.logger.Error("Failed to list servers",
+			zap.Error(err),
+			zap.Any("filter", filter),
+			zap.Any("pagination", pagination),
+			zap.String("request_id", c.GetString("request_id")))
 		c.JSON(http.StatusInternalServerError, models.NewErrorResponse(
 			models.CodeInternalServerError,
 			"Failed to list servers",
@@ -130,6 +169,13 @@ func (h *ServerHandler) ListServer(c *gin.Context) {
 		))
 		return
 	}
+
+	h.logger.Info("Servers listed successfully",
+		zap.Int64("total", response.Total),
+		zap.Int("returned_count", len(response.Servers)),
+		zap.Int("page", response.Page),
+		zap.Int("size", response.Size),
+		zap.String("request_id", c.GetString("request_id")))
 
 	c.JSON(http.StatusOK, models.NewSuccessResponse(
 		models.CodeSuccess,
@@ -145,7 +191,7 @@ func (h *ServerHandler) ListServer(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "Server ID"
-// @Param updates body map[string]interface{} true "Update data"
+// @Param updateInfo body dto.ServerUpdate true "Server update information"
 // @Success 200 {object} models.APIResponse{data=models.Server}
 // @Failure 400 {object} models.APIResponse
 // @Failure 404 {object} models.APIResponse
@@ -154,8 +200,16 @@ func (h *ServerHandler) ListServer(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/servers/{id} [put]
 func (h *ServerHandler) UpdateServer(c *gin.Context) {
+	h.logger.Info("Starting update server request",
+		zap.String("request_id", c.GetString("request_id")),
+		zap.String("user_id", c.GetString("user_id")))
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
+		h.logger.Error("Failed to parse server ID",
+			zap.Error(err),
+			zap.String("id_param", c.Param("id")),
+			zap.String("request_id", c.GetString("request_id")))
 		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
 			models.CodeBadRequest,
 			"Invalid server ID",
@@ -163,8 +217,13 @@ func (h *ServerHandler) UpdateServer(c *gin.Context) {
 		))
 		return
 	}
-	var updateInfo map[string]interface{}
+
+	var updateInfo dto.ServerUpdate
 	if err := c.ShouldBindBodyWithJSON(&updateInfo); err != nil {
+		h.logger.Error("Failed to bind update request body",
+			zap.Error(err),
+			zap.Uint64("server_id", id),
+			zap.String("request_id", c.GetString("request_id")))
 		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
 			models.CodeBadRequest,
 			"Invalid request body",
@@ -172,8 +231,20 @@ func (h *ServerHandler) UpdateServer(c *gin.Context) {
 		))
 		return
 	}
+
+	h.logger.Info("Updating server",
+		zap.Uint64("server_id", id),
+		zap.Any("update_info", updateInfo),
+		zap.String("request_id", c.GetString("request_id")))
+
 	server, err := h.serverSrv.UpdateServer(c.Request.Context(), uint(id), updateInfo)
 	if err != nil {
+		h.logger.Error("Failed to update server",
+			zap.Error(err),
+			zap.Uint64("server_id", id),
+			zap.Any("update_info", updateInfo),
+			zap.String("request_id", c.GetString("request_id")))
+
 		code := models.CodeInternalServerError
 		status := http.StatusInternalServerError
 
@@ -188,8 +259,14 @@ func (h *ServerHandler) UpdateServer(c *gin.Context) {
 		c.JSON(status, models.NewErrorResponse(code, "Failed to update server", err.Error()))
 		return
 	}
-	c.JSON(http.StatusCreated, models.NewSuccessResponse(
-		models.CodeUpdated,
+
+	h.logger.Info("Server updated successfully",
+		zap.Uint64("server_id", id),
+		zap.String("server_name", server.ServerName),
+		zap.String("request_id", c.GetString("request_id")))
+
+	c.JSON(http.StatusOK, models.NewSuccessResponse(
+		models.CodeSuccess,
 		"Server update successfully",
 		server,
 	))
@@ -208,8 +285,16 @@ func (h *ServerHandler) UpdateServer(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/servers/{id} [delete]
 func (h *ServerHandler) DeleteServer(c *gin.Context) {
+	h.logger.Info("Starting delete server request",
+		zap.String("request_id", c.GetString("request_id")),
+		zap.String("user_id", c.GetString("user_id")))
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
+		h.logger.Error("Failed to parse server ID for deletion",
+			zap.Error(err),
+			zap.String("id_param", c.Param("id")),
+			zap.String("request_id", c.GetString("request_id")))
 		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
 			models.CodeBadRequest,
 			"Invalid server ID",
@@ -217,8 +302,17 @@ func (h *ServerHandler) DeleteServer(c *gin.Context) {
 		))
 		return
 	}
+
+	h.logger.Info("Deleting server",
+		zap.Uint64("server_id", id),
+		zap.String("request_id", c.GetString("request_id")))
+
 	err = h.serverSrv.DeleteServer(c.Request.Context(), uint(id))
 	if err != nil {
+		h.logger.Error("Failed to delete server",
+			zap.Error(err),
+			zap.Uint64("server_id", id),
+			zap.String("request_id", c.GetString("request_id")))
 
 		status := http.StatusInternalServerError
 		code := models.CodeInternalServerError
@@ -231,6 +325,10 @@ func (h *ServerHandler) DeleteServer(c *gin.Context) {
 		c.JSON(status, models.NewErrorResponse(code, "Failed to delete server", err.Error()))
 		return
 	}
+
+	h.logger.Info("Server deleted successfully",
+		zap.Uint64("server_id", id),
+		zap.String("request_id", c.GetString("request_id")))
 
 	c.JSON(http.StatusOK, models.NewSuccessResponse(
 		models.CodeDeleted,
@@ -246,15 +344,22 @@ func (h *ServerHandler) DeleteServer(c *gin.Context) {
 // @Accept multipart/form-data
 // @Produce json
 // @Param file formData file true "Excel file"
-// @Success 200 {object} models.APIResponse{data=models.ImportResult}
+// @Success 200 {object} models.APIResponse{data=dto.ImportResult}
 // @Failure 400 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
 // @Security BearerAuth
 // @Router /api/v1/servers/import [post]
 func (h *ServerHandler) ImportServers(c *gin.Context) {
+	h.logger.Info("Starting import servers request",
+		zap.String("request_id", c.GetString("request_id")),
+		zap.String("user_id", c.GetString("user_id")))
+
 	file, err := c.FormFile("file")
 	fmt.Println(file)
 	if err != nil {
+		h.logger.Error("No file uploaded for import",
+			zap.Error(err),
+			zap.String("request_id", c.GetString("request_id")))
 		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
 			models.CodeBadRequest,
 			"No file uploaded",
@@ -262,8 +367,19 @@ func (h *ServerHandler) ImportServers(c *gin.Context) {
 		))
 		return
 	}
-	filePath := "/tmp/" + file.Filename
+
+	h.logger.Info("Processing import file",
+		zap.String("filename", file.Filename),
+		zap.Int64("file_size", file.Size),
+		zap.String("request_id", c.GetString("request_id")))
+
+	filePath := "/tmp/" + uuid.New().String() + "_" + file.Filename
 	if err := c.SaveUploadedFile(file, filePath); err != nil {
+		h.logger.Error("Failed to save uploaded file",
+			zap.Error(err),
+			zap.String("filename", file.Filename),
+			zap.String("file_path", filePath),
+			zap.String("request_id", c.GetString("request_id")))
 		c.JSON(http.StatusInternalServerError, models.NewErrorResponse(
 			models.CodeInternalServerError,
 			"Failed to save file",
@@ -271,8 +387,17 @@ func (h *ServerHandler) ImportServers(c *gin.Context) {
 		))
 		return
 	}
+
+	h.logger.Info("File saved, starting import process",
+		zap.String("file_path", filePath),
+		zap.String("request_id", c.GetString("request_id")))
+
 	result, err := h.serverSrv.ImportServers(c.Request.Context(), filePath)
 	if err != nil {
+		h.logger.Error("Failed to import servers",
+			zap.Error(err),
+			zap.String("file_path", filePath),
+			zap.String("request_id", c.GetString("request_id")))
 		c.JSON(http.StatusInternalServerError, models.NewErrorResponse(
 			models.CodeInternalServerError,
 			"Failed to import servers",
@@ -280,6 +405,13 @@ func (h *ServerHandler) ImportServers(c *gin.Context) {
 		))
 		return
 	}
+
+	h.logger.Info("Servers imported successfully",
+		zap.Int("success_count", result.SuccessCount),
+		zap.Int("failure_count", result.FailureCount),
+		zap.Strings("success_servers", result.SuccessServers),
+		zap.Strings("failure_servers", result.FailureServers),
+		zap.String("request_id", c.GetString("request_id")))
 
 	c.JSON(http.StatusOK, models.NewSuccessResponse(
 		models.CodeSuccess,
@@ -310,11 +442,18 @@ func (h *ServerHandler) ImportServers(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/servers/export [get]
 func (h *ServerHandler) ExportServers(c *gin.Context) {
-	var filter models.ServerFilter
-	var pagination models.Pagination
+	h.logger.Info("Starting export servers request",
+		zap.String("request_id", c.GetString("request_id")),
+		zap.String("user_id", c.GetString("user_id")))
+
+	var filter dto.ServerFilter
+	var pagination dto.Pagination
 
 	// Bind query parameters
 	if err := c.ShouldBindQuery(&filter); err != nil {
+		h.logger.Error("Failed to bind filter parameters for export",
+			zap.Error(err),
+			zap.String("request_id", c.GetString("request_id")))
 		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
 			models.CodeBadRequest,
 			"Invalid filter parameters",
@@ -324,6 +463,9 @@ func (h *ServerHandler) ExportServers(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindQuery(&pagination); err != nil {
+		h.logger.Error("Failed to bind pagination parameters for export",
+			zap.Error(err),
+			zap.String("request_id", c.GetString("request_id")))
 		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
 			models.CodeBadRequest,
 			"Invalid pagination parameters",
@@ -332,13 +474,18 @@ func (h *ServerHandler) ExportServers(c *gin.Context) {
 		return
 	}
 
-	// Set default page size for export
-	if pagination.PageSize == 0 {
-		pagination.PageSize = 10000
-	}
+	h.logger.Info("Exporting servers with filters",
+		zap.Any("filter", filter),
+		zap.Any("pagination", pagination),
+		zap.String("request_id", c.GetString("request_id")))
 
 	filePath, err := h.serverSrv.ExportServers(c.Request.Context(), filter, pagination)
 	if err != nil {
+		h.logger.Error("Failed to export servers",
+			zap.Error(err),
+			zap.Any("filter", filter),
+			zap.Any("pagination", pagination),
+			zap.String("request_id", c.GetString("request_id")))
 		c.JSON(http.StatusInternalServerError, models.NewErrorResponse(
 			models.CodeInternalServerError,
 			"Failed to export servers",
@@ -346,6 +493,10 @@ func (h *ServerHandler) ExportServers(c *gin.Context) {
 		))
 		return
 	}
+
+	h.logger.Info("Servers exported successfully",
+		zap.String("export_file_path", filePath),
+		zap.String("request_id", c.GetString("request_id")))
 
 	c.Header("Content-Description", "File Transfer")
 	c.Header("Content-Transfer-Encoding", "binary")

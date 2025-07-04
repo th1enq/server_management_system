@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/th1enq/server_management_system/internal/dataaccess/database"
 	"github.com/th1enq/server_management_system/internal/models"
+	"github.com/th1enq/server_management_system/internal/models/dto"
 	"gorm.io/gorm"
 )
 
@@ -15,14 +16,15 @@ type ServerRepository interface {
 	GetByID(ctx context.Context, id uint) (*models.Server, error)
 	GetByServerID(ctx context.Context, serverID string) (*models.Server, error)
 	GetByServerName(ctx context.Context, serverName string) (*models.Server, error)
-	List(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) ([]models.Server, int64, error)
+	List(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) ([]models.Server, int64, error)
 	Update(ctx context.Context, server *models.Server) error
 	Delete(ctx context.Context, id uint) error
 	BatchCreate(ctx context.Context, servers []models.Server) error
 	UpdateStatus(ctx context.Context, serverID string, status models.ServerStatus) error
 	CountByStatus(ctx context.Context, status models.ServerStatus) (int64, error)
-	GetAll(ctx context.Context) ([]models.Server, error)
+	CountAll(ctx context.Context) (int64, error)
 	GetServersIP(ctx context.Context) ([]string, error)
+	GetAll(ctx context.Context) ([]models.Server, error)
 }
 
 type serverRepository struct {
@@ -113,11 +115,10 @@ func (s *serverRepository) Delete(ctx context.Context, id uint) error {
 	return s.db.WithContext(ctx).Delete(&models.Server{}, id).Error
 }
 
-// GetAll implements ServerRepository.
-func (s *serverRepository) GetAll(ctx context.Context) ([]models.Server, error) {
-	var servers []models.Server
-	err := s.db.WithContext(ctx).Find(&servers).Error
-	return servers, err
+func (s *serverRepository) CountAll(ctx context.Context) (int64, error) {
+	var count int64
+	err := s.db.WithContext(ctx).Model(&models.Server{}).Count(&count).Error
+	return count, err
 }
 
 // GetByID implements ServerRepository.
@@ -129,26 +130,34 @@ func (s *serverRepository) GetByID(ctx context.Context, id uint) (*models.Server
 	return &server, nil
 }
 
+func (s *serverRepository) GetAll(ctx context.Context) ([]models.Server, error) {
+	var servers []models.Server
+	if err := s.db.WithContext(ctx).Find(&servers).Error; err != nil {
+		return nil, err
+	}
+	return servers, nil
+}
+
 // GetByServerID implements ServerRepository.
 func (s *serverRepository) GetByServerID(ctx context.Context, serverID string) (*models.Server, error) {
-	var server *models.Server
+	var server models.Server
 	if err := s.db.WithContext(ctx).Where("server_id = ?", serverID).First(&server).Error; err != nil {
 		return nil, err
 	}
-	return server, nil
+	return &server, nil
 }
 
 // GetByServerName implements ServerRepository.
 func (s *serverRepository) GetByServerName(ctx context.Context, serverName string) (*models.Server, error) {
-	var server *models.Server
+	var server models.Server
 	if err := s.db.WithContext(ctx).Where("server_name = ?", serverName).First(&server).Error; err != nil {
 		return nil, err
 	}
-	return server, nil
+	return &server, nil
 }
 
 // List implements ServerRepository.
-func (s *serverRepository) List(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) ([]models.Server, int64, error) {
+func (s *serverRepository) List(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) ([]models.Server, int64, error) {
 	var servers []models.Server
 	var total int64
 

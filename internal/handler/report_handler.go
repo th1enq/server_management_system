@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/th1enq/server_management_system/internal/models"
+	"github.com/th1enq/server_management_system/internal/models/dto"
 	"github.com/th1enq/server_management_system/internal/services"
 	"go.uber.org/zap"
 )
@@ -13,14 +14,6 @@ import (
 type ReportHandler struct {
 	reportSrv services.ReportService
 	logger    *zap.Logger
-}
-
-// ReportRequest represents the request payload for generating reports by date range
-// @Description Request structure for generating reports within a specific date range
-type ReportRequest struct {
-	StartDate string `json:"start_date" binding:"required" example:"2025-06-20 00:00:00"` // Start date in format YYYY-MM-DD HH:MM:SS
-	EndDate   string `json:"end_date" binding:"required" example:"2025-06-21 23:59:59"`   // End date in format YYYY-MM-DD HH:MM:SS
-	Email     string `json:"email" binding:"required,email" example:"admin@example.com"`  // Email address to send the report to
 }
 
 func NewReportHandler(reportSrv services.ReportService, logger *zap.Logger) *ReportHandler {
@@ -36,12 +29,13 @@ func NewReportHandler(reportSrv services.ReportService, logger *zap.Logger) *Rep
 // @Tags reports
 // @Accept json
 // @Produce json
-// @Success 200 {object} models.APIResponse{data=map[string]interface{}}
+// @Success 200 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
 // @Security BearerAuth
 // @Router /api/v1/reports/daily [post]
 func (h *ReportHandler) SendReportDaily(c *gin.Context) {
-	err := h.reportSrv.SendReportForDaily(c.Request.Context(), time.Now())
+	now := time.Now()
+	err := h.reportSrv.SendReportForDaily(c.Request.Context(), now)
 	if err != nil {
 		h.logger.Error("Failed to send daily report", zap.Error(err))
 
@@ -55,9 +49,7 @@ func (h *ReportHandler) SendReportDaily(c *gin.Context) {
 	c.JSON(http.StatusOK, models.NewSuccessResponse(
 		models.CodeSuccess,
 		"Daily report sent successfully",
-		map[string]interface{}{
-			"date": time.Now().Format("2006-01-02"),
-		},
+		nil,
 	))
 }
 
@@ -67,14 +59,14 @@ func (h *ReportHandler) SendReportDaily(c *gin.Context) {
 // @Tags reports
 // @Accept json
 // @Produce json
-// @Param report body ReportRequest true "Report request with date range and email"
-// @Success 200 {object} models.APIResponse{data=map[string]interface{}}
+// @Param report body dto.ReportRequest true "Report request with date range and email"
+// @Success 200 {object} models.APIResponse
 // @Failure 400 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
 // @Security BearerAuth
 // @Router /api/v1/reports [post]
 func (h *ReportHandler) SendReportByDate(c *gin.Context) {
-	var req ReportRequest
+	var req dto.ReportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
 			models.CodeBadRequest,
@@ -84,7 +76,16 @@ func (h *ReportHandler) SendReportByDate(c *gin.Context) {
 		return
 	}
 
-	loc, _ := time.LoadLocation("Asia/Ho_Chi_Minh")
+	loc, err := time.LoadLocation("Asia/Ho_Chi_Minh")
+	if err != nil {
+		h.logger.Error("Failed to load timezone", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, models.NewErrorResponse(
+			models.CodeInternalServerError,
+			"Internal server error",
+			"Failed to load timezone",
+		))
+		return
+	}
 
 	startDate, err := time.ParseInLocation("2006-01-02 15:04:05", req.StartDate, loc)
 	if err != nil {

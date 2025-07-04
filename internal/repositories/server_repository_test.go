@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"github.com/th1enq/server_management_system/internal/models"
+	"github.com/th1enq/server_management_system/internal/models/dto"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -269,8 +270,8 @@ func (suite *ServerRepositoryRealTestSuite) TestRealList() {
 	}
 
 	// Test list without filters
-	filter := models.ServerFilter{}
-	pagination := models.Pagination{
+	filter := dto.ServerFilter{}
+	pagination := dto.Pagination{
 		Page:     1,
 		PageSize: 10,
 		Sort:     "id",
@@ -405,7 +406,7 @@ func (suite *ServerRepositoryRealTestSuite) TestRealListWithAllFilters() {
 	assert.NoError(suite.T(), err)
 
 	// Test filtering by all fields
-	filter := models.ServerFilter{
+	filter := dto.ServerFilter{
 		ServerID:   "filtered",
 		ServerName: "Production",
 		IPv4:       "10.0.6",
@@ -414,7 +415,7 @@ func (suite *ServerRepositoryRealTestSuite) TestRealListWithAllFilters() {
 		OS:         "Ubuntu",
 	}
 
-	pagination := models.Pagination{
+	pagination := dto.Pagination{
 		Page:     1,
 		PageSize: 10,
 		Sort:     "server_name",

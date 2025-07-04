@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/th1enq/server_management_system/internal/middleware"
 	"github.com/th1enq/server_management_system/internal/models"
+	"github.com/th1enq/server_management_system/internal/models/dto"
 	"github.com/th1enq/server_management_system/internal/services"
 	"go.uber.org/zap"
 )
@@ -22,23 +23,6 @@ func NewAuthHandler(authService services.AuthService, logger *zap.Logger) *AuthH
 	}
 }
 
-type LoginRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
-}
-
-type RegisterRequest struct {
-	Username  string `json:"username" binding:"required"`
-	Email     string `json:"email" binding:"required,email"`
-	Password  string `json:"password" binding:"required,min=6"`
-	FirstName string `json:"first_name" binding:"required"`
-	LastName  string `json:"last_name" binding:"required"`
-}
-
-type RefreshTokenRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
-}
-
 // Login handles user login
 // @Summary User login
 // @Description Authenticate user and return JWT tokens
@@ -46,24 +30,38 @@ type RefreshTokenRequest struct {
 // @Accept json
 // @Produce json
 // @Param request body LoginRequest true "Login credentials"
-// @Success 200 {object} services.AuthResponse
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
+// @Success 200 {object} models.APIResponse{data=services.AuthResponse}
+// @Failure 400 {object} models.APIResponse
+// @Failure 401 {object} models.APIResponse
 // @Router /api/v1/auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
-	var req LoginRequest
+	var req dto.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		h.logger.Error("Invalid login request", zap.Error(err))
+		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+			models.CodeBadRequest,
+			"Invalid request data",
+			err.Error(),
+		))
 		return
 	}
 
 	response, err := h.authService.Login(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		h.logger.Error("Authentication failed", zap.String("username", req.Username), zap.Error(err))
+		c.JSON(http.StatusUnauthorized, models.NewErrorResponse(
+			models.CodeUnauthorized,
+			"Authentication failed",
+			err.Error(),
+		))
 		return
 	}
 
-	c.JSON(http.StatusOK, response)
+	h.logger.Info("User logged in successfully", zap.String("username", req.Username))
+	c.JSON(http.StatusOK, models.NewSuccessResponse(
+		models.CodeSuccess,
+		"Login successful",
+		response))
 }
 
 // Register handles user registration
@@ -73,14 +71,19 @@ func (h *AuthHandler) Login(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param request body RegisterRequest true "Registration data"
-// @Success 201 {object} services.AuthResponse
-// @Failure 400 {object} map[string]string
-// @Failure 409 {object} map[string]string
+// @Success 201 {object} models.APIResponse{data=services.AuthResponse}
+// @Failure 400 {object} models.APIResponse
+// @Failure 409 {object} models.APIResponse
 // @Router /api/v1/auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
-	var req RegisterRequest
+	var req dto.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		h.logger.Error("Invalid registration request", zap.Error(err))
+		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+			models.CodeBadRequest,
+			"Invalid request data",
+			err.Error(),
+		))
 		return
 	}
 
@@ -96,11 +99,21 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	response, err := h.authService.Register(c.Request.Context(), user)
 	if err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		h.logger.Error("Registration failed", zap.String("username", req.Username), zap.Error(err))
+		c.JSON(http.StatusConflict, models.NewErrorResponse(
+			models.CodeConflict,
+			"Registration failed",
+			err.Error(),
+		))
 		return
 	}
 
-	c.JSON(http.StatusCreated, response)
+	h.logger.Info("User registered successfully", zap.String("username", req.Username))
+	c.JSON(http.StatusCreated, models.NewSuccessResponse(
+		models.CodeCreated,
+		"Registration successful",
+		response,
+	))
 }
 
 // RefreshToken handles token refresh
@@ -110,24 +123,39 @@ func (h *AuthHandler) Register(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param request body RefreshTokenRequest true "Refresh token"
-// @Success 200 {object} services.AuthResponse
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
+// @Success 200 {object} models.APIResponse{data=services.AuthResponse}
+// @Failure 400 {object} models.APIResponse
+// @Failure 401 {object} models.APIResponse
 // @Router /api/v1/auth/refresh [post]
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
-	var req RefreshTokenRequest
+	var req dto.RefreshTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		h.logger.Error("Invalid refresh token request", zap.Error(err))
+		c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+			models.CodeBadRequest,
+			"Invalid request data",
+			err.Error(),
+		))
 		return
 	}
 
 	response, err := h.authService.RefreshToken(c.Request.Context(), req.RefreshToken)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		h.logger.Error("Failed to refresh token", zap.String("refresh_token", req.RefreshToken), zap.Error(err))
+		c.JSON(http.StatusUnauthorized, models.NewErrorResponse(
+			models.CodeUnauthorized,
+			"Invalid refresh token",
+			err.Error(),
+		))
 		return
 	}
 
-	c.JSON(http.StatusOK, response)
+	h.logger.Info("Token refreshed successfully", zap.String("refresh_token", "[REDACTED]"))
+	c.JSON(http.StatusOK, models.NewSuccessResponse(
+		models.CodeSuccess,
+		"Token refreshed successfully",
+		response,
+	))
 }
 
 // Logout handles user logout
@@ -135,22 +163,36 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 // @Description Logout user (invalidate session)
 // @Tags auth
 // @Security BearerAuth
-// @Success 200 {object} map[string]string
-// @Failure 401 {object} map[string]string
+// @Success 200 {object} models.APIResponse
+// @Failure 401 {object} models.APIResponse
 // @Router /api/v1/auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
 	userID, exists := middleware.GetUserID(c)
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		h.logger.Warn("Logout attempt without user ID")
+		c.JSON(http.StatusUnauthorized, models.NewErrorResponse(
+			models.CodeUnauthorized,
+			"Unauthorized",
+			nil,
+		))
 		return
 	}
 
 	err := h.authService.Logout(c.Request.Context(), userID)
 	if err != nil {
 		h.logger.Error("Failed to logout user", zap.Uint("user_id", userID), zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to logout"})
+		c.JSON(http.StatusInternalServerError, models.NewErrorResponse(
+			models.CodeInternalServerError,
+			"Failed to logout",
+			err.Error(),
+		))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
+	h.logger.Info("User logged out successfully", zap.Uint("user_id", userID))
+	c.JSON(http.StatusOK, models.NewSuccessResponse(
+		models.CodeSuccess,
+		"Logout successful",
+		nil,
+	))
 }

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -11,23 +12,24 @@ import (
 	"github.com/gammazero/workerpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/th1enq/server_management_system/internal/models"
+	"github.com/th1enq/server_management_system/internal/models/dto"
 	"github.com/th1enq/server_management_system/internal/repositories"
 	"github.com/th1enq/server_management_system/internal/utils"
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 type ServerService interface {
 	CreateServer(ctx context.Context, server *models.Server) error
 	GetServer(ctx context.Context, id uint) (*models.Server, error)
-	ListServers(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) (*models.ServerListResponse, error)
-	UpdateServer(ctx context.Context, id uint, updates map[string]interface{}) (*models.Server, error)
+	ListServers(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) (*dto.ServerListResponse, error)
+	UpdateServer(ctx context.Context, id uint, updates dto.ServerUpdate) (*models.Server, error)
 	DeleteServer(ctx context.Context, id uint) error
-	ImportServers(ctx context.Context, filePath string) (*models.ImportResult, error)
-	ExportServers(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) (string, error)
+	ImportServers(ctx context.Context, filePath string) (*dto.ImportResult, error)
+	ExportServers(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) (string, error)
 	UpdateServerStatus(ctx context.Context, serverID string, status models.ServerStatus) error
 	GetServerStats(ctx context.Context) (map[string]int64, error)
-	GetAllServers(ctx context.Context) ([]models.Server, error)
 	CheckServerStatus(ctx context.Context) error
 	CheckServer(ctx context.Context, server models.Server)
 }
@@ -48,17 +50,16 @@ func NewServerService(serverRepo repositories.ServerRepository, redisClient *red
 
 // CreateServer implements ServerService.
 func (s *serverService) CreateServer(ctx context.Context, server *models.Server) error {
-	if server.ServerID == "" || server.ServerName == "" {
-		return fmt.Errorf("server_id and server_name are required")
-	}
-	existing, _ := s.serverRepo.GetByServerID(ctx, server.ServerID)
-	if existing != nil {
-		return fmt.Errorf("server is already exists")
+	if _, err := s.serverRepo.GetByServerID(ctx, server.ServerID); err == nil {
+		return fmt.Errorf("server with ID '%s' already exists", server.ServerID)
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("failed to check server ID: %w", err)
 	}
 
-	existing, _ = s.serverRepo.GetByServerName(ctx, server.ServerName)
-	if existing != nil {
-		return fmt.Errorf("server is already exists")
+	if _, err := s.serverRepo.GetByServerName(ctx, server.ServerName); err == nil {
+		return fmt.Errorf("server with name '%s' already exists", server.ServerName)
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("failed to check server name: %w", err)
 	}
 
 	err := s.serverRepo.Create(ctx, server)
@@ -85,6 +86,8 @@ func (s *serverService) DeleteServer(ctx context.Context, id uint) error {
 		return fmt.Errorf("failed to delete server: %w", err)
 	}
 
+	s.invalidateServerCaches(ctx, server)
+
 	s.logger.Info("Server deleted successfully",
 		zap.Uint("id", server.ID),
 		zap.String("server_id", server.ServerID),
@@ -95,7 +98,7 @@ func (s *serverService) DeleteServer(ctx context.Context, id uint) error {
 }
 
 // ImportServers implements ServerService.
-func (s *serverService) ImportServers(ctx context.Context, filePath string) (*models.ImportResult, error) {
+func (s *serverService) ImportServers(ctx context.Context, filePath string) (*dto.ImportResult, error) {
 	file, err := excelize.OpenFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
@@ -123,7 +126,7 @@ func (s *serverService) ImportServers(ctx context.Context, filePath string) (*mo
 		zap.Int("total_rows", rowCount),
 	)
 
-	result := &models.ImportResult{
+	result := &dto.ImportResult{
 		SuccessServers: make([]string, 0),
 		FailureServers: make([]string, 0),
 	}
@@ -235,7 +238,7 @@ func (s *serverService) ImportServers(ctx context.Context, filePath string) (*mo
 }
 
 // ExportServers implements ServerService.
-func (s *serverService) ExportServers(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) (string, error) {
+func (s *serverService) ExportServers(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) (string, error) {
 	servers, _, err := s.serverRepo.List(ctx, filter, pagination)
 	if err != nil {
 		return "", fmt.Errorf("failed to get servers: %w", err)
@@ -247,8 +250,12 @@ func (s *serverService) ExportServers(ctx context.Context, filter models.ServerF
 		return "", err
 	}
 
+	streamWriter.SetRow("A1", []interface{}{
+		"Server ID", "Server Name", "Status", "Description", "IPv4", "Disk", "RAM", "Location", "OS",
+	})
+
 	for rowIndex, server := range servers {
-		cell, _ := excelize.CoordinatesToCellName(1, rowIndex+1)
+		cell, _ := excelize.CoordinatesToCellName(1, rowIndex+2)
 		err = streamWriter.SetRow(cell, []interface{}{
 			server.ServerID,
 			server.ServerName,
@@ -327,8 +334,9 @@ func (s *serverService) GetServerStats(ctx context.Context) (map[string]int64, e
 
 	// Count total servers
 	var total int64
-	if servers, err := s.serverRepo.GetAll(ctx); err == nil {
-		total = int64(len(servers))
+	total, err = s.serverRepo.CountAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count servers: %w", err)
 	}
 	stats["total"] = total
 
@@ -348,13 +356,13 @@ func (s *serverService) GetServerStats(ctx context.Context) (map[string]int64, e
 }
 
 // ListServers implements ServerService.
-func (s *serverService) ListServers(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) (*models.ServerListResponse, error) {
+func (s *serverService) ListServers(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) (*dto.ServerListResponse, error) {
 	servers, total, err := s.serverRepo.List(ctx, filter, pagination)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list servers: %w", err)
 	}
 
-	response := &models.ServerListResponse{
+	response := &dto.ServerListResponse{
 		Total:   total,
 		Servers: servers,
 		Page:    pagination.Page,
@@ -365,67 +373,36 @@ func (s *serverService) ListServers(ctx context.Context, filter models.ServerFil
 }
 
 // UpdateServer implements ServerService.
-func (s *serverService) UpdateServer(ctx context.Context, id uint, updates map[string]interface{}) (*models.Server, error) {
+func (s *serverService) UpdateServer(ctx context.Context, id uint, updates dto.ServerUpdate) (*models.Server, error) {
 	server, err := s.serverRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("server not found")
 	}
 
-	delete(updates, "server_id")
-	delete(updates, "id")
-
-	for key, value := range updates {
-		switch key {
-		case "server_name":
-			if name, ok := value.(string); ok && name != server.ServerName {
-				existing, _ := s.serverRepo.GetByServerName(ctx, name)
-				if existing != nil && existing.ID != server.ID {
-					return nil, fmt.Errorf("server with name is already exists")
-				}
-				server.ServerName = name
-			}
-		case "status":
-			if status, ok := value.(string); ok {
-				server.Status = models.ServerStatus(status)
-			}
-		case "ipv4":
-			if ipv4, ok := value.(string); ok {
-				server.IPv4 = ipv4
-			}
-		case "location":
-			if loc, ok := value.(string); ok {
-				server.Location = loc
-			}
-		case "os":
-			if os, ok := value.(string); ok {
-				server.OS = os
-			}
-		case "cpu":
-			if cpu, ok := value.(float64); ok {
-				server.CPU = int(cpu)
-			}
-		case "ram":
-			if ram, ok := value.(float64); ok {
-				server.RAM = int(ram)
-			}
-		case "disk":
-			if disk, ok := value.(float64); ok {
-				server.Disk = int(disk)
-			}
-		}
+	if existing, err := s.serverRepo.GetByServerName(ctx, updates.ServerName); err == nil && existing.ID != id {
+		return nil, fmt.Errorf("server name already exists")
 	}
+	server.ServerName = updates.ServerName
+	server.Status = updates.Status
+	server.IPv4 = updates.IPv4
+	server.Description = updates.Description
+	server.Location = updates.Location
+	server.OS = updates.OS
+	server.CPU = updates.CPU
+	server.RAM = updates.RAM
+	server.Disk = updates.Disk
+
 	if err := s.serverRepo.Update(ctx, server); err != nil {
 		return nil, err
 	}
-
-	// Invalidate caches
-	s.invalidateServerCaches(ctx, server)
 
 	s.logger.Info("Server updated successfully",
 		zap.Uint("id", server.ID),
 		zap.String("server_id", server.ServerID),
 		zap.String("server_name", server.ServerName),
 	)
+
+	s.invalidateServerCaches(ctx, server)
 
 	return server, nil
 }
@@ -454,34 +431,6 @@ func (s *serverService) UpdateServerStatus(ctx context.Context, serverID string,
 	return nil
 }
 
-func (s *serverService) GetAllServers(ctx context.Context) ([]models.Server, error) {
-	// Try to get from cache first
-	cacheKey := "servers:all"
-
-	// Try to get servers from Redis
-	serversJSON, err := s.redisClient.Get(ctx, cacheKey).Result()
-	if err == nil {
-		// Cache hit
-		var servers []models.Server
-		if err := json.Unmarshal([]byte(serversJSON), &servers); err == nil {
-			return servers, nil
-		}
-	}
-
-	// Cache miss, get from database
-	servers, err := s.serverRepo.GetAll(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get all servers: %w", err)
-	}
-
-	// Store in cache for future requests
-	if serversJSON, err := json.Marshal(servers); err == nil {
-		s.redisClient.Set(ctx, cacheKey, serversJSON, 30*time.Minute)
-	}
-
-	return servers, nil
-}
-
 // Helper method to invalidate all related caches
 func (s *serverService) invalidateServerCaches(ctx context.Context, server *models.Server) {
 	// Delete server cache
@@ -506,9 +455,16 @@ func (s *serverService) CheckServerStatus(ctx context.Context) error {
 
 	s.logger.Info("Checking servers", zap.Int("count", len(servers)))
 
+	workerpool := workerpool.New(50)
+
 	for _, server := range servers {
-		go s.CheckServer(ctx, server)
+		workerpool.Submit(func() {
+			checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			defer cancel()
+			s.CheckServer(checkCtx, server)
+		})
 	}
+	workerpool.StopWait()
 	return nil
 }
 

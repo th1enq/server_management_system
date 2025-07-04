@@ -1,0 +1,49 @@
+server:
+  name: VCS-SMS
+  env: development
+  port: 8080
+
+database:
+  host: localhost
+  port: 5432
+  user: postgres
+  password: password
+  dbname: vcs_sms
+  max_idle_conns: 10
+  max_open_conns: 100
+
+cache:
+  host: localhost
+  port: 6379
+  password: ""
+  db: 0
+  pool_size: 10
+
+elasticsearch:
+  url: http://localhost:9200
+
+jwt:
+  secret: c2xoqMG2nvNhRJG9GnTG2gqA+uaNObrxARU2f6Ya7IQ=
+  expiration: 24h
+
+log:
+  level: info
+  file_path: ./logs/app.log
+  max_size: 100
+  max_backups: 10
+  max_age: 30
+
+cron:
+  interval_check_status:
+    schedule: "@every 30s"
+  send_daily_report:
+    schedule: "0 10 * * *"
+
+email:
+  smtp_host: smtp.gmail.com
+  smtp_port: 587
+  username: thienchy3305@gmail.com
+  password: rtac iyoq zaad rkui
+  from: thienchy3305@gmail.com
+  admin_email: miyaki08x@gmail.com
+  

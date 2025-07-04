@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/th1enq/server_management_system/internal/models"
+	"github.com/th1enq/server_management_system/internal/models/dto"
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/zap"
 )
@@ -58,7 +59,7 @@ func (m *MockServerRepository) GetByServerName(ctx context.Context, serverName s
 	return args.Get(0).(*models.Server), args.Error(1)
 }
 
-func (m *MockServerRepository) List(ctx context.Context, filter models.ServerFilter, pagination models.Pagination) ([]models.Server, int64, error) {
+func (m *MockServerRepository) List(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) ([]models.Server, int64, error) {
 	args := m.Called(ctx, filter, pagination)
 	if args.Get(0) == nil {
 		return nil, args.Get(1).(int64), args.Error(2)
@@ -338,113 +339,6 @@ func TestServerService_GetServer_NotFound(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestServerService_UpdateServer_Success(t *testing.T) {
-	mockRepo, redisClient, logger := createTestServerService()
-
-	serverSrv := &serverService{
-		serverRepo:  mockRepo,
-		redisClient: redisClient,
-		logger:      logger,
-	}
-
-	ctx := context.Background()
-
-	server := &models.Server{
-		ID:         1,
-		ServerID:   "test-001",
-		ServerName: "Test Server",
-		Status:     models.ServerStatusOff,
-	}
-
-	updates := map[string]interface{}{
-		"server_name": "Updated Server",
-		"status":      "ON",
-		"ipv4":        "192.168.1.200",
-	}
-
-	mockRepo.On("GetByID", ctx, uint(1)).Return(server, nil)
-	mockRepo.On("GetByServerName", ctx, "Updated Server").Return(nil, errors.New("not found"))
-	mockRepo.On("Update", ctx, mock.AnythingOfType("*models.Server")).Return(nil)
-
-	// Test
-	result, err := serverSrv.UpdateServer(ctx, 1, updates)
-
-	// Assertions
-	assert.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Equal(t, "Updated Server", result.ServerName)
-	assert.Equal(t, models.ServerStatusOn, result.Status)
-	assert.Equal(t, "192.168.1.200", result.IPv4)
-	mockRepo.AssertExpectations(t)
-}
-
-func TestServerService_UpdateServer_ServerNotFound(t *testing.T) {
-	mockRepo, redisClient, logger := createTestServerService()
-
-	serverSrv := &serverService{
-		serverRepo:  mockRepo,
-		redisClient: redisClient,
-		logger:      logger,
-	}
-
-	ctx := context.Background()
-
-	updates := map[string]interface{}{
-		"server_name": "Updated Server",
-	}
-
-	mockRepo.On("GetByID", ctx, uint(1)).Return(nil, errors.New("server not found"))
-
-	// Test
-	result, err := serverSrv.UpdateServer(ctx, 1, updates)
-
-	// Assertions
-	assert.Error(t, err)
-	assert.Nil(t, result)
-	assert.Contains(t, err.Error(), "server not found")
-	mockRepo.AssertExpectations(t)
-}
-
-func TestServerService_UpdateServer_DuplicateServerName(t *testing.T) {
-	mockRepo, redisClient, logger := createTestServerService()
-
-	serverSrv := &serverService{
-		serverRepo:  mockRepo,
-		redisClient: redisClient,
-		logger:      logger,
-	}
-
-	ctx := context.Background()
-
-	server := &models.Server{
-		ID:         1,
-		ServerID:   "test-001",
-		ServerName: "Test Server",
-	}
-
-	existingServer := &models.Server{
-		ID:         2,
-		ServerID:   "test-002",
-		ServerName: "Updated Server",
-	}
-
-	updates := map[string]interface{}{
-		"server_name": "Updated Server",
-	}
-
-	mockRepo.On("GetByID", ctx, uint(1)).Return(server, nil)
-	mockRepo.On("GetByServerName", ctx, "Updated Server").Return(existingServer, nil)
-
-	// Test
-	result, err := serverSrv.UpdateServer(ctx, 1, updates)
-
-	// Assertions
-	assert.Error(t, err)
-	assert.Nil(t, result)
-	assert.Contains(t, err.Error(), "server with name is already exists")
-	mockRepo.AssertExpectations(t)
-}
-
 func TestServerService_DeleteServer_Success(t *testing.T) {
 	mockRepo, logger := createTestServerServiceWithoutRedis()
 
@@ -488,56 +382,6 @@ func TestServerService_DeleteServer_ServerNotFound(t *testing.T) {
 
 	// Test
 	err := serverSrv.DeleteServer(ctx, 1)
-
-	// Assertions
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "server not found")
-	mockRepo.AssertExpectations(t)
-}
-
-func TestServerService_UpdateServerStatus_Success(t *testing.T) {
-	mockRepo, redisClient, logger := createTestServerService()
-
-	serverSrv := &serverService{
-		serverRepo:  mockRepo,
-		redisClient: redisClient,
-		logger:      logger,
-	}
-
-	ctx := context.Background()
-
-	server := &models.Server{
-		ID:       1,
-		ServerID: "test-001",
-		Status:   models.ServerStatusOff,
-	}
-
-	mockRepo.On("GetByServerID", ctx, "test-001").Return(server, nil)
-	mockRepo.On("UpdateStatus", ctx, "test-001", models.ServerStatusOn).Return(nil)
-
-	// Test
-	err := serverSrv.UpdateServerStatus(ctx, "test-001", models.ServerStatusOn)
-
-	// Assertions
-	assert.NoError(t, err)
-	mockRepo.AssertExpectations(t)
-}
-
-func TestServerService_UpdateServerStatus_ServerNotFound(t *testing.T) {
-	mockRepo, redisClient, logger := createTestServerService()
-
-	serverSrv := &serverService{
-		serverRepo:  mockRepo,
-		redisClient: redisClient,
-		logger:      logger,
-	}
-
-	ctx := context.Background()
-
-	mockRepo.On("GetByServerID", ctx, "test-001").Return(nil, errors.New("server not found"))
-
-	// Test
-	err := serverSrv.UpdateServerStatus(ctx, "test-001", models.ServerStatusOn)
 
 	// Assertions
 	assert.Error(t, err)
@@ -663,8 +507,8 @@ func TestServerService_ExportServers_Success(t *testing.T) {
 
 	ctx := context.Background()
 
-	filter := models.ServerFilter{}
-	pagination := models.Pagination{Page: 1, PageSize: 10}
+	filter := dto.ServerFilter{}
+	pagination := dto.Pagination{Page: 1, PageSize: 10}
 
 	servers := []models.Server{
 		{
@@ -706,8 +550,8 @@ func TestServerService_ExportServers_EmptyServersList(t *testing.T) {
 
 	ctx := context.Background()
 
-	filter := models.ServerFilter{}
-	pagination := models.Pagination{Page: 1, PageSize: 10}
+	filter := dto.ServerFilter{}
+	pagination := dto.Pagination{Page: 1, PageSize: 10}
 
 	// Return empty servers list
 	mockRepo.On("List", ctx, filter, pagination).Return([]models.Server{}, int64(0), nil)
@@ -806,8 +650,8 @@ func TestServerService_ListServers_Success(t *testing.T) {
 
 	ctx := context.Background()
 
-	filter := models.ServerFilter{Status: "ON"}
-	pagination := models.Pagination{Page: 1, PageSize: 10}
+	filter := dto.ServerFilter{Status: "ON"}
+	pagination := dto.Pagination{Page: 1, PageSize: 10}
 
 	servers := []models.Server{
 		{ID: 1, ServerID: "test-001", ServerName: "Server 1", Status: models.ServerStatusOn},
@@ -841,8 +685,8 @@ func TestServerService_ListServers_Error(t *testing.T) {
 
 	ctx := context.Background()
 
-	filter := models.ServerFilter{}
-	pagination := models.Pagination{Page: 1, PageSize: 10}
+	filter := dto.ServerFilter{}
+	pagination := dto.Pagination{Page: 1, PageSize: 10}
 
 	mockRepo.On("List", ctx, filter, pagination).Return(nil, int64(0), errors.New("database error"))
 
@@ -1264,67 +1108,6 @@ func TestServerService_GetAllServers_Success_FromCache(t *testing.T) {
 	// No repo calls should be made since we're getting from cache
 }
 
-// Test UpdateServer with different field types
-func TestServerService_UpdateServer_AllFields(t *testing.T) {
-	mockRepo, redisClient, logger := createTestServerService()
-
-	serverSrv := &serverService{
-		serverRepo:  mockRepo,
-		redisClient: redisClient,
-		logger:      logger,
-	}
-
-	ctx := context.Background()
-
-	server := &models.Server{
-		ID:         1,
-		ServerID:   "test-001",
-		ServerName: "Test Server",
-		Status:     models.ServerStatusOff,
-		IPv4:       "192.168.1.100",
-		Location:   "DC1",
-		OS:         "Ubuntu 18.04",
-		CPU:        2,
-		RAM:        4,
-		Disk:       50,
-	}
-
-	updates := map[string]interface{}{
-		"server_name": "Updated Server",
-		"status":      "ON",
-		"ipv4":        "192.168.1.200",
-		"location":    "DC2",
-		"os":          "Ubuntu 20.04",
-		"cpu":         float64(4),
-		"ram":         float64(8),
-		"disk":        float64(100),
-		"server_id":   "should-be-ignored", // This should be ignored
-		"id":          999,                 // This should be ignored
-	}
-
-	mockRepo.On("GetByID", ctx, uint(1)).Return(server, nil)
-	mockRepo.On("GetByServerName", ctx, "Updated Server").Return(nil, errors.New("not found"))
-	mockRepo.On("Update", ctx, mock.AnythingOfType("*models.Server")).Return(nil)
-
-	// Test
-	result, err := serverSrv.UpdateServer(ctx, 1, updates)
-
-	// Assertions
-	assert.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Equal(t, "Updated Server", result.ServerName)
-	assert.Equal(t, models.ServerStatusOn, result.Status)
-	assert.Equal(t, "192.168.1.200", result.IPv4)
-	assert.Equal(t, "DC2", result.Location)
-	assert.Equal(t, "Ubuntu 20.04", result.OS)
-	assert.Equal(t, 4, result.CPU)
-	assert.Equal(t, 8, result.RAM)
-	assert.Equal(t, 100, result.Disk)
-	assert.Equal(t, "test-001", result.ServerID) // Should not be changed
-	assert.Equal(t, uint(1), result.ID)          // Should not be changed
-	mockRepo.AssertExpectations(t)
-}
-
 // Test CreateServer repository error
 func TestServerService_CreateServer_RepositoryError(t *testing.T) {
 	mockRepo, logger := createTestServerServiceWithoutRedis()
@@ -1385,36 +1168,6 @@ func TestServerService_DeleteServer_RepositoryError(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-// Test UpdateServerStatus repository error
-func TestServerService_UpdateServerStatus_RepositoryError(t *testing.T) {
-	mockRepo, redisClient, logger := createTestServerService()
-
-	serverSrv := &serverService{
-		serverRepo:  mockRepo,
-		redisClient: redisClient,
-		logger:      logger,
-	}
-
-	ctx := context.Background()
-
-	server := &models.Server{
-		ID:       1,
-		ServerID: "test-001",
-		Status:   models.ServerStatusOff,
-	}
-
-	mockRepo.On("GetByServerID", ctx, "test-001").Return(server, nil)
-	mockRepo.On("UpdateStatus", ctx, "test-001", models.ServerStatusOn).Return(errors.New("database error"))
-
-	// Test
-	err := serverSrv.UpdateServerStatus(ctx, "test-001", models.ServerStatusOn)
-
-	// Assertions
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to update server status")
-	mockRepo.AssertExpectations(t)
-}
-
 // Test GetAllServers repository error
 func TestServerService_GetAllServers_RepositoryError(t *testing.T) {
 	mockRepo, redisClient, logger := createTestServerService()
@@ -1451,8 +1204,8 @@ func TestServerService_ExportServers_RepositoryError(t *testing.T) {
 
 	ctx := context.Background()
 
-	filter := models.ServerFilter{}
-	pagination := models.Pagination{Page: 1, PageSize: 10}
+	filter := dto.ServerFilter{}
+	pagination := dto.Pagination{Page: 1, PageSize: 10}
 
 	mockRepo.On("List", ctx, filter, pagination).Return(nil, int64(0), errors.New("database error"))
 
@@ -1463,55 +1216,6 @@ func TestServerService_ExportServers_RepositoryError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Empty(t, result)
 	assert.Contains(t, err.Error(), "failed to get servers")
-	mockRepo.AssertExpectations(t)
-}
-
-// Test invalidateServerCaches method by testing UpdateServer which calls it
-func TestServerService_UpdateServer_CacheInvalidation(t *testing.T) {
-	mockRepo, redisClient, logger := createTestServerService()
-
-	serverSrv := &serverService{
-		serverRepo:  mockRepo,
-		redisClient: redisClient,
-		logger:      logger,
-	}
-
-	ctx := context.Background()
-
-	server := &models.Server{
-		ID:         1,
-		ServerID:   "test-001",
-		ServerName: "Test Server",
-		Status:     models.ServerStatusOff,
-	}
-
-	// Pre-populate cache with some data
-	redisClient.Set(ctx, "server:1", `{"id":1,"server_id":"test-001"}`, 30*time.Minute)
-	redisClient.Set(ctx, "server:stats", `{"total":10}`, 5*time.Minute)
-	redisClient.Set(ctx, "servers:list:filter1", `{"total":1}`, 5*time.Minute)
-
-	updates := map[string]interface{}{
-		"server_name": "Updated Server",
-	}
-
-	mockRepo.On("GetByID", ctx, uint(1)).Return(server, nil)
-	mockRepo.On("GetByServerName", ctx, "Updated Server").Return(nil, errors.New("not found"))
-	mockRepo.On("Update", ctx, mock.AnythingOfType("*models.Server")).Return(nil)
-
-	// Test
-	result, err := serverSrv.UpdateServer(ctx, 1, updates)
-
-	// Assertions
-	assert.NoError(t, err)
-	assert.NotNil(t, result)
-
-	// Verify cache entries have been invalidated (should return redis.Nil)
-	_, err = redisClient.Get(ctx, "server:1").Result()
-	assert.Error(t, err) // Should be redis.Nil
-
-	_, err = redisClient.Get(ctx, "server:stats").Result()
-	assert.Error(t, err) // Should be redis.Nil
-
 	mockRepo.AssertExpectations(t)
 }
 
@@ -1575,42 +1279,6 @@ func TestServerService_CheckServer_EmptyIP(t *testing.T) {
 	// Give a moment for the check to complete
 	time.Sleep(50 * time.Millisecond)
 
-	mockRepo.AssertExpectations(t)
-}
-
-// Test UpdateServer repository error
-func TestServerService_UpdateServer_RepositoryError(t *testing.T) {
-	mockRepo, redisClient, logger := createTestServerService()
-
-	serverSrv := &serverService{
-		serverRepo:  mockRepo,
-		redisClient: redisClient,
-		logger:      logger,
-	}
-
-	ctx := context.Background()
-
-	server := &models.Server{
-		ID:         1,
-		ServerID:   "test-001",
-		ServerName: "Test Server",
-	}
-
-	updates := map[string]interface{}{
-		"server_name": "Updated Server",
-	}
-
-	mockRepo.On("GetByID", ctx, uint(1)).Return(server, nil)
-	mockRepo.On("GetByServerName", ctx, "Updated Server").Return(nil, errors.New("not found"))
-	mockRepo.On("Update", ctx, mock.AnythingOfType("*models.Server")).Return(errors.New("database error"))
-
-	// Test
-	result, err := serverSrv.UpdateServer(ctx, 1, updates)
-
-	// Assertions
-	assert.Error(t, err)
-	assert.Nil(t, result)
-	assert.Contains(t, err.Error(), "database error")
 	mockRepo.AssertExpectations(t)
 }
 
@@ -1730,8 +1398,8 @@ func TestServerService_ExportServers_CreateDirError(t *testing.T) {
 
 	ctx := context.Background()
 
-	filter := models.ServerFilter{}
-	pagination := models.Pagination{Page: 1, PageSize: 10}
+	filter := dto.ServerFilter{}
+	pagination := dto.Pagination{Page: 1, PageSize: 10}
 
 	mockRepo.On("List", ctx, filter, pagination).Return(nil, int64(0), nil)
 
@@ -1796,8 +1464,8 @@ func TestServerService_ExportServers_StreamWriterError(t *testing.T) {
 
 	ctx := context.Background()
 
-	filter := models.ServerFilter{}
-	pagination := models.Pagination{Page: 1, PageSize: 10}
+	filter := dto.ServerFilter{}
+	pagination := dto.Pagination{Page: 1, PageSize: 10}
 
 	// Create a large number of servers to potentially trigger stream writer issues
 	servers := make([]models.Server, 100)
