@@ -29,9 +29,6 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 
 // Create implements UserRepository.
 func (u *userRepository) Create(ctx context.Context, user *models.User) error {
-	if err := user.SetPassword(user.Password); err != nil {
-		return err
-	}
 	return u.db.WithContext(ctx).Create(user).Error
 }
 

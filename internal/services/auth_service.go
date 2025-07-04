@@ -5,39 +5,19 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/th1enq/server_management_system/internal/models"
+	"github.com/th1enq/server_management_system/internal/models/dto"
 	"go.uber.org/zap"
 )
 
 type AuthService interface {
-	Login(ctx context.Context, username, password string) (*AuthResponse, error)
-	Register(ctx context.Context, user *models.User) (*AuthResponse, error)
-	ValidateToken(tokenString string) (*Claims, error)
-	RefreshToken(ctx context.Context, refreshToken string) (*AuthResponse, error)
+	Login(ctx context.Context, username, password string) (*dto.AuthResponse, error)
+	Register(ctx context.Context, res dto.CreateUserRequest) (*dto.AuthResponse, error)
+	ValidateToken(tokenString string) (*dto.Claims, error)
+	RefreshToken(ctx context.Context, refreshToken string) (*dto.AuthResponse, error)
 	Logout(ctx context.Context, userID uint) error
 	LogoutWithToken(ctx context.Context, token string) error
 }
-
-type AuthResponse struct {
-	AccessToken  string       `json:"access_token"`
-	RefreshToken string       `json:"refresh_token"`
-	TokenType    string       `json:"token_type"`
-	ExpiresIn    int64        `json:"expires_in"`
-	User         *models.User `json:"user"`
-	Scopes       []string     `json:"scopes"`
-}
-
-type Claims struct {
-	UserID    uint              `json:"user_id"`
-	Username  string            `json:"username"`
-	Email     string            `json:"email"`
-	Role      models.UserRole   `json:"role"`
-	Scopes    []models.APIScope `json:"scopes"`
-	TokenType string            `json:"token_type"`
-	jwt.RegisteredClaims
-}
-
 type authService struct {
 	userService  UserService
 	tokenService TokenService
@@ -53,7 +33,7 @@ func NewAuthService(userService UserService, tokenService TokenService, logger *
 }
 
 // Login implements AuthService.
-func (a *authService) Login(ctx context.Context, username, password string) (*AuthResponse, error) {
+func (a *authService) Login(ctx context.Context, username, password string) (*dto.AuthResponse, error) {
 	// Get user by username
 	user, err := a.userService.GetUserByUsername(ctx, username)
 	if err != nil {
@@ -106,7 +86,7 @@ func (a *authService) Login(ctx context.Context, username, password string) (*Au
 		scopeStrings[i] = string(scope)
 	}
 
-	return &AuthResponse{
+	return &dto.AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		TokenType:    "Bearer",
@@ -117,23 +97,27 @@ func (a *authService) Login(ctx context.Context, username, password string) (*Au
 }
 
 // Register implements AuthService.
-func (a *authService) Register(ctx context.Context, user *models.User) (*AuthResponse, error) {
-	// Create user
-	if err := a.userService.CreateUser(ctx, user); err != nil {
-		a.logger.Error("Failed to create user", zap.String("username", user.Username), zap.Error(err))
-		return nil, fmt.Errorf("failed to create user: %w", err)
+func (a *authService) Register(ctx context.Context, req dto.CreateUserRequest) (*dto.AuthResponse, error) {
+
+	createdUser, err := a.userService.CreateUser(ctx, req)
+	if err != nil {
+		a.logger.Error("Failed to create user", zap.String("username", req.Username), zap.Error(err))
+		if err.Error() == "user already exists" {
+			return nil, fmt.Errorf("user already exists")
+		}
+		return nil, fmt.Errorf("failed to create user")
 	}
 
 	// Generate tokens
-	accessToken, err := a.tokenService.GenerateAccessToken(user)
+	accessToken, err := a.tokenService.GenerateAccessToken(createdUser)
 	if err != nil {
-		a.logger.Error("Failed to generate access token", zap.Uint("user_id", user.ID), zap.Error(err))
+		a.logger.Error("Failed to generate access token", zap.Uint("user_id", createdUser.ID), zap.Error(err))
 		return nil, fmt.Errorf("failed to generate token")
 	}
 
-	refreshToken, err := a.tokenService.GenerateRefreshToken(user)
+	refreshToken, err := a.tokenService.GenerateRefreshToken(createdUser)
 	if err != nil {
-		a.logger.Error("Failed to generate refresh token", zap.Uint("user_id", user.ID), zap.Error(err))
+		a.logger.Error("Failed to generate refresh token", zap.Uint("user_id", createdUser.ID), zap.Error(err))
 		return nil, fmt.Errorf("failed to generate token")
 	}
 
@@ -148,32 +132,32 @@ func (a *authService) Register(ctx context.Context, user *models.User) (*AuthRes
 		return nil, fmt.Errorf("failed to whitelist token")
 	}
 
-	a.logger.Info("User registered successfully", zap.String("username", user.Username), zap.Uint("user_id", user.ID))
+	a.logger.Info("User registered successfully", zap.String("username", createdUser.Username), zap.Uint("user_id", createdUser.ID))
 
 	// Get user scopes
-	userScopes := models.GetDefaultScopes(user.Role)
+	userScopes := models.GetDefaultScopes(createdUser.Role)
 	scopeStrings := make([]string, len(userScopes))
 	for i, scope := range userScopes {
 		scopeStrings[i] = string(scope)
 	}
 
-	return &AuthResponse{
+	return &dto.AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		TokenType:    "Bearer",
 		ExpiresIn:    int64(24 * 60 * 60), // 24 hours in seconds
-		User:         user,
+		User:         createdUser,
 		Scopes:       scopeStrings,
 	}, nil
 }
 
 // ValidateToken implements AuthService.
-func (a *authService) ValidateToken(tokenString string) (*Claims, error) {
+func (a *authService) ValidateToken(tokenString string) (*dto.Claims, error) {
 	return a.tokenService.ValidateToken(tokenString)
 }
 
 // RefreshToken implements AuthService.
-func (a *authService) RefreshToken(ctx context.Context, refreshToken string) (*AuthResponse, error) {
+func (a *authService) RefreshToken(ctx context.Context, refreshToken string) (*dto.AuthResponse, error) {
 	// Validate refresh token
 	claims, err := a.ValidateToken(refreshToken)
 	if err != nil {
@@ -227,7 +211,7 @@ func (a *authService) RefreshToken(ctx context.Context, refreshToken string) (*A
 		scopeStrings[i] = string(scope)
 	}
 
-	return &AuthResponse{
+	return &dto.AuthResponse{
 		AccessToken:  newAccessToken,
 		RefreshToken: newRefreshToken,
 		TokenType:    "Bearer",

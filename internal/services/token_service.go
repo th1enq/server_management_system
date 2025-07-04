@@ -9,14 +9,15 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/th1enq/server_management_system/internal/configs"
 	"github.com/th1enq/server_management_system/internal/models"
+	"github.com/th1enq/server_management_system/internal/models/dto"
 	"go.uber.org/zap"
 )
 
 type TokenService interface {
 	GenerateAccessToken(user *models.User) (string, error)
 	GenerateRefreshToken(user *models.User) (string, error)
-	ValidateToken(tokenString string) (*Claims, error)
-	ParseTokenClaims(tokenString string) (*Claims, error)
+	ValidateToken(tokenString string) (*dto.Claims, error)
+	ParseTokenClaims(tokenString string) (*dto.Claims, error)
 	AddTokenToWhitelist(ctx context.Context, token string, expiration time.Duration) error
 	IsTokenWhitelisted(ctx context.Context, token string) bool
 	RemoveTokenFromWhitelist(ctx context.Context, token string)
@@ -39,8 +40,8 @@ func NewTokenService(jwtConfig configs.JWT, logger *zap.Logger, cache *redis.Cli
 
 // GenerateAccessToken generates a JWT access token for the user
 func (t *tokenService) GenerateAccessToken(user *models.User) (string, error) {
-	userScopes := models.GetDefaultScopes(user.Role)
-	claims := &Claims{
+	userScopes := models.ToArray(user.Scopes)
+	claims := &dto.Claims{
 		UserID:    user.ID,
 		Username:  user.Username,
 		Email:     user.Email,
@@ -63,8 +64,8 @@ func (t *tokenService) GenerateAccessToken(user *models.User) (string, error) {
 
 // GenerateRefreshToken generates a JWT refresh token for the user
 func (t *tokenService) GenerateRefreshToken(user *models.User) (string, error) {
-	userScopes := models.GetDefaultScopes(user.Role)
-	claims := &Claims{
+	userScopes := models.ToArray(user.Scopes)
+	claims := &dto.Claims{
 		UserID:    user.ID,
 		Username:  user.Username,
 		Email:     user.Email,
@@ -85,13 +86,13 @@ func (t *tokenService) GenerateRefreshToken(user *models.User) (string, error) {
 }
 
 // ValidateToken validates a JWT token and checks whitelist
-func (t *tokenService) ValidateToken(tokenString string) (*Claims, error) {
+func (t *tokenService) ValidateToken(tokenString string) (*dto.Claims, error) {
 	// Check if token is in whitelist
 	if !t.IsTokenWhitelisted(context.Background(), tokenString) {
 		return nil, fmt.Errorf("token is not valid or has been revoked")
 	}
 
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &dto.Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
@@ -102,7 +103,7 @@ func (t *tokenService) ValidateToken(tokenString string) (*Claims, error) {
 		return nil, fmt.Errorf("invalid token: %w", err)
 	}
 
-	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+	if claims, ok := token.Claims.(*dto.Claims); ok && token.Valid {
 		return claims, nil
 	}
 
@@ -110,13 +111,13 @@ func (t *tokenService) ValidateToken(tokenString string) (*Claims, error) {
 }
 
 // ParseTokenClaims parses token without validation for claims extraction
-func (t *tokenService) ParseTokenClaims(tokenString string) (*Claims, error) {
-	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, &Claims{})
+func (t *tokenService) ParseTokenClaims(tokenString string) (*dto.Claims, error) {
+	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, &dto.Claims{})
 	if err != nil {
 		return nil, err
 	}
 
-	if claims, ok := token.Claims.(*Claims); ok {
+	if claims, ok := token.Claims.(*dto.Claims); ok {
 		return claims, nil
 	}
 

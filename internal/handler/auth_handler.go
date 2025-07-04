@@ -29,8 +29,8 @@ func NewAuthHandler(authService services.AuthService, logger *zap.Logger) *AuthH
 // @Tags auth
 // @Accept json
 // @Produce json
-// @Param request body LoginRequest true "Login credentials"
-// @Success 200 {object} models.APIResponse{data=services.AuthResponse}
+// @Param request body dto.LoginRequest true "Login credentials"
+// @Success 200 {object} models.APIResponse{data=dto.AuthResponse}
 // @Failure 400 {object} models.APIResponse
 // @Failure 401 {object} models.APIResponse
 // @Router /api/v1/auth/login [post]
@@ -70,8 +70,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 // @Tags auth
 // @Accept json
 // @Produce json
-// @Param request body RegisterRequest true "Registration data"
-// @Success 201 {object} models.APIResponse{data=services.AuthResponse}
+// @Param request body dto.RegisterRequest true "Registration data"
+// @Success 201 {object} models.APIResponse{data=dto.AuthResponse}
 // @Failure 400 {object} models.APIResponse
 // @Failure 409 {object} models.APIResponse
 // @Router /api/v1/auth/register [post]
@@ -87,17 +87,15 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	user := &models.User{
+	registerRequest := dto.CreateUserRequest{
 		Username:  req.Username,
 		Email:     req.Email,
 		Password:  req.Password,
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
-		Role:      models.RoleUser,
-		IsActive:  true,
 	}
 
-	response, err := h.authService.Register(c.Request.Context(), user)
+	response, err := h.authService.Register(c.Request.Context(), registerRequest)
 	if err != nil {
 		h.logger.Error("Registration failed", zap.String("username", req.Username), zap.Error(err))
 		c.JSON(http.StatusConflict, models.NewErrorResponse(
@@ -122,8 +120,8 @@ func (h *AuthHandler) Register(c *gin.Context) {
 // @Tags auth
 // @Accept json
 // @Produce json
-// @Param request body RefreshTokenRequest true "Refresh token"
-// @Success 200 {object} models.APIResponse{data=services.AuthResponse}
+// @Param request body dto.RefreshTokenRequest true "Refresh token"
+// @Success 200 {object} models.APIResponse{data=dto.AuthResponse}
 // @Failure 400 {object} models.APIResponse
 // @Failure 401 {object} models.APIResponse
 // @Router /api/v1/auth/refresh [post]

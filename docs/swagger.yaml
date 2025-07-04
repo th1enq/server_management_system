@@ -1,4 +1,54 @@
 definitions:
+  dto.AuthResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      scopes:
+        items:
+          type: string
+        type: array
+      token_type:
+        type: string
+      user:
+        $ref: '#/definitions/models.User'
+    type: object
+  dto.CreateUserRequest:
+    properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      password:
+        minLength: 6
+        type: string
+      role:
+        allOf:
+        - $ref: '#/definitions/models.UserRole'
+        default: user
+        enum:
+        - user
+        - admin
+      scopes:
+        items:
+          $ref: '#/definitions/models.APIScope'
+        type: array
+      username:
+        maxLength: 20
+        minLength: 3
+        type: string
+    required:
+    - email
+    - first_name
+    - last_name
+    - password
+    - username
+    type: object
   dto.ImportResult:
     properties:
       failure_count:
@@ -13,6 +63,85 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  dto.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  dto.PasswordUpdate:
+    properties:
+      new_password:
+        maxLength: 100
+        minLength: 6
+        type: string
+      old_password:
+        maxLength: 100
+        minLength: 6
+        type: string
+      repeat_password:
+        maxLength: 100
+        minLength: 6
+        type: string
+    required:
+    - new_password
+    - old_password
+    - repeat_password
+    type: object
+  dto.ProfileUpdate:
+    properties:
+      first_name:
+        type: string
+      last_name:
+        type: string
+    type: object
+  dto.RefreshTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  dto.RegisterRequest:
+    properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      password:
+        minLength: 6
+        type: string
+      username:
+        type: string
+    required:
+    - email
+    - first_name
+    - last_name
+    - password
+    - username
+    type: object
+  dto.ReportRequest:
+    properties:
+      email:
+        example: admin@example.com
+        type: string
+      end_date:
+        example: "2025-06-21 23:59:59"
+        type: string
+      start_date:
+        example: "2025-06-20 00:00:00"
+        type: string
+    required:
+    - email
+    - end_date
+    - start_date
     type: object
   dto.ServerListResponse:
     properties:
@@ -48,62 +177,34 @@ definitions:
       status:
         $ref: '#/definitions/models.ServerStatus'
     type: object
-  handler.LoginRequest:
-    properties:
-      password:
-        type: string
-      username:
-        type: string
-    required:
-    - password
-    - username
-    type: object
-  handler.RefreshTokenRequest:
-    properties:
-      refresh_token:
-        type: string
-    required:
-    - refresh_token
-    type: object
-  handler.RegisterRequest:
+  dto.UserUpdate:
     properties:
       email:
         type: string
       first_name:
         type: string
+      is_active:
+        type: boolean
       last_name:
         type: string
       password:
+        maxLength: 100
         minLength: 6
         type: string
+      role:
+        allOf:
+        - $ref: '#/definitions/models.UserRole'
+        enum:
+        - user
+        - admin
+      scopes:
+        items:
+          $ref: '#/definitions/models.APIScope'
+        type: array
       username:
+        maxLength: 20
+        minLength: 3
         type: string
-    required:
-    - email
-    - first_name
-    - last_name
-    - password
-    - username
-    type: object
-  handler.ReportRequest:
-    description: Request structure for generating reports within a specific date range
-    properties:
-      email:
-        description: Email address to send the report to
-        example: admin@example.com
-        type: string
-      end_date:
-        description: End date in format YYYY-MM-DD HH:MM:SS
-        example: "2025-06-21 23:59:59"
-        type: string
-      start_date:
-        description: Start date in format YYYY-MM-DD HH:MM:SS
-        example: "2025-06-20 00:00:00"
-        type: string
-    required:
-    - email
-    - end_date
-    - start_date
     type: object
   models.APIResponse:
     properties:
@@ -117,6 +218,36 @@ definitions:
       success:
         type: boolean
     type: object
+  models.APIScope:
+    enum:
+    - server:read
+    - server:write
+    - server:delete
+    - server:import
+    - server:export
+    - user:read
+    - user:write
+    - user:delete
+    - report:read
+    - report:write
+    - profile:read
+    - profile:write
+    - admin:all
+    type: string
+    x-enum-varnames:
+    - ScopeServerRead
+    - ScopeServerWrite
+    - ScopeServerDelete
+    - ScopeServerImport
+    - ScopeServerExport
+    - ScopeUserRead
+    - ScopeUserWrite
+    - ScopeUserDelete
+    - ScopeReportRead
+    - ScopeReportWrite
+    - ScopeProfileRead
+    - ScopeProfileWrite
+    - ScopeAdminAll
   models.ErrorInfo:
     properties:
       code:
@@ -155,6 +286,10 @@ definitions:
         type: string
       status:
         $ref: '#/definitions/models.ServerStatus'
+    required:
+    - ipv4
+    - server_id
+    - server_name
     type: object
   models.ServerStatus:
     enum:
@@ -180,6 +315,9 @@ definitions:
         type: string
       role:
         $ref: '#/definitions/models.UserRole'
+      scopes:
+        description: Bitmask for API scopes
+        type: integer
       updated_at:
         type: string
       username:
@@ -193,23 +331,6 @@ definitions:
     x-enum-varnames:
     - RoleUser
     - RoleAdmin
-  services.AuthResponse:
-    properties:
-      access_token:
-        type: string
-      expires_in:
-        type: integer
-      refresh_token:
-        type: string
-      scopes:
-        items:
-          type: string
-        type: array
-      token_type:
-        type: string
-      user:
-        $ref: '#/definitions/models.User'
-    type: object
 host: localhost:8080
 info:
   contact:
@@ -236,26 +357,27 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.LoginRequest'
+          $ref: '#/definitions/dto.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/services.AuthResponse'
+            allOf:
+            - $ref: '#/definitions/models.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.AuthResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
       summary: User login
       tags:
       - auth
@@ -266,15 +388,11 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
       security:
       - BearerAuth: []
       summary: User logout
@@ -291,26 +409,27 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.RefreshTokenRequest'
+          $ref: '#/definitions/dto.RefreshTokenRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/services.AuthResponse'
+            allOf:
+            - $ref: '#/definitions/models.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.AuthResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
       summary: Refresh JWT token
       tags:
       - auth
@@ -325,26 +444,27 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.RegisterRequest'
+          $ref: '#/definitions/dto.RegisterRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/services.AuthResponse'
+            allOf:
+            - $ref: '#/definitions/models.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.AuthResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
         "409":
           description: Conflict
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
       summary: User registration
       tags:
       - auth
@@ -360,20 +480,14 @@ paths:
         name: report
         required: true
         schema:
-          $ref: '#/definitions/handler.ReportRequest'
+          $ref: '#/definitions/dto.ReportRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            allOf:
-            - $ref: '#/definitions/models.APIResponse'
-            - properties:
-                data:
-                  additionalProperties: true
-                  type: object
-              type: object
+            $ref: '#/definitions/models.APIResponse'
         "400":
           description: Bad Request
           schema:
@@ -398,13 +512,7 @@ paths:
         "200":
           description: OK
           schema:
-            allOf:
-            - $ref: '#/definitions/models.APIResponse'
-            - properties:
-                data:
-                  additionalProperties: true
-                  type: object
-              type: object
+            $ref: '#/definitions/models.APIResponse'
         "500":
           description: Internal Server Error
           schema:
@@ -735,21 +843,22 @@ paths:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/models.User'
-            type: array
+            allOf:
+            - $ref: '#/definitions/models.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.User'
+                  type: array
+              type: object
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
         "403":
           description: Forbidden
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
       security:
       - BearerAuth: []
       summary: List users
@@ -765,7 +874,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.RegisterRequest'
+          $ref: '#/definitions/dto.CreateUserRequest'
       produces:
       - application/json
       responses:
@@ -776,21 +885,20 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            allOf:
+            - $ref: '#/definitions/models.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.User'
+              type: object
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
         "403":
           description: Forbidden
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
       security:
       - BearerAuth: []
       summary: Create user
@@ -806,32 +914,26 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
-          description: No Content
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.APIResponse'
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
         "403":
           description: Forbidden
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
         "404":
           description: Not Found
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
       security:
       - BearerAuth: []
       summary: Delete user
@@ -852,39 +954,35 @@ paths:
         name: request
         required: true
         schema:
-          additionalProperties: true
-          type: object
+          $ref: '#/definitions/dto.UserUpdate'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.User'
+            allOf:
+            - $ref: '#/definitions/models.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.User'
+              type: object
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
         "403":
           description: Forbidden
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
         "404":
           description: Not Found
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
       security:
       - BearerAuth: []
       summary: Update user
@@ -901,30 +999,22 @@ paths:
         name: request
         required: true
         schema:
-          additionalProperties:
-            type: string
-          type: object
+          $ref: '#/definitions/dto.PasswordUpdate'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
       security:
       - BearerAuth: []
       summary: Change password
@@ -939,19 +1029,20 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.User'
+            allOf:
+            - $ref: '#/definitions/models.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.User'
+              type: object
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
         "404":
           description: Not Found
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
       security:
       - BearerAuth: []
       summary: Get user profile
@@ -967,27 +1058,27 @@ paths:
         name: request
         required: true
         schema:
-          additionalProperties: true
-          type: object
+          $ref: '#/definitions/dto.ProfileUpdate'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.User'
+            allOf:
+            - $ref: '#/definitions/models.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.User'
+              type: object
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.APIResponse'
       security:
       - BearerAuth: []
       summary: Update user profile

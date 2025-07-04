@@ -232,7 +232,7 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 // @Security BearerAuth
 // @Accept json
 // @Produce json
-// @Param request body RegisterRequest true "User data"
+// @Param request body dto.CreateUserRequest true "User data"
 // @Success 201 {object} models.User
 // @Failure 400 {object} models.APIResponse{data=models.User}
 // @Failure 401 {object} models.APIResponse

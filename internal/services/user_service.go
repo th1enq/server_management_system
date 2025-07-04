@@ -42,6 +42,7 @@ func (u *userService) CreateUser(ctx context.Context, req dto.CreateUserRequest)
 		Password:  req.Password,
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
+		Scopes:    models.ToBitmask(req.Scopes),
 	}
 	user.SetPassword(req.Password)
 
@@ -162,6 +163,7 @@ func (u *userService) UpdateUser(ctx context.Context, id uint, updates dto.UserU
 	user.FirstName = updates.FirstName
 	user.LastName = updates.LastName
 	user.IsActive = updates.IsActive
+	user.Scopes = models.ToBitmask(updates.Scopes)
 
 	if existUser, err := u.userRepo.GetByUsername(ctx, user.Username); err == nil && existUser.ID != user.ID {
 		u.logger.Error("Username already exists",

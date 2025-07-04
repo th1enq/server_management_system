@@ -32,6 +32,7 @@ type ServerService interface {
 	GetServerStats(ctx context.Context) (map[string]int64, error)
 	CheckServerStatus(ctx context.Context) error
 	CheckServer(ctx context.Context, server models.Server)
+	GetAllServers(ctx context.Context) ([]models.Server, error)
 }
 
 type serverService struct {
@@ -314,6 +315,30 @@ func (s *serverService) GetServer(ctx context.Context, id uint) (*models.Server,
 	}
 
 	return server, nil
+}
+
+func (s *serverService) GetAllServers(ctx context.Context) ([]models.Server, error) {
+	// Try to get all servers from cache first
+	cacheKey := "server:all"
+	serversJSON, err := s.redisClient.Get(ctx, cacheKey).Result()
+	if err == nil {
+		// Cache hit
+		var servers []models.Server
+		if err := json.Unmarshal([]byte(serversJSON), &servers); err == nil {
+			return servers, nil
+		}
+	}
+
+	// Cache miss, get from database
+	servers, err := s.serverRepo.GetAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all servers: %w", err)
+	}
+	// Store in cache for future requests
+	if serversJSON, err := json.Marshal(servers); err == nil {
+		s.redisClient.Set(ctx, cacheKey, serversJSON, 30*time.Minute)
+	}
+	return servers, nil
 }
 
 // GetServerStats implements ServerService.

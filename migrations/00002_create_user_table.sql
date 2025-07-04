@@ -12,13 +12,14 @@ CREATE TABLE users (
     last_name VARCHAR(255),
     last_login TIMESTAMP,
     is_active BOOLEAN DEFAULT true,
+    scopes BIGINT DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP
 );
 
 -- Insert default admin account
-INSERT INTO users (username, email, password, role, first_name, last_name, is_active) 
+INSERT INTO users (username, email, password, role, first_name, last_name, is_active, scopes) 
 VALUES (
     'admin', 
     'thienchy3305@gmail.com', 
@@ -26,19 +27,8 @@ VALUES (
     'admin',
     'System',
     'Administrator',
-    true
-);
-
--- Insert default user account
-INSERT INTO users (username, email, password, role, first_name, last_name, is_active) 
-VALUES (
-    'user', 
-    'user@example.com', 
-    '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', -- password: "password"
-    'user',
-    'Test',
-    'User',
-    true
+    true,
+    4096
 );
 -- +goose StatementEnd
 
