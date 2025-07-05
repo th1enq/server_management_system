@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type AuthService interface {
+type IAuthService interface {
 	Login(ctx context.Context, username, password string) (*dto.AuthResponse, error)
 	Register(ctx context.Context, res dto.CreateUserRequest) (*dto.AuthResponse, error)
 	ValidateToken(tokenString string) (*dto.Claims, error)
@@ -19,12 +19,12 @@ type AuthService interface {
 	LogoutWithToken(ctx context.Context, token string) error
 }
 type authService struct {
-	userService  UserService
+	userService  IUserService
 	tokenService TokenService
 	logger       *zap.Logger
 }
 
-func NewAuthService(userService UserService, tokenService TokenService, logger *zap.Logger) AuthService {
+func NewAuthService(userService IUserService, tokenService TokenService, logger *zap.Logger) IAuthService {
 	return &authService{
 		userService:  userService,
 		tokenService: tokenService,

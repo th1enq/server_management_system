@@ -6,35 +6,33 @@ import (
 
 	"github.com/th1enq/server_management_system/internal/models"
 	"github.com/th1enq/server_management_system/internal/models/dto"
-	"github.com/th1enq/server_management_system/internal/repositories"
+	"github.com/th1enq/server_management_system/internal/repository"
 	"go.uber.org/zap"
 )
 
-type UserService interface {
+type IUserService interface {
 	CreateUser(ctx context.Context, req dto.CreateUserRequest) (*models.User, error)
 	GetUserByID(ctx context.Context, id uint) (*models.User, error)
 	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
-	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
 	UpdateUser(ctx context.Context, id uint, updates dto.UserUpdate) (*models.User, error)
 	UpdateProfile(ctx context.Context, id uint, updates dto.ProfileUpdate) (*models.User, error)
 	UpdatePassword(ctx context.Context, id uint, updates dto.PasswordUpdate) error
 	DeleteUser(ctx context.Context, id uint) error
-	ListUsers(ctx context.Context, limit, offset int) ([]*models.User, error)
+	ListUsers(ctx context.Context, limit, offset int) ([]models.User, error)
 }
 
 type userService struct {
-	userRepo repositories.UserRepository
+	userRepo repository.IUserRepository
 	logger   *zap.Logger
 }
 
-func NewUserService(userRepo repositories.UserRepository, logger *zap.Logger) UserService {
+func NewUserService(userRepo repository.IUserRepository, logger *zap.Logger) IUserService {
 	return &userService{
 		userRepo: userRepo,
 		logger:   logger,
 	}
 }
 
-// CreateUser implements UserService.
 func (u *userService) CreateUser(ctx context.Context, req dto.CreateUserRequest) (*models.User, error) {
 	user := &models.User{
 		Username:  req.Username,
@@ -46,18 +44,19 @@ func (u *userService) CreateUser(ctx context.Context, req dto.CreateUserRequest)
 	}
 	user.SetPassword(req.Password)
 
-	if _, err := u.userRepo.GetByUsername(ctx, user.Username); err == nil {
-		u.logger.Error("Username already exists",
+	if exist, err := u.userRepo.ExistsByUserNameOrEmail(ctx, user.Username, user.Email); err != nil {
+		u.logger.Error("Failed to check if user exists",
 			zap.String("username", user.Username),
+			zap.String("email", user.Email),
+			zap.Error(err),
 		)
-		return nil, fmt.Errorf("username already exists")
-	}
-
-	if _, err := u.userRepo.GetByEmail(ctx, user.Email); err == nil {
-		u.logger.Error("Email already exists",
+		return nil, fmt.Errorf("failed to check if user exists: %w", err)
+	} else if exist {
+		u.logger.Error("User already exists",
+			zap.String("username", user.Username),
 			zap.String("email", user.Email),
 		)
-		return nil, fmt.Errorf("email already exists")
+		return nil, fmt.Errorf("user with username or email already exists")
 	}
 
 	if err := u.userRepo.Create(ctx, user); err != nil {
@@ -128,7 +127,6 @@ func (u *userService) UpdateProfile(ctx context.Context, id uint, updates dto.Pr
 	return user, nil
 }
 
-// DeleteUser implements UserService.
 func (u *userService) DeleteUser(ctx context.Context, id uint) error {
 	user, err := u.userRepo.GetByID(ctx, id)
 	if err != nil {
@@ -147,7 +145,6 @@ func (u *userService) DeleteUser(ctx context.Context, id uint) error {
 	return nil
 }
 
-// UpdateUser implements UserService.
 func (u *userService) UpdateUser(ctx context.Context, id uint, updates dto.UserUpdate) (*models.User, error) {
 	user, err := u.userRepo.GetByID(ctx, id)
 	if err != nil {
@@ -165,18 +162,19 @@ func (u *userService) UpdateUser(ctx context.Context, id uint, updates dto.UserU
 	user.IsActive = updates.IsActive
 	user.Scopes = models.ToBitmask(updates.Scopes)
 
-	if existUser, err := u.userRepo.GetByUsername(ctx, user.Username); err == nil && existUser.ID != user.ID {
-		u.logger.Error("Username already exists",
+	if exist, err := u.userRepo.ExistsByUserNameOrEmail(ctx, user.Username, user.Email); err != nil {
+		u.logger.Error("Failed to check if user exists",
 			zap.String("username", user.Username),
+			zap.String("email", user.Email),
+			zap.Error(err),
 		)
-		return nil, fmt.Errorf("username already exists")
-	}
-
-	if existUser, err := u.userRepo.GetByEmail(ctx, user.Email); err == nil && existUser.ID != user.ID {
-		u.logger.Error("Email already exists",
+		return nil, fmt.Errorf("failed to check if user exists: %w", err)
+	} else if exist {
+		u.logger.Error("User already exists",
+			zap.String("username", user.Username),
 			zap.String("email", user.Email),
 		)
-		return nil, fmt.Errorf("email already exists")
+		return nil, fmt.Errorf("user with username or email already exists")
 	}
 
 	if err := u.userRepo.Update(ctx, user); err != nil {
@@ -193,7 +191,6 @@ func (u *userService) UpdateUser(ctx context.Context, id uint, updates dto.UserU
 	return user, nil
 }
 
-// GetUserByID implements UserService.
 func (u *userService) GetUserByID(ctx context.Context, id uint) (*models.User, error) {
 	user, err := u.userRepo.GetByID(ctx, id)
 	if err != nil {
@@ -202,7 +199,6 @@ func (u *userService) GetUserByID(ctx context.Context, id uint) (*models.User, e
 	return user, nil
 }
 
-// GetUserByUsername implements UserService.
 func (u *userService) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	user, err := u.userRepo.GetByUsername(ctx, username)
 	if err != nil {
@@ -211,17 +207,7 @@ func (u *userService) GetUserByUsername(ctx context.Context, username string) (*
 	return user, nil
 }
 
-// GetUserByEmail implements UserService.
-func (u *userService) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
-	user, err := u.userRepo.GetByEmail(ctx, email)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user by email: %w", err)
-	}
-	return user, nil
-}
-
-// ListUsers implements UserService.
-func (u *userService) ListUsers(ctx context.Context, limit, offset int) ([]*models.User, error) {
+func (u *userService) ListUsers(ctx context.Context, limit, offset int) ([]models.User, error) {
 	users, err := u.userRepo.List(ctx, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list users: %w", err)

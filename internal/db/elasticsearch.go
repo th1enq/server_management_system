@@ -1,4 +1,4 @@
-package elasticsearch
+package db
 
 import (
 	"github.com/elastic/go-elasticsearch/v9"

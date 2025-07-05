@@ -13,13 +13,10 @@ import (
 	"github.com/th1enq/server_management_system/internal/api/jobs"
 	"github.com/th1enq/server_management_system/internal/app"
 	"github.com/th1enq/server_management_system/internal/configs"
-	"github.com/th1enq/server_management_system/internal/dataaccess"
-	"github.com/th1enq/server_management_system/internal/dataaccess/cache"
-	"github.com/th1enq/server_management_system/internal/dataaccess/database"
-	"github.com/th1enq/server_management_system/internal/dataaccess/elasticsearch"
+	"github.com/th1enq/server_management_system/internal/db"
 	"github.com/th1enq/server_management_system/internal/handler"
 	"github.com/th1enq/server_management_system/internal/middleware"
-	"github.com/th1enq/server_management_system/internal/repositories"
+	"github.com/th1enq/server_management_system/internal/repository"
 	"github.com/th1enq/server_management_system/internal/services"
 	"github.com/th1enq/server_management_system/internal/utils"
 )
@@ -37,57 +34,48 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Stand
 	if err != nil {
 		return nil, nil, err
 	}
-	configsDatabase := config.Database
-	db, cleanup2, err := database.LoadDB(configsDatabase, logger)
+	database := config.Database
+	gormDB, cleanup2, err := db.LoadDB(database, logger)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	pgxPoolInterface, cleanup3, err := database.LoadPgPool(configsDatabase, logger)
+	iServerRepository := repository.NewServerRepository(gormDB)
+	cache := config.Cache
+	client, cleanup3, err := db.LoadCache(cache, logger)
 	if err != nil {
 		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	serverRepository := repositories.NewServerRepository(db, pgxPoolInterface)
-	configsCache := config.Cache
-	client, cleanup4, err := cache.LoadCache(configsCache, logger)
-	if err != nil {
-		cleanup3()
-		cleanup2()
-		cleanup()
-		return nil, nil, err
-	}
-	serverService := services.NewServerService(serverRepository, client, logger)
-	serverHandler := handler.NewServerHandler(serverService, logger)
+	iServerService := services.NewServerService(iServerRepository, client, logger)
+	serverHandler := handler.NewServerHandler(iServerService, logger)
 	email := config.Email
 	elasticSearch := config.Elasticsearch
-	elasticsearchClient, cleanup5, err := elasticsearch.LoadElasticSearch(elasticSearch, logger)
+	elasticsearchClient, cleanup4, err := db.LoadElasticSearch(elasticSearch, logger)
 	if err != nil {
-		cleanup4()
 		cleanup3()
 		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	reportService := services.NewReportService(email, elasticsearchClient, serverService, logger)
+	reportService := services.NewReportService(email, elasticsearchClient, iServerService, logger)
 	reportHandler := handler.NewReportHandler(reportService, logger)
-	userRepository := repositories.NewUserRepository(db)
-	userService := services.NewUserService(userRepository, logger)
+	iUserRepository := repository.NewUserRepository(gormDB)
+	iUserService := services.NewUserService(iUserRepository, logger)
 	jwt := config.JWT
 	tokenService := services.NewTokenService(jwt, logger, client)
-	authService := services.NewAuthService(userService, tokenService, logger)
-	authHandler := handler.NewAuthHandler(authService, logger)
-	userHandler := handler.NewUserHandler(userService, logger)
-	authMiddleware := middleware.NewAuthMiddleware(authService, logger)
+	iAuthService := services.NewAuthService(iUserService, tokenService, logger)
+	authHandler := handler.NewAuthHandler(iAuthService, logger)
+	userHandler := handler.NewUserHandler(iUserService, logger)
+	authMiddleware := middleware.NewAuthMiddleware(iAuthService, logger)
 	httpHandler := http.NewHandler(serverHandler, reportHandler, authHandler, userHandler, authMiddleware)
 	httpServer := http.NewServer(server, logger, httpHandler)
 	cron := config.Cron
 	sendDailyReport := jobs.NewSendDailyReport(reportService)
-	intervalCheckStatus := jobs.NewIntervalCheckStatus(serverService)
+	intervalCheckStatus := jobs.NewIntervalCheckStatus(iServerService)
 	standaloneServer := app.NewStandaloneServer(httpServer, logger, cron, sendDailyReport, intervalCheckStatus)
 	return standaloneServer, func() {
-		cleanup5()
 		cleanup4()
 		cleanup3()
 		cleanup2()
@@ -97,4 +85,4 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Stand
 
 // wire.go:
 
-var WireSet = wire.NewSet(app.WireSet, configs.WireSet, handler.WireSet, dataaccess.WireSet, api.WireSet, repositories.WireSet, services.WireSet, middleware.WireSet, utils.WireSet)
+var WireSet = wire.NewSet(app.WireSet, configs.WireSet, handler.WireSet, db.WireSet, api.WireSet, repository.WireSet, services.WireSet, middleware.WireSet, utils.WireSet)

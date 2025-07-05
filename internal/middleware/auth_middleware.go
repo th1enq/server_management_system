@@ -11,11 +11,11 @@ import (
 )
 
 type AuthMiddleware struct {
-	authService services.AuthService
+	authService services.IAuthService
 	logger      *zap.Logger
 }
 
-func NewAuthMiddleware(authService services.AuthService, logger *zap.Logger) *AuthMiddleware {
+func NewAuthMiddleware(authService services.IAuthService, logger *zap.Logger) *AuthMiddleware {
 	return &AuthMiddleware{
 		authService: authService,
 		logger:      logger,

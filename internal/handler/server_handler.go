@@ -14,11 +14,11 @@ import (
 )
 
 type ServerHandler struct {
-	serverSrv services.ServerService
+	serverSrv services.IServerService
 	logger    *zap.Logger
 }
 
-func NewServerHandler(serverSrv services.ServerService, logger *zap.Logger) *ServerHandler {
+func NewServerHandler(serverSrv services.IServerService, logger *zap.Logger) *ServerHandler {
 	return &ServerHandler{
 		serverSrv: serverSrv,
 		logger:    logger,

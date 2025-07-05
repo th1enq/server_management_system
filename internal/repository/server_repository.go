@@ -1,130 +1,66 @@
-package repositories
+package repository
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/th1enq/server_management_system/internal/dataaccess/database"
+	"github.com/th1enq/server_management_system/internal/db"
 	"github.com/th1enq/server_management_system/internal/models"
 	"github.com/th1enq/server_management_system/internal/models/dto"
-	"gorm.io/gorm"
 )
 
-type ServerRepository interface {
+type IServerRepository interface {
 	Create(ctx context.Context, server *models.Server) error
 	GetByID(ctx context.Context, id uint) (*models.Server, error)
 	GetByServerID(ctx context.Context, serverID string) (*models.Server, error)
 	GetByServerName(ctx context.Context, serverName string) (*models.Server, error)
-	List(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) ([]models.Server, int64, error)
-	Update(ctx context.Context, server *models.Server) error
 	Delete(ctx context.Context, id uint) error
+	Update(ctx context.Context, server *models.Server) error
+	List(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) ([]models.Server, int64, error)
 	BatchCreate(ctx context.Context, servers []models.Server) error
 	UpdateStatus(ctx context.Context, serverID string, status models.ServerStatus) error
 	CountByStatus(ctx context.Context, status models.ServerStatus) (int64, error)
 	CountAll(ctx context.Context) (int64, error)
-	GetServersIP(ctx context.Context) ([]string, error)
 	GetAll(ctx context.Context) ([]models.Server, error)
 }
 
 type serverRepository struct {
-	db *gorm.DB
-	pg database.PgxPoolInterface
+	db db.IDatabaseClient
 }
 
-func NewServerRepository(db *gorm.DB, pg database.PgxPoolInterface) ServerRepository {
+func NewServerRepository(db db.IDatabaseClient) IServerRepository {
 	return &serverRepository{
 		db: db,
-		pg: pg,
 	}
 }
 
-// GetServersIP implements ServerRepository.
-func (s *serverRepository) GetServersIP(ctx context.Context) ([]string, error) {
-	var ipv4 []string
-	if err := s.db.WithContext(ctx).Model(&models.Server{}).Pluck("ipv4", &ipv4).Error; err != nil {
-		return nil, err
-	}
-	return ipv4, nil
-}
-
-// BatchCreate implements ServerRepository using CopyFrom for better performance.
 func (s *serverRepository) BatchCreate(ctx context.Context, servers []models.Server) error {
-	if len(servers) == 0 {
-		return nil
-	}
-
-	// If no pgx pool available, use GORM batch create
-	if s.pg == nil {
-		return s.db.WithContext(ctx).CreateInBatches(servers, len(servers)).Error
-	}
-
-	// Prepare data for CopyFrom
-	rows := make([][]interface{}, len(servers))
-	for i, server := range servers {
-		rows[i] = []interface{}{
-			server.ServerID,
-			server.ServerName,
-			server.Status,
-			server.IPv4,
-			server.Description,
-			server.Location,
-			server.OS,
-			server.CPU,
-			server.RAM,
-			server.Disk,
-		}
-	}
-
-	// Use CopyFrom for bulk insert
-	_, err := s.pg.CopyFrom(
-		ctx,
-		[]string{"servers"}, // table name
-		[]string{
-			"server_id",
-			"server_name",
-			"status",
-			"ipv4",
-			"description",
-			"location",
-			"os",
-			"cpu",
-			"ram",
-			"disk",
-		}, // columns
-		pgx.CopyFromRows(rows),
-	)
-
-	return err
+	return s.db.WithContext(ctx).CreateInBatches(servers, len(servers))
 }
 
-// CountByStatus implements ServerRepository.
 func (s *serverRepository) CountByStatus(ctx context.Context, status models.ServerStatus) (int64, error) {
 	var count int64
-	err := s.db.WithContext(ctx).Model(&models.Server{}).Where("status = ?", status).Count(&count).Error
+	err := s.db.WithContext(ctx).Model(&models.Server{}).Where("status = ?", status).Count(&count)
 	return count, err
 }
 
-// Create implements ServerRepository.
 func (s *serverRepository) Create(ctx context.Context, server *models.Server) error {
-	return s.db.WithContext(ctx).Create(server).Error
+	return s.db.WithContext(ctx).Create(server)
 }
 
-// Delete implements ServerRepository.
 func (s *serverRepository) Delete(ctx context.Context, id uint) error {
-	return s.db.WithContext(ctx).Delete(&models.Server{}, id).Error
+	return s.db.WithContext(ctx).Delete(&models.Server{}, id)
 }
 
 func (s *serverRepository) CountAll(ctx context.Context) (int64, error) {
 	var count int64
-	err := s.db.WithContext(ctx).Model(&models.Server{}).Count(&count).Error
+	err := s.db.WithContext(ctx).Model(&models.Server{}).Count(&count)
 	return count, err
 }
 
-// GetByID implements ServerRepository.
 func (s *serverRepository) GetByID(ctx context.Context, id uint) (*models.Server, error) {
 	var server models.Server
-	if err := s.db.WithContext(ctx).First(&server, id).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&server, id); err != nil {
 		return nil, err
 	}
 	return &server, nil
@@ -132,38 +68,34 @@ func (s *serverRepository) GetByID(ctx context.Context, id uint) (*models.Server
 
 func (s *serverRepository) GetAll(ctx context.Context) ([]models.Server, error) {
 	var servers []models.Server
-	if err := s.db.WithContext(ctx).Find(&servers).Error; err != nil {
+	if err := s.db.WithContext(ctx).Find(&servers); err != nil {
 		return nil, err
 	}
 	return servers, nil
 }
 
-// GetByServerID implements ServerRepository.
 func (s *serverRepository) GetByServerID(ctx context.Context, serverID string) (*models.Server, error) {
 	var server models.Server
-	if err := s.db.WithContext(ctx).Where("server_id = ?", serverID).First(&server).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("server_id = ?", serverID).First(&server); err != nil {
 		return nil, err
 	}
 	return &server, nil
 }
 
-// GetByServerName implements ServerRepository.
 func (s *serverRepository) GetByServerName(ctx context.Context, serverName string) (*models.Server, error) {
 	var server models.Server
-	if err := s.db.WithContext(ctx).Where("server_name = ?", serverName).First(&server).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("server_name = ?", serverName).First(&server); err != nil {
 		return nil, err
 	}
 	return &server, nil
 }
 
-// List implements ServerRepository.
 func (s *serverRepository) List(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) ([]models.Server, int64, error) {
 	var servers []models.Server
 	var total int64
 
 	query := s.db.WithContext(ctx).Model(&models.Server{})
 
-	// Apply filters
 	if filter.ServerID != "" {
 		query = query.Where("server_id LIKE ?", "%"+filter.ServerID+"%")
 	}
@@ -183,12 +115,10 @@ func (s *serverRepository) List(ctx context.Context, filter dto.ServerFilter, pa
 		query = query.Where("os LIKE ?", "%"+filter.OS+"%")
 	}
 
-	// Count total
-	if err := query.Count(&total).Error; err != nil {
+	if err := query.Count(&total); err != nil {
 		return nil, 0, err
 	}
 
-	// Apply pagination and sorting
 	offset := (pagination.Page - 1) * pagination.PageSize
 	orderBy := fmt.Sprintf("%s %s", pagination.Sort, pagination.Order)
 
@@ -196,17 +126,15 @@ func (s *serverRepository) List(ctx context.Context, filter dto.ServerFilter, pa
 		Order(orderBy).
 		Limit(pagination.PageSize).
 		Offset(offset).
-		Find(&servers).Error
+		Find(&servers)
 
 	return servers, total, err
 }
 
-// Update implements ServerRepository.
 func (s *serverRepository) Update(ctx context.Context, server *models.Server) error {
-	return s.db.WithContext(ctx).Save(server).Error
+	return s.db.WithContext(ctx).Save(server)
 }
 
-// UpdateStatus implements ServerRepository.
 func (s *serverRepository) UpdateStatus(ctx context.Context, serverID string, status models.ServerStatus) error {
-	return s.db.WithContext(ctx).Model(&models.Server{}).Where("server_id = ?", serverID).Update("status", status).Error
+	return s.db.WithContext(ctx).Model(&models.Server{}).Where("server_id = ?", serverID).Update("status", status)
 }

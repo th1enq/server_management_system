@@ -38,7 +38,7 @@ test: ## Run tests
 
 test-coverage: ## Run tests with coverage
 	@echo "Running tests with coverage..."
-	@go test -coverprofile=coverage.out ./...
+	@go test -v -coverpkg=./internal/... -coverprofile=coverage.out ./tests/unit/...
 	@go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
 

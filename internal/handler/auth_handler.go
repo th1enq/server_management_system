@@ -12,11 +12,11 @@ import (
 )
 
 type AuthHandler struct {
-	authService services.AuthService
+	authService services.IAuthService
 	logger      *zap.Logger
 }
 
-func NewAuthHandler(authService services.AuthService, logger *zap.Logger) *AuthHandler {
+func NewAuthHandler(authService services.IAuthService, logger *zap.Logger) *AuthHandler {
 	return &AuthHandler{
 		authService: authService,
 		logger:      logger,

@@ -11,10 +11,10 @@ type IntervalCheckStatus interface {
 }
 
 type intervalCheckStatus struct {
-	serverService services.ServerService
+	serverService services.IServerService
 }
 
-func NewIntervalCheckStatus(serverService services.ServerService) IntervalCheckStatus {
+func NewIntervalCheckStatus(serverService services.IServerService) IntervalCheckStatus {
 	return &intervalCheckStatus{
 		serverService: serverService,
 	}

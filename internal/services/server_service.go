@@ -13,14 +13,14 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/th1enq/server_management_system/internal/models"
 	"github.com/th1enq/server_management_system/internal/models/dto"
-	"github.com/th1enq/server_management_system/internal/repositories"
+	"github.com/th1enq/server_management_system/internal/repository"
 	"github.com/th1enq/server_management_system/internal/utils"
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
-type ServerService interface {
+type IServerService interface {
 	CreateServer(ctx context.Context, server *models.Server) error
 	GetServer(ctx context.Context, id uint) (*models.Server, error)
 	ListServers(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) (*dto.ServerListResponse, error)
@@ -37,11 +37,11 @@ type ServerService interface {
 
 type serverService struct {
 	logger      *zap.Logger
-	serverRepo  repositories.ServerRepository
+	serverRepo  repository.IServerRepository
 	redisClient *redis.Client
 }
 
-func NewServerService(serverRepo repositories.ServerRepository, redisClient *redis.Client, logger *zap.Logger) ServerService {
+func NewServerService(serverRepo repository.IServerRepository, redisClient *redis.Client, logger *zap.Logger) IServerService {
 	return &serverService{
 		serverRepo:  serverRepo,
 		redisClient: redisClient,

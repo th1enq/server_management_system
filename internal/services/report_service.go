@@ -27,11 +27,11 @@ type ReportService interface {
 type reportService struct {
 	cfg       configs.Email
 	esClient  *elasticsearch.Client
-	serverSrv ServerService
+	serverSrv IServerService
 	logger    *zap.Logger
 }
 
-func NewReportService(cfg configs.Email, esClient *elasticsearch.Client, serverSrv ServerService, logger *zap.Logger) ReportService {
+func NewReportService(cfg configs.Email, esClient *elasticsearch.Client, serverSrv IServerService, logger *zap.Logger) ReportService {
 	return &reportService{
 		cfg:       cfg,
 		logger:    logger,
