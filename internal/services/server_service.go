@@ -2,22 +2,19 @@ package services
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"sync"
 	"time"
 
 	"github.com/gammazero/workerpool"
-	"github.com/redis/go-redis/v9"
+	"github.com/th1enq/server_management_system/internal/db"
 	"github.com/th1enq/server_management_system/internal/models"
 	"github.com/th1enq/server_management_system/internal/models/dto"
 	"github.com/th1enq/server_management_system/internal/repository"
 	"github.com/th1enq/server_management_system/internal/utils"
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 )
 
 type IServerService interface {
@@ -33,37 +30,38 @@ type IServerService interface {
 	CheckServerStatus(ctx context.Context) error
 	CheckServer(ctx context.Context, server models.Server)
 	GetAllServers(ctx context.Context) ([]models.Server, error)
+	clearServerCaches(ctx context.Context, server *models.Server) error
 }
 
 type serverService struct {
-	logger      *zap.Logger
-	serverRepo  repository.IServerRepository
-	redisClient *redis.Client
+	logger *zap.Logger
+	repo   repository.IServerRepository
+	cache  db.IRedisClient
 }
 
-func NewServerService(serverRepo repository.IServerRepository, redisClient *redis.Client, logger *zap.Logger) IServerService {
+func NewServerService(repo repository.IServerRepository, cache db.IRedisClient, logger *zap.Logger) IServerService {
 	return &serverService{
-		serverRepo:  serverRepo,
-		redisClient: redisClient,
-		logger:      logger,
+		repo:   repo,
+		cache:  cache,
+		logger: logger,
 	}
 }
-
-// CreateServer implements ServerService.
 func (s *serverService) CreateServer(ctx context.Context, server *models.Server) error {
-	if _, err := s.serverRepo.GetByServerID(ctx, server.ServerID); err == nil {
-		return fmt.Errorf("server with ID '%s' already exists", server.ServerID)
-	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return fmt.Errorf("failed to check server ID: %w", err)
+	if exists, err := s.repo.ExistsByServerIDOrServerName(ctx, server.ServerID, server.ServerName); err != nil {
+		s.logger.Error("Failed to check if server exists",
+			zap.String("server_id", server.ServerID),
+			zap.String("server_name", server.ServerName),
+			zap.Error(err),
+		)
+		return fmt.Errorf("failed to check if server exists: %w", err)
+	} else if exists {
+		s.logger.Error("Server already exists",
+			zap.String("server_id", server.ServerID),
+			zap.String("server_name", server.ServerName),
+		)
+		return fmt.Errorf("server with ID '%s' or name '%s' already exists", server.ServerID, server.ServerName)
 	}
-
-	if _, err := s.serverRepo.GetByServerName(ctx, server.ServerName); err == nil {
-		return fmt.Errorf("server with name '%s' already exists", server.ServerName)
-	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return fmt.Errorf("failed to check server name: %w", err)
-	}
-
-	err := s.serverRepo.Create(ctx, server)
+	err := s.repo.Create(ctx, server)
 	if err != nil {
 		return fmt.Errorf("failed to create server: %w", err)
 	}
@@ -77,17 +75,16 @@ func (s *serverService) CreateServer(ctx context.Context, server *models.Server)
 	return nil
 }
 
-// DeleteServer implements ServerService.
 func (s *serverService) DeleteServer(ctx context.Context, id uint) error {
-	server, err := s.serverRepo.GetByID(ctx, id)
+	server, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("server not found")
 	}
-	if err := s.serverRepo.Delete(ctx, id); err != nil {
+	if err := s.repo.Delete(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete server: %w", err)
 	}
 
-	s.invalidateServerCaches(ctx, server)
+	s.clearServerCaches(ctx, server)
 
 	s.logger.Info("Server deleted successfully",
 		zap.Uint("id", server.ID),
@@ -98,7 +95,6 @@ func (s *serverService) DeleteServer(ctx context.Context, id uint) error {
 	return nil
 }
 
-// ImportServers implements ServerService.
 func (s *serverService) ImportServers(ctx context.Context, filePath string) (*dto.ImportResult, error) {
 	file, err := excelize.OpenFile(filePath)
 	if err != nil {
@@ -111,7 +107,6 @@ func (s *serverService) ImportServers(ctx context.Context, filePath string) (*dt
 		return nil, fmt.Errorf("no sheets found in file")
 	}
 
-	// Get all rows to count them first
 	allRows, err := file.GetRows(sheets[0])
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rows: %w", err)
@@ -132,7 +127,6 @@ func (s *serverService) ImportServers(ctx context.Context, filePath string) (*dt
 		FailureServers: make([]string, 0),
 	}
 
-	// Validate header (first row)
 	if len(allRows) > 0 {
 		err := utils.Validate(allRows[0])
 		if err != nil {
@@ -142,7 +136,6 @@ func (s *serverService) ImportServers(ctx context.Context, filePath string) (*dt
 
 	servers := make([]models.Server, 0)
 
-	// Process data rows (skip header)
 	for i := 1; i < len(allRows); i++ {
 		row := allRows[i]
 
@@ -197,10 +190,10 @@ func (s *serverService) ImportServers(ctx context.Context, filePath string) (*dt
 		workerPool.Submit(func() {
 
 			// Try batch insert first
-			if err := s.serverRepo.BatchCreate(ctx, currentBatch); err != nil {
+			if err := s.repo.BatchCreate(ctx, currentBatch); err != nil {
 				// Fallback to individual inserts
 				for _, sv := range currentBatch {
-					if err := s.serverRepo.Create(ctx, &sv); err != nil {
+					if err := s.repo.Create(ctx, &sv); err != nil {
 						mu.Lock()
 						result.FailureCount++
 						result.FailureServers = append(result.FailureServers,
@@ -240,7 +233,7 @@ func (s *serverService) ImportServers(ctx context.Context, filePath string) (*dt
 
 // ExportServers implements ServerService.
 func (s *serverService) ExportServers(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) (string, error) {
-	servers, _, err := s.serverRepo.List(ctx, filter, pagination)
+	servers, _, err := s.repo.List(ctx, filter, pagination)
 	if err != nil {
 		return "", fmt.Errorf("failed to get servers: %w", err)
 	}
@@ -288,101 +281,114 @@ func (s *serverService) ExportServers(ctx context.Context, filter dto.ServerFilt
 	return filePath, nil
 }
 
-// GetServer implements ServerService.
 func (s *serverService) GetServer(ctx context.Context, id uint) (*models.Server, error) {
-	// Try to get from cache first
 	cacheKey := fmt.Sprintf("server:%d", id)
-
-	// Try to get server from Redis
-	serverJSON, err := s.redisClient.Get(ctx, cacheKey).Result()
-	if err == nil {
-		// Cache hit
-		var server models.Server
-		if err := json.Unmarshal([]byte(serverJSON), &server); err == nil {
-			return &server, nil
-		}
+	var cachedServer *models.Server
+	if err := s.cache.Get(ctx, cacheKey, &cachedServer); err == nil {
+		s.logger.Info("Server retrieved from cache",
+			zap.Uint("id", cachedServer.ID),
+			zap.String("server_id", cachedServer.ServerID),
+			zap.String("server_name", cachedServer.ServerName),
+		)
+		return cachedServer, nil
+	} else if err != db.ErrCacheMiss {
+		s.logger.Warn("Cache miss for server",
+			zap.Uint("id", id),
+			zap.Error(err),
+		)
 	}
 
 	// Cache miss, get from database
-	server, err := s.serverRepo.GetByID(ctx, id)
+	server, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("server not found: %w", err)
 	}
 
-	// Store in cache for future requests
-	if serverJSON, err := json.Marshal(server); err == nil {
-		s.redisClient.Set(ctx, cacheKey, serverJSON, 30*time.Minute)
+	if err := s.cache.Set(ctx, cacheKey, server, 30*time.Minute); err != nil {
+		s.logger.Error("Failed to cache server data",
+			zap.Uint("id", server.ID),
+			zap.String("server_id", server.ServerID),
+			zap.String("server_name", server.ServerName),
+			zap.Error(err),
+		)
 	}
 
 	return server, nil
 }
 
 func (s *serverService) GetAllServers(ctx context.Context) ([]models.Server, error) {
-	// Try to get all servers from cache first
 	cacheKey := "server:all"
-	serversJSON, err := s.redisClient.Get(ctx, cacheKey).Result()
-	if err == nil {
-		// Cache hit
-		var servers []models.Server
-		if err := json.Unmarshal([]byte(serversJSON), &servers); err == nil {
-			return servers, nil
-		}
+	var cachedServers []models.Server
+	if err := s.cache.Get(ctx, cacheKey, &cachedServers); err == nil {
+		s.logger.Info("All servers retrieved from cache",
+			zap.Int("count", len(cachedServers)),
+		)
+		return cachedServers, nil
+	} else if err != db.ErrCacheMiss {
+		s.logger.Warn("Cache miss for all servers",
+			zap.Error(err),
+		)
 	}
 
-	// Cache miss, get from database
-	servers, err := s.serverRepo.GetAll(ctx)
+	servers, err := s.repo.GetAll(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all servers: %w", err)
 	}
-	// Store in cache for future requests
-	if serversJSON, err := json.Marshal(servers); err == nil {
-		s.redisClient.Set(ctx, cacheKey, serversJSON, 30*time.Minute)
+
+	if err := s.cache.Set(ctx, cacheKey, servers, 30*time.Minute); err != nil {
+		s.logger.Error("Failed to cache all servers data",
+			zap.Int("count", len(servers)),
+			zap.Error(err),
+		)
 	}
+
 	return servers, nil
 }
 
-// GetServerStats implements ServerService.
 func (s *serverService) GetServerStats(ctx context.Context) (map[string]int64, error) {
 	// Try to get stats from cache first
 	cacheKey := "server:stats"
-	statsJSON, err := s.redisClient.Get(ctx, cacheKey).Result()
-	if err == nil {
-		// Cache hit
-		var stats map[string]int64
-		if err := json.Unmarshal([]byte(statsJSON), &stats); err == nil {
-			return stats, nil
-		}
+	var cachedStats map[string]int64
+	if err := s.cache.Get(ctx, cacheKey, &cachedStats); err == nil {
+		s.logger.Info("Server stats retrieved from cache",
+			zap.Any("stats", cachedStats),
+		)
+		return cachedStats, nil
+	} else if err != db.ErrCacheMiss {
+		s.logger.Warn("Cache miss for server stats",
+			zap.Error(err),
+		)
 	}
 
 	// Cache miss, calculate stats
 	stats := make(map[string]int64)
 
-	// Count total servers
-	var total int64
-	total, err = s.serverRepo.CountAll(ctx)
+	total, err := s.repo.CountAll(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count servers: %w", err)
 	}
 	stats["total"] = total
 
 	// Count by status
-	onlineCount, _ := s.serverRepo.CountByStatus(ctx, models.ServerStatusOn)
+	onlineCount, _ := s.repo.CountByStatus(ctx, models.ServerStatusOn)
 	stats["online"] = onlineCount
 
-	offlineCount, _ := s.serverRepo.CountByStatus(ctx, models.ServerStatusOff)
+	offlineCount, _ := s.repo.CountByStatus(ctx, models.ServerStatusOff)
 	stats["offline"] = offlineCount
 
-	// Store in cache for future requests
-	if statsJSON, err := json.Marshal(stats); err == nil {
-		s.redisClient.Set(ctx, cacheKey, statsJSON, 5*time.Minute)
+	if err := s.cache.Set(ctx, cacheKey, stats, 30*time.Minute); err != nil {
+		s.logger.Error("Failed to cache server stats",
+			zap.Any("stats", stats),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("failed to cache server stats: %w", err)
 	}
 
 	return stats, nil
 }
 
-// ListServers implements ServerService.
 func (s *serverService) ListServers(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) (*dto.ServerListResponse, error) {
-	servers, total, err := s.serverRepo.List(ctx, filter, pagination)
+	servers, total, err := s.repo.List(ctx, filter, pagination)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list servers: %w", err)
 	}
@@ -397,14 +403,13 @@ func (s *serverService) ListServers(ctx context.Context, filter dto.ServerFilter
 	return response, nil
 }
 
-// UpdateServer implements ServerService.
 func (s *serverService) UpdateServer(ctx context.Context, id uint, updates dto.ServerUpdate) (*models.Server, error) {
-	server, err := s.serverRepo.GetByID(ctx, id)
+	server, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("server not found")
 	}
 
-	if existing, err := s.serverRepo.GetByServerName(ctx, updates.ServerName); err == nil && existing.ID != id {
+	if existing, err := s.repo.GetByServerName(ctx, updates.ServerName); err == nil && existing.ID != id {
 		return nil, fmt.Errorf("server name already exists")
 	}
 	server.ServerName = updates.ServerName
@@ -417,7 +422,7 @@ func (s *serverService) UpdateServer(ctx context.Context, id uint, updates dto.S
 	server.RAM = updates.RAM
 	server.Disk = updates.Disk
 
-	if err := s.serverRepo.Update(ctx, server); err != nil {
+	if err := s.repo.Update(ctx, server); err != nil {
 		return nil, err
 	}
 
@@ -427,26 +432,22 @@ func (s *serverService) UpdateServer(ctx context.Context, id uint, updates dto.S
 		zap.String("server_name", server.ServerName),
 	)
 
-	s.invalidateServerCaches(ctx, server)
+	s.clearServerCaches(ctx, server)
 
 	return server, nil
 }
 
-// UpdateServerStatus implements ServerService.
 func (s *serverService) UpdateServerStatus(ctx context.Context, serverID string, status models.ServerStatus) error {
-	// Check if server exists
-	server, err := s.serverRepo.GetByServerID(ctx, serverID)
+	server, err := s.repo.GetByServerID(ctx, serverID)
 	if err != nil {
 		return fmt.Errorf("server not found: %w", err)
 	}
 
-	// Update the status
-	if err := s.serverRepo.UpdateStatus(ctx, serverID, status); err != nil {
+	if err := s.repo.UpdateStatus(ctx, serverID, status); err != nil {
 		return fmt.Errorf("failed to update server status: %w", err)
 	}
 
-	// Invalidate caches
-	s.invalidateServerCaches(ctx, server)
+	s.clearServerCaches(ctx, server)
 
 	s.logger.Info("Server status updated successfully",
 		zap.String("server_id", serverID),
@@ -456,23 +457,11 @@ func (s *serverService) UpdateServerStatus(ctx context.Context, serverID string,
 	return nil
 }
 
-// Helper method to invalidate all related caches
-func (s *serverService) invalidateServerCaches(ctx context.Context, server *models.Server) {
-	// Delete server cache
-	s.redisClient.Del(ctx, fmt.Sprintf("server:%d", server.ID))
-
-	// Delete server by server_id cache
-	s.redisClient.Del(ctx, fmt.Sprintf("server:byServerID:%s", server.ServerID))
-
-	// Delete stats cache
-	s.redisClient.Del(ctx, "server:stats")
-}
-
 func (s *serverService) CheckServerStatus(ctx context.Context) error {
 	s.logger.Info("Starting server health check")
 
 	// Get all servers
-	servers, err := s.serverRepo.GetAll(ctx)
+	servers, err := s.repo.GetAll(ctx)
 	if err != nil {
 		s.logger.Error("Failed to get servers", zap.Error(err))
 		return err
@@ -482,7 +471,8 @@ func (s *serverService) CheckServerStatus(ctx context.Context) error {
 
 	workerpool := workerpool.New(50)
 
-	for _, server := range servers {
+	for _, srv := range servers {
+		server := srv
 		workerpool.Submit(func() {
 			checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			defer cancel()
@@ -508,7 +498,7 @@ func (s *serverService) CheckServer(ctx context.Context, server models.Server) {
 	}
 
 	if server.Status != status {
-		err := s.serverRepo.UpdateStatus(ctx, server.ServerID, status)
+		err := s.repo.UpdateStatus(ctx, server.ServerID, status)
 		if err != nil {
 			s.logger.Error("Failed to update server status",
 				zap.Error(err),
@@ -524,4 +514,11 @@ func (s *serverService) CheckServer(ctx context.Context, server models.Server) {
 		zap.String("status", string(status)),
 		zap.Int64("response_time", responseTime),
 	)
+}
+
+func (s *serverService) clearServerCaches(ctx context.Context, server *models.Server) error {
+	s.cache.Del(ctx, fmt.Sprintf("server:%d", server.ID))
+	s.cache.Del(ctx, "server:stats")
+	s.cache.Del(ctx, "server:all")
+	return nil
 }

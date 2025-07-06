@@ -6,19 +6,19 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/redis/go-redis/v9"
 	"github.com/th1enq/server_management_system/internal/configs"
+	"github.com/th1enq/server_management_system/internal/db"
 	"github.com/th1enq/server_management_system/internal/models"
 	"github.com/th1enq/server_management_system/internal/models/dto"
 	"go.uber.org/zap"
 )
 
-type TokenService interface {
+type ITokenService interface {
 	GenerateAccessToken(user *models.User) (string, error)
 	GenerateRefreshToken(user *models.User) (string, error)
 	ValidateToken(tokenString string) (*dto.Claims, error)
 	ParseTokenClaims(tokenString string) (*dto.Claims, error)
-	AddTokenToWhitelist(ctx context.Context, token string, expiration time.Duration) error
+	AddTokenToWhitelist(ctx context.Context, token string, userID uint, expiration time.Duration) error
 	IsTokenWhitelisted(ctx context.Context, token string) bool
 	RemoveTokenFromWhitelist(ctx context.Context, token string)
 	RemoveUserTokensFromWhitelist(ctx context.Context, userID uint)
@@ -27,10 +27,10 @@ type TokenService interface {
 type tokenService struct {
 	jwtConfig configs.JWT
 	logger    *zap.Logger
-	cache     *redis.Client
+	cache     db.IRedisClient
 }
 
-func NewTokenService(jwtConfig configs.JWT, logger *zap.Logger, cache *redis.Client) TokenService {
+func NewTokenService(jwtConfig configs.JWT, logger *zap.Logger, cache db.IRedisClient) ITokenService {
 	return &tokenService{
 		jwtConfig: jwtConfig,
 		logger:    logger,
@@ -38,7 +38,6 @@ func NewTokenService(jwtConfig configs.JWT, logger *zap.Logger, cache *redis.Cli
 	}
 }
 
-// GenerateAccessToken generates a JWT access token for the user
 func (t *tokenService) GenerateAccessToken(user *models.User) (string, error) {
 	userScopes := models.ToArray(user.Scopes)
 	claims := &dto.Claims{
@@ -62,7 +61,6 @@ func (t *tokenService) GenerateAccessToken(user *models.User) (string, error) {
 	return token.SignedString([]byte(t.jwtConfig.Secret))
 }
 
-// GenerateRefreshToken generates a JWT refresh token for the user
 func (t *tokenService) GenerateRefreshToken(user *models.User) (string, error) {
 	userScopes := models.ToArray(user.Scopes)
 	claims := &dto.Claims{
@@ -125,66 +123,64 @@ func (t *tokenService) ParseTokenClaims(tokenString string) (*dto.Claims, error)
 }
 
 // AddTokenToWhitelist adds a token to Redis whitelist with TTL
-func (t *tokenService) AddTokenToWhitelist(ctx context.Context, token string, expiration time.Duration) error {
-	if t.cache == nil {
-		return nil // Skip if cache is not configured
+func (t *tokenService) AddTokenToWhitelist(ctx context.Context, token string, userID uint, expiration time.Duration) error {
+	cacheKey := fmt.Sprintf("user_tokens:%d", userID)
+	err := t.cache.SADD(ctx, cacheKey, token)
+	if err != nil {
+		t.logger.Error("Failed to add token to whitelist", zap.String("token", token), zap.Error(err))
+		return fmt.Errorf("failed to add token to whitelist: %w", err)
 	}
-
-	key := fmt.Sprintf("token:whitelist:%s", token)
-	return t.cache.Set(ctx, key, "valid", expiration).Err()
+	cacheKey = fmt.Sprintf("token:whitelist:%s", token)
+	err = t.cache.Set(ctx, cacheKey, "valid", expiration)
+	if err != nil {
+		t.logger.Error("Failed to set token in whitelist", zap.String("token", token), zap.Error(err))
+		return fmt.Errorf("failed to set token in whitelist: %w", err)
+	}
+	t.logger.Info("Token added to whitelist", zap.String("token", token), zap.Uint("user_id", userID))
+	return nil
 }
 
 // IsTokenWhitelisted checks if a token exists in Redis whitelist
 func (t *tokenService) IsTokenWhitelisted(ctx context.Context, token string) bool {
-	if t.cache == nil {
-		return true // Allow if cache is not configured
-	}
-
 	key := fmt.Sprintf("token:whitelist:%s", token)
-	result := t.cache.Get(ctx, key)
-	return result.Err() != redis.Nil
+	var valid string
+	err := t.cache.Get(ctx, key, &valid)
+	if err != nil {
+		if err == db.ErrCacheMiss {
+			t.logger.Warn("Token not found in whitelist", zap.String("token", token))
+			return false
+		}
+		t.logger.Error("Failed to check token in whitelist", zap.String("token", token), zap.Error(err))
+		return false
+	}
+	if valid == "valid" {
+		t.logger.Info("Token is whitelisted", zap.String("token", token))
+		return true
+	}
+	t.logger.Warn("Token is not valid", zap.String("token", token))
+	return false
 }
 
 // RemoveTokenFromWhitelist removes a specific token from Redis whitelist
 func (t *tokenService) RemoveTokenFromWhitelist(ctx context.Context, token string) {
-	if t.cache == nil {
-		return
-	}
-
 	key := fmt.Sprintf("token:whitelist:%s", token)
 	t.cache.Del(ctx, key)
 }
 
 // RemoveUserTokensFromWhitelist removes all tokens for a specific user
 func (t *tokenService) RemoveUserTokensFromWhitelist(ctx context.Context, userID uint) {
-	if t.cache == nil {
-		return
-	}
-
-	// Pattern to match all tokens for this user
-	pattern := "token:whitelist:*"
-
-	// Get all keys matching the pattern
-	keys, err := t.cache.Keys(ctx, pattern).Result()
+	cacheKey := fmt.Sprintf("user_tokens:%d", userID)
+	token, err := t.cache.SMEMBERS(ctx, cacheKey)
 	if err != nil {
-		t.logger.Error("Failed to get token keys for user", zap.Uint("user_id", userID), zap.Error(err))
+		t.logger.Error("Failed to get user tokens from whitelist", zap.Uint("user_id", userID), zap.Error(err))
 		return
 	}
-
-	// For each token, validate and check if it belongs to the user
-	for _, key := range keys {
-		// Extract token from key
-		token := key[len("token:whitelist:"):]
-
-		// Parse token to get user ID
-		claims, err := t.ParseTokenClaims(token)
-		if err != nil {
-			continue
-		}
-
-		// If token belongs to the user, remove it
-		if claims.UserID == userID {
-			t.cache.Del(ctx, key)
-		}
+	for _, to := range token {
+		t.cache.Del(ctx, fmt.Sprintf("token:whitelist:%s", to))
 	}
+	if err := t.cache.Del(ctx, cacheKey); err != nil {
+		t.logger.Error("Failed to delete user tokens from whitelist", zap.Uint("user_id", userID), zap.Error(err))
+		return
+	}
+	t.logger.Info("All user tokens removed from whitelist", zap.Uint("user_id", userID))
 }

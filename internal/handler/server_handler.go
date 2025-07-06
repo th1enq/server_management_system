@@ -260,6 +260,8 @@ func (h *ServerHandler) UpdateServer(c *gin.Context) {
 		return
 	}
 
+	
+
 	h.logger.Info("Server updated successfully",
 		zap.Uint64("server_id", id),
 		zap.String("server_name", server.ServerName),

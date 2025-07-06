@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -17,10 +18,11 @@ var (
 
 type IRedisClient interface {
 	Set(ctx context.Context, key string, data any, ttl time.Duration) error
-	Get(ctx context.Context, key string) (any, error)
-	AddToSet(ctx context.Context, key string, data ...any) error
-	IsDataInSet(ctx context.Context, key string, data any) (bool, error)
-	RemoveFromSet(ctx context.Context, key string, data ...any) error
+	Get(ctx context.Context, key string, dest any) error
+	Del(ctx context.Context, key string) error
+	Keys(ctx context.Context, pattern string) ([]string, error)
+	SADD(ctx context.Context, key string, members ...string) error
+	SMEMBERS(ctx context.Context, key string) ([]string, error)
 }
 
 type redisClient struct {
@@ -29,48 +31,68 @@ type redisClient struct {
 }
 
 func (r *redisClient) Set(ctx context.Context, key string, data any, ttl time.Duration) error {
-	if err := r.client.Set(ctx, key, data, ttl).Err(); err != nil {
+	byte, err := json.Marshal(data)
+	if err != nil {
+		r.logger.Error("Failed to marshal data for Redis", zap.String("key", key), zap.Error(err))
+		return fmt.Errorf("failed to marshal data for Redis: %w", err)
+	}
+	if err := r.client.Set(ctx, key, byte, ttl).Err(); err != nil {
 		r.logger.Error("Failed to set data in Redis", zap.String("key", key), zap.Error(err))
 		return fmt.Errorf("failed to set data in Redis: %w", err)
 	}
 	return nil
 }
 
-func (r *redisClient) Get(ctx context.Context, key string) (any, error) {
-	data, err := r.client.Get(ctx, key).Result()
+func (r *redisClient) Get(ctx context.Context, key string, dest any) error {
+	byte, err := r.client.Get(ctx, key).Bytes()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
-			return nil, ErrCacheMiss
+			r.logger.Warn("Cache miss for key", zap.String("key", key))
+			return ErrCacheMiss
 		}
 		r.logger.Error("Failed to get data from Redis", zap.String("key", key), zap.Error(err))
-		return nil, fmt.Errorf("failed to get data from Redis: %w", err)
+		return fmt.Errorf("failed to get data from Redis: %w", err)
 	}
-	return data, nil
-}
 
-func (r *redisClient) AddToSet(ctx context.Context, key string, data ...any) error {
-	if err := r.client.SAdd(ctx, key, data...).Err(); err != nil {
-		r.logger.Error("Failed to add data to Redis set", zap.String("key", key), zap.Any("data", data), zap.Error(err))
-		return fmt.Errorf("failed to add data to Redis set: %w", err)
+	if err := json.Unmarshal(byte, dest); err != nil {
+		r.logger.Error("Failed to unmarshal data from Redis", zap.String("key", key), zap.Error(err))
+		return fmt.Errorf("failed to unmarshal data from Redis: %w", err)
 	}
 	return nil
 }
 
-func (r *redisClient) IsDataInSet(ctx context.Context, key string, data any) (bool, error) {
-	exists, err := r.client.SIsMember(ctx, key, data).Result()
+func (r *redisClient) Del(ctx context.Context, key string) error {
+	if err := r.client.Del(ctx, key).Err(); err != nil {
+		r.logger.Error("Failed to delete data from Redis", zap.String("key", key), zap.Error(err))
+		return fmt.Errorf("failed to delete data from Redis: %w", err)
+	}
+	return nil
+}
+
+func (r *redisClient) Keys(ctx context.Context, pattern string) ([]string, error) {
+	keys, err := r.client.Keys(ctx, pattern).Result()
 	if err != nil {
-		r.logger.Error("Failed to check if data is in Redis set", zap.String("key", key), zap.Any("data", data), zap.Error(err))
-		return false, fmt.Errorf("failed to check if data is in Redis set: %w", err)
+		r.logger.Error("Failed to get keys from Redis", zap.String("pattern", pattern), zap.Error(err))
+		return nil, fmt.Errorf("failed to get keys from Redis: %w", err)
 	}
-	return exists, nil
+	return keys, nil
 }
 
-func (r *redisClient) RemoveFromSet(ctx context.Context, key string, data ...any) error {
-	if err := r.client.SRem(ctx, key, data...).Err(); err != nil {
-		r.logger.Error("Failed to remove data from Redis set", zap.String("key", key), zap.Any("data", data), zap.Error(err))
-		return fmt.Errorf("failed to remove data from Redis set: %w", err)
+func (r *redisClient) SADD(ctx context.Context, key string, members ...string) error {
+	if err := r.client.SAdd(ctx, key, members).Err(); err != nil {
+		r.logger.Error("Failed to add members to Redis set", zap.String("key", key), zap.Error(err))
+		return fmt.Errorf("failed to add members to Redis set: %w", err)
 	}
 	return nil
+}
+
+func (r *redisClient) SMEMBERS(ctx context.Context, key string) ([]string, error) {
+	members, err := r.client.SMembers(ctx, key).Result()
+	if err != nil {
+		r.logger.Error("Failed to get members from Redis set", zap.String("key", key), zap.Error(err))
+		return nil, fmt.Errorf("failed to get members from Redis set: %w", err)
+	}
+	return members, nil
 }
 
 func NewCache(cfg configs.Cache, logger *zap.Logger) (IRedisClient, error) {

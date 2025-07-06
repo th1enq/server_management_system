@@ -22,6 +22,7 @@ type IServerRepository interface {
 	CountByStatus(ctx context.Context, status models.ServerStatus) (int64, error)
 	CountAll(ctx context.Context) (int64, error)
 	GetAll(ctx context.Context) ([]models.Server, error)
+	ExistsByServerIDOrServerName(ctx context.Context, serverID string, serverName string) (bool, error)
 }
 
 type serverRepository struct {
@@ -137,4 +138,15 @@ func (s *serverRepository) Update(ctx context.Context, server *models.Server) er
 
 func (s *serverRepository) UpdateStatus(ctx context.Context, serverID string, status models.ServerStatus) error {
 	return s.db.WithContext(ctx).Model(&models.Server{}).Where("server_id = ?", serverID).Update("status", status)
+}
+
+func (s *serverRepository) ExistsByServerIDOrServerName(ctx context.Context, serverID string, serverName string) (bool, error) {
+	var count int64
+	err := s.db.WithContext(ctx).Model(&models.Server{}).
+		Where("server_id = ? OR server_name = ?", serverID, serverName).
+		Count(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

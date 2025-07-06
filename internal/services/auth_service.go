@@ -20,11 +20,11 @@ type IAuthService interface {
 }
 type authService struct {
 	userService  IUserService
-	tokenService TokenService
+	tokenService ITokenService
 	logger       *zap.Logger
 }
 
-func NewAuthService(userService IUserService, tokenService TokenService, logger *zap.Logger) IAuthService {
+func NewAuthService(userService IUserService, tokenService ITokenService, logger *zap.Logger) IAuthService {
 	return &authService{
 		userService:  userService,
 		tokenService: tokenService,
@@ -67,12 +67,12 @@ func (a *authService) Login(ctx context.Context, username, password string) (*dt
 	}
 
 	// Add tokens to Redis whitelist
-	if err := a.tokenService.AddTokenToWhitelist(ctx, accessToken, time.Hour*24); err != nil {
+	if err := a.tokenService.AddTokenToWhitelist(ctx, accessToken, user.ID, time.Hour*24); err != nil {
 		a.logger.Error("Failed to add access token to whitelist", zap.Error(err))
 		return nil, fmt.Errorf("failed to whitelist token")
 	}
 
-	if err := a.tokenService.AddTokenToWhitelist(ctx, refreshToken, time.Hour*24*7); err != nil {
+	if err := a.tokenService.AddTokenToWhitelist(ctx, refreshToken, user.ID, time.Hour*24*7); err != nil {
 		a.logger.Error("Failed to add refresh token to whitelist", zap.Error(err))
 		return nil, fmt.Errorf("failed to whitelist token")
 	}
@@ -122,12 +122,12 @@ func (a *authService) Register(ctx context.Context, req dto.CreateUserRequest) (
 	}
 
 	// Add tokens to Redis whitelist
-	if err := a.tokenService.AddTokenToWhitelist(ctx, accessToken, time.Hour*24); err != nil {
+	if err := a.tokenService.AddTokenToWhitelist(ctx, accessToken, createdUser.ID, time.Hour*24); err != nil {
 		a.logger.Error("Failed to add access token to whitelist", zap.Error(err))
 		return nil, fmt.Errorf("failed to whitelist token")
 	}
 
-	if err := a.tokenService.AddTokenToWhitelist(ctx, refreshToken, time.Hour*24*7); err != nil {
+	if err := a.tokenService.AddTokenToWhitelist(ctx, refreshToken, createdUser.ID, time.Hour*24*7); err != nil {
 		a.logger.Error("Failed to add refresh token to whitelist", zap.Error(err))
 		return nil, fmt.Errorf("failed to whitelist token")
 	}
@@ -191,12 +191,12 @@ func (a *authService) RefreshToken(ctx context.Context, refreshToken string) (*d
 	}
 
 	// Add new tokens to whitelist and remove old refresh token
-	if err := a.tokenService.AddTokenToWhitelist(ctx, newAccessToken, time.Hour*24); err != nil {
+	if err := a.tokenService.AddTokenToWhitelist(ctx, newAccessToken, user.ID, time.Hour*24); err != nil {
 		a.logger.Error("Failed to add new access token to whitelist", zap.Error(err))
 		return nil, fmt.Errorf("failed to whitelist token")
 	}
 
-	if err := a.tokenService.AddTokenToWhitelist(ctx, newRefreshToken, time.Hour*24*7); err != nil {
+	if err := a.tokenService.AddTokenToWhitelist(ctx, newRefreshToken, user.ID, time.Hour*24*7); err != nil {
 		a.logger.Error("Failed to add new refresh token to whitelist", zap.Error(err))
 		return nil, fmt.Errorf("failed to whitelist token")
 	}
