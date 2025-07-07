@@ -79,20 +79,13 @@ func (a *authService) Login(ctx context.Context, username, password string) (*dt
 
 	a.logger.Info("User logged in successfully", zap.String("username", username), zap.Uint("user_id", user.ID))
 
-	// Get user scopes
-	userScopes := models.GetDefaultScopes(user.Role)
-	scopeStrings := make([]string, len(userScopes))
-	for i, scope := range userScopes {
-		scopeStrings[i] = string(scope)
-	}
-
 	return &dto.AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		TokenType:    "Bearer",
 		ExpiresIn:    int64(24 * 60 * 60), // 24 hours in seconds
 		User:         user,
-		Scopes:       scopeStrings,
+		Scopes:       models.ToArray(user.Scopes),
 	}, nil
 }
 
@@ -134,20 +127,13 @@ func (a *authService) Register(ctx context.Context, req dto.CreateUserRequest) (
 
 	a.logger.Info("User registered successfully", zap.String("username", createdUser.Username), zap.Uint("user_id", createdUser.ID))
 
-	// Get user scopes
-	userScopes := models.GetDefaultScopes(createdUser.Role)
-	scopeStrings := make([]string, len(userScopes))
-	for i, scope := range userScopes {
-		scopeStrings[i] = string(scope)
-	}
-
 	return &dto.AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		TokenType:    "Bearer",
 		ExpiresIn:    int64(24 * 60 * 60), // 24 hours in seconds
 		User:         createdUser,
-		Scopes:       scopeStrings,
+		Scopes:       models.ToArray(createdUser.Scopes),
 	}, nil
 }
 
@@ -204,20 +190,13 @@ func (a *authService) RefreshToken(ctx context.Context, refreshToken string) (*d
 	// Remove old refresh token from whitelist
 	a.tokenService.RemoveTokenFromWhitelist(ctx, refreshToken)
 
-	// Get user scopes
-	userScopes := models.GetDefaultScopes(user.Role)
-	scopeStrings := make([]string, len(userScopes))
-	for i, scope := range userScopes {
-		scopeStrings[i] = string(scope)
-	}
-
 	return &dto.AuthResponse{
 		AccessToken:  newAccessToken,
 		RefreshToken: newRefreshToken,
 		TokenType:    "Bearer",
 		ExpiresIn:    int64(24 * 60 * 60), // 24 hours in seconds
 		User:         user,
-		Scopes:       scopeStrings,
+		Scopes:       models.ToArray(user.Scopes),
 	}, nil
 }
 

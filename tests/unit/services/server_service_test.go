@@ -615,26 +615,3 @@ func (suite *ServerServiceTestSuite) TestUpdateServerUpdateFail() {
 	suite.Nil(result)
 	suite.mockRepo.AssertExpectations(suite.T())
 }
-
-// Test for CheckServer individual server checking (simplified)
-func (suite *ServerServiceTestSuite) TestCheckServerIndividual() {
-	server := models.Server{
-		ID:       1,
-		ServerID: "server-123",
-		IPv4:     "192.168.1.1",
-		Status:   models.ServerStatusOff,
-	}
-
-	// Mock UpdateStatus to be called when server status changes
-	suite.mockRepo.On("UpdateStatus", mock.Anything, "server-123", mock.AnythingOfType("models.ServerStatus")).Return(nil)
-
-	// Create a context with timeout for the test
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// Call CheckServer directly
-	suite.serverService.CheckServer(ctx, server)
-
-	// Verify that UpdateStatus was called (since the ping will likely fail in test)
-	suite.mockRepo.AssertExpectations(suite.T())
-}

@@ -17,13 +17,11 @@ type UserServiceTestSuite struct {
 	suite.Suite
 	userService services.IUserService
 	mockRepo    MockUserRepository
-	mockCache   MockCacheClient
 }
 
 func (suite *UserServiceTestSuite) SetupTest() {
 	suite.mockRepo = MockUserRepository{}
-	suite.mockCache = MockCacheClient{}
-	suite.userService = services.NewUserService(&suite.mockRepo, &suite.mockCache, zap.NewNop())
+	suite.userService = services.NewUserService(&suite.mockRepo, zap.NewNop())
 }
 
 func TestUserServiceTestSuite(t *testing.T) {
@@ -122,8 +120,7 @@ func (suite *UserServiceTestSuite) TestCreateUser() {
 		suite.T().Run(tc.name, func(t *testing.T) {
 			// Reset mocks
 			suite.mockRepo = MockUserRepository{}
-			suite.mockCache = MockCacheClient{}
-			suite.userService = services.NewUserService(&suite.mockRepo, &suite.mockCache, zap.NewNop())
+			suite.userService = services.NewUserService(&suite.mockRepo, zap.NewNop())
 
 			// Setup mocks
 			tc.setupMocks()
@@ -163,9 +160,7 @@ func (suite *UserServiceTestSuite) TestGetUserByID() {
 					FirstName: "Test",
 					LastName:  "User",
 				}
-				suite.mockCache.On("Get", mock.Anything, "user:1", mock.AnythingOfType("**models.User")).Return(errors.New("cache miss"))
 				suite.mockRepo.On("GetByID", mock.Anything, uint(1)).Return(expectedUser, nil)
-				suite.mockCache.On("Set", mock.Anything, "user:1", expectedUser, mock.AnythingOfType("time.Duration")).Return(nil)
 			},
 			expectedError: "",
 			validateResult: func(user *models.User) {
@@ -178,35 +173,11 @@ func (suite *UserServiceTestSuite) TestGetUserByID() {
 			name:   "UserNotFound",
 			userID: 999,
 			setupMocks: func() {
-				suite.mockCache.On("Get", mock.Anything, "user:999", mock.AnythingOfType("**models.User")).Return(errors.New("cache miss"))
 				suite.mockRepo.On("GetByID", mock.Anything, uint(999)).Return(nil, errors.New("user not found"))
 			},
 			expectedError: "user not found",
 			validateResult: func(user *models.User) {
 				suite.Nil(user)
-			},
-		},
-		{
-			name:   "Cache Hit",
-			userID: 1,
-			setupMocks: func() {
-				expectedUser := &models.User{
-					ID:        1,
-					Username:  "testuser",
-					Email:     "test@example.com",
-					FirstName: "Test",
-					LastName:  "User",
-				}
-				suite.mockCache.On("Get", mock.Anything, "user:1", mock.AnythingOfType("**models.User")).Return(nil).Run(func(args mock.Arguments) {
-					// Simulate cache hit by setting the user directly
-					*args.Get(2).(**models.User) = expectedUser
-				})
-			},
-			expectedError: "",
-			validateResult: func(user *models.User) {
-				suite.NotNil(user)
-				suite.Equal(uint(1), user.ID)
-				suite.Equal("testuser", user.Username)
 			},
 		},
 	}
@@ -215,8 +186,7 @@ func (suite *UserServiceTestSuite) TestGetUserByID() {
 		suite.T().Run(tc.name, func(t *testing.T) {
 			// Reset mocks
 			suite.mockRepo = MockUserRepository{}
-			suite.mockCache = MockCacheClient{}
-			suite.userService = services.NewUserService(&suite.mockRepo, &suite.mockCache, zap.NewNop())
+			suite.userService = services.NewUserService(&suite.mockRepo, zap.NewNop())
 
 			// Setup mocks
 			tc.setupMocks()
@@ -256,9 +226,7 @@ func (suite *UserServiceTestSuite) TestGetUserByUsername() {
 					FirstName: "Test",
 					LastName:  "User",
 				}
-				suite.mockCache.On("Get", mock.Anything, "user:username:testuser", mock.AnythingOfType("**models.User")).Return(errors.New("cache miss"))
 				suite.mockRepo.On("GetByUsername", mock.Anything, "testuser").Return(expectedUser, nil)
-				suite.mockCache.On("Set", mock.Anything, "user:username:testuser", expectedUser, mock.AnythingOfType("time.Duration")).Return(nil)
 			},
 			expectedError: "",
 			validateResult: func(user *models.User) {
@@ -270,34 +238,11 @@ func (suite *UserServiceTestSuite) TestGetUserByUsername() {
 			name:     "UserNotFound",
 			username: "nonexistent",
 			setupMocks: func() {
-				suite.mockCache.On("Get", mock.Anything, "user:username:nonexistent", mock.AnythingOfType("**models.User")).Return(errors.New("cache miss"))
 				suite.mockRepo.On("GetByUsername", mock.Anything, "nonexistent").Return(nil, errors.New("user not found"))
 			},
 			expectedError: "user not found",
 			validateResult: func(user *models.User) {
 				suite.Nil(user)
-			},
-		},
-		{
-			name:     "Cache Hit",
-			username: "testuser",
-			setupMocks: func() {
-				expectedUser := &models.User{
-					ID:        1,
-					Username:  "testuser",
-					Email:     "test@example.com",
-					FirstName: "Test",
-					LastName:  "User",
-				}
-				suite.mockCache.On("Get", mock.Anything, "user:username:testuser", mock.AnythingOfType("**models.User")).Return(nil).Run(func(args mock.Arguments) {
-					// Simulate cache hit by setting the user directly
-					*args.Get(2).(**models.User) = expectedUser
-				})
-			},
-			expectedError: "",
-			validateResult: func(user *models.User) {
-				suite.NotNil(user)
-				suite.Equal("testuser", user.Username)
 			},
 		},
 	}
@@ -306,8 +251,7 @@ func (suite *UserServiceTestSuite) TestGetUserByUsername() {
 		suite.T().Run(tc.name, func(t *testing.T) {
 			// Reset mocks
 			suite.mockRepo = MockUserRepository{}
-			suite.mockCache = MockCacheClient{}
-			suite.userService = services.NewUserService(&suite.mockRepo, &suite.mockCache, zap.NewNop())
+			suite.userService = services.NewUserService(&suite.mockRepo, zap.NewNop())
 
 			// Setup mocks
 			tc.setupMocks()
@@ -346,8 +290,6 @@ func (suite *UserServiceTestSuite) TestDeleteUser() {
 				}
 				suite.mockRepo.On("GetByID", mock.Anything, uint(1)).Return(user, nil)
 				suite.mockRepo.On("Delete", mock.Anything, uint(1)).Return(nil)
-				suite.mockCache.On("Del", mock.Anything, "user:1").Return(nil)
-				suite.mockCache.On("Del", mock.Anything, "user:username:testuser").Return(nil)
 			},
 			expectedError: "",
 		},
@@ -379,8 +321,7 @@ func (suite *UserServiceTestSuite) TestDeleteUser() {
 		suite.T().Run(tc.name, func(t *testing.T) {
 			// Reset mocks
 			suite.mockRepo = MockUserRepository{}
-			suite.mockCache = MockCacheClient{}
-			suite.userService = services.NewUserService(&suite.mockRepo, &suite.mockCache, zap.NewNop())
+			suite.userService = services.NewUserService(&suite.mockRepo, zap.NewNop())
 
 			// Setup mocks
 			tc.setupMocks()
@@ -456,8 +397,8 @@ func (suite *UserServiceTestSuite) TestListUsers() {
 		suite.T().Run(tc.name, func(t *testing.T) {
 			// Reset mocks
 			suite.mockRepo = MockUserRepository{}
-			suite.mockCache = MockCacheClient{}
-			suite.userService = services.NewUserService(&suite.mockRepo, &suite.mockCache, zap.NewNop())
+
+			suite.userService = services.NewUserService(&suite.mockRepo, zap.NewNop())
 
 			// Setup mocks
 			tc.setupMocks()
@@ -510,8 +451,6 @@ func (suite *UserServiceTestSuite) TestUpdateUser() {
 				suite.mockRepo.On("GetByID", mock.Anything, uint(1)).Return(existingUser, nil)
 				suite.mockRepo.On("ExistsByUserNameOrEmail", mock.Anything, "updateduser", "updated@example.com").Return(false, nil)
 				suite.mockRepo.On("Update", mock.Anything, mock.AnythingOfType("*models.User")).Return(nil)
-				suite.mockCache.On("Del", mock.Anything, "user:1").Return(nil)
-				suite.mockCache.On("Del", mock.Anything, "user:username:updateduser").Return(nil)
 			},
 			expectedError: "",
 			validateResult: func(user *models.User) {
@@ -562,8 +501,8 @@ func (suite *UserServiceTestSuite) TestUpdateUser() {
 		suite.T().Run(tc.name, func(t *testing.T) {
 			// Reset mocks
 			suite.mockRepo = MockUserRepository{}
-			suite.mockCache = MockCacheClient{}
-			suite.userService = services.NewUserService(&suite.mockRepo, &suite.mockCache, zap.NewNop())
+
+			suite.userService = services.NewUserService(&suite.mockRepo, zap.NewNop())
 
 			// Setup mocks
 			tc.setupMocks()
@@ -610,8 +549,6 @@ func (suite *UserServiceTestSuite) TestUpdateProfile() {
 				}
 				suite.mockRepo.On("GetByID", mock.Anything, uint(1)).Return(existingUser, nil)
 				suite.mockRepo.On("Update", mock.Anything, mock.AnythingOfType("*models.User")).Return(nil)
-				suite.mockCache.On("Del", mock.Anything, "user:1").Return(nil)
-				suite.mockCache.On("Del", mock.Anything, "user:username:testuser").Return(nil)
 			},
 			expectedError: "",
 			validateResult: func(user *models.User) {
@@ -662,8 +599,8 @@ func (suite *UserServiceTestSuite) TestUpdateProfile() {
 		suite.T().Run(tc.name, func(t *testing.T) {
 			// Reset mocks
 			suite.mockRepo = MockUserRepository{}
-			suite.mockCache = MockCacheClient{}
-			suite.userService = services.NewUserService(&suite.mockRepo, &suite.mockCache, zap.NewNop())
+
+			suite.userService = services.NewUserService(&suite.mockRepo, zap.NewNop())
 
 			// Setup mocks
 			tc.setupMocks()
@@ -789,8 +726,8 @@ func (suite *UserServiceTestSuite) TestUpdatePassword() {
 		suite.T().Run(tc.name, func(t *testing.T) {
 			// Reset mocks
 			suite.mockRepo = MockUserRepository{}
-			suite.mockCache = MockCacheClient{}
-			suite.userService = services.NewUserService(&suite.mockRepo, &suite.mockCache, zap.NewNop())
+
+			suite.userService = services.NewUserService(&suite.mockRepo, zap.NewNop())
 
 			// Setup mocks
 			tc.setupMocks()

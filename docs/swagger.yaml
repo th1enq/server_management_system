@@ -9,7 +9,7 @@ definitions:
         type: string
       scopes:
         items:
-          type: string
+          $ref: '#/definitions/models.APIScope'
         type: array
       token_type:
         type: string
@@ -316,7 +316,6 @@ definitions:
       role:
         $ref: '#/definitions/models.UserRole'
       scopes:
-        description: Bitmask for API scopes
         type: integer
       updated_at:
         type: string

@@ -6,12 +6,12 @@ import (
 )
 
 type AuthResponse struct {
-	AccessToken  string       `json:"access_token"`
-	RefreshToken string       `json:"refresh_token"`
-	TokenType    string       `json:"token_type"`
-	ExpiresIn    int64        `json:"expires_in"`
-	User         *models.User `json:"user"`
-	Scopes       []string     `json:"scopes"`
+	AccessToken  string            `json:"access_token"`
+	RefreshToken string            `json:"refresh_token"`
+	TokenType    string            `json:"token_type"`
+	ExpiresIn    int64             `json:"expires_in"`
+	User         *models.User      `json:"user"`
+	Scopes       []models.APIScope `json:"scopes"`
 }
 
 type Claims struct {

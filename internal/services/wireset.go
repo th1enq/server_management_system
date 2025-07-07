@@ -8,4 +8,5 @@ var WireSet = wire.NewSet(
 	NewUserService,
 	NewAuthService,
 	NewTokenService,
+	NewHealthCheckService,
 )

@@ -35,37 +35,35 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Stand
 		return nil, nil, err
 	}
 	database := config.Database
-	gormDB, cleanup2, err := db.LoadDB(database, logger)
+	iDatabaseClient, err := db.NewDatabase(database, logger)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	iServerRepository := repository.NewServerRepository(gormDB)
+	iServerRepository := repository.NewServerRepository(iDatabaseClient)
 	cache := config.Cache
-	client, cleanup3, err := db.LoadCache(cache, logger)
+	iRedisClient, err := db.NewCache(cache, logger)
 	if err != nil {
-		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	iServerService := services.NewServerService(iServerRepository, client, logger)
+	iServerService := services.NewServerService(iServerRepository, iRedisClient, logger)
 	serverHandler := handler.NewServerHandler(iServerService, logger)
 	email := config.Email
 	elasticSearch := config.Elasticsearch
-	elasticsearchClient, cleanup4, err := db.LoadElasticSearch(elasticSearch, logger)
+	client, cleanup2, err := db.LoadElasticSearch(elasticSearch, logger)
 	if err != nil {
-		cleanup3()
-		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	reportService := services.NewReportService(email, elasticsearchClient, iServerService, logger)
+	iHealthCheckService := services.NewHealthCheckService(client, iServerService, logger)
+	reportService := services.NewReportService(email, iHealthCheckService, logger)
 	reportHandler := handler.NewReportHandler(reportService, logger)
-	iUserRepository := repository.NewUserRepository(gormDB)
+	iUserRepository := repository.NewUserRepository(iDatabaseClient)
 	iUserService := services.NewUserService(iUserRepository, logger)
 	jwt := config.JWT
-	tokenService := services.NewTokenService(jwt, logger, client)
-	iAuthService := services.NewAuthService(iUserService, tokenService, logger)
+	iTokenService := services.NewTokenService(jwt, logger, iRedisClient)
+	iAuthService := services.NewAuthService(iUserService, iTokenService, logger)
 	authHandler := handler.NewAuthHandler(iAuthService, logger)
 	userHandler := handler.NewUserHandler(iUserService, logger)
 	authMiddleware := middleware.NewAuthMiddleware(iAuthService, logger)
@@ -76,8 +74,6 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Stand
 	intervalCheckStatus := jobs.NewIntervalCheckStatus(iServerService)
 	standaloneServer := app.NewStandaloneServer(httpServer, logger, cron, sendDailyReport, intervalCheckStatus)
 	return standaloneServer, func() {
-		cleanup4()
-		cleanup3()
 		cleanup2()
 		cleanup()
 	}, nil

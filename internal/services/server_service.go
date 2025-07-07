@@ -484,7 +484,6 @@ func (s *serverService) CheckServerStatus(ctx context.Context) error {
 }
 
 func (s *serverService) CheckServer(ctx context.Context, server models.Server) {
-	startTime := time.Now()
 	status := models.ServerStatusOff
 
 	// Try to ping the server
@@ -507,12 +506,9 @@ func (s *serverService) CheckServer(ctx context.Context, server models.Server) {
 			)
 		}
 	}
-
-	responseTime := time.Since(startTime).Milliseconds()
 	s.logger.Info("Server checked",
 		zap.String("server_id", server.ServerID),
 		zap.String("status", string(status)),
-		zap.Int64("response_time", responseTime),
 	)
 }
 

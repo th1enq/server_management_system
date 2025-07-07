@@ -3,9 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
-	"time"
 
-	"github.com/th1enq/server_management_system/internal/db"
 	"github.com/th1enq/server_management_system/internal/models"
 	"github.com/th1enq/server_management_system/internal/models/dto"
 	"github.com/th1enq/server_management_system/internal/repository"
@@ -21,19 +19,16 @@ type IUserService interface {
 	UpdatePassword(ctx context.Context, id uint, updates dto.PasswordUpdate) error
 	DeleteUser(ctx context.Context, id uint) error
 	ListUsers(ctx context.Context, limit, offset int) ([]models.User, error)
-	clearUserCache(ctx context.Context, user *models.User) error
 }
 
 type userService struct {
 	userRepo repository.IUserRepository
-	cache    db.IRedisClient
 	logger   *zap.Logger
 }
 
-func NewUserService(userRepo repository.IUserRepository, cache db.IRedisClient, logger *zap.Logger) IUserService {
+func NewUserService(userRepo repository.IUserRepository, logger *zap.Logger) IUserService {
 	return &userService{
 		userRepo: userRepo,
-		cache:    cache,
 		logger:   logger,
 	}
 }
@@ -124,14 +119,6 @@ func (u *userService) UpdateProfile(ctx context.Context, id uint, updates dto.Pr
 		return nil, fmt.Errorf("failed to update user profile: %w", err)
 	}
 
-	if err := u.clearUserCache(ctx, user); err != nil {
-		u.logger.Error("Failed to clear user cache",
-			zap.Uint("id", user.ID),
-			zap.String("username", user.Username),
-			zap.Error(err),
-		)
-	}
-
 	u.logger.Info("User profile updated successfully",
 		zap.Uint("id", user.ID),
 		zap.String("username", user.Username),
@@ -148,14 +135,6 @@ func (u *userService) DeleteUser(ctx context.Context, id uint) error {
 	}
 	if err := u.userRepo.Delete(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
-	}
-
-	if err := u.clearUserCache(ctx, user); err != nil {
-		u.logger.Error("Failed to clear user cache",
-			zap.Uint("id", user.ID),
-			zap.String("username", user.Username),
-			zap.Error(err),
-		)
 	}
 
 	u.logger.Info("User deleted successfully",
@@ -205,14 +184,6 @@ func (u *userService) UpdateUser(ctx context.Context, id uint, updates dto.UserU
 		return nil, fmt.Errorf("failed to update user: %w", err)
 	}
 
-	if err := u.clearUserCache(ctx, user); err != nil {
-		u.logger.Error("Failed to clear user cache",
-			zap.Uint("id", user.ID),
-			zap.String("username", user.Username),
-			zap.Error(err),
-		)
-	}
-
 	u.logger.Info("User updated successfully",
 		zap.Uint("id", user.ID),
 		zap.String("username", user.Username),
@@ -224,59 +195,17 @@ func (u *userService) UpdateUser(ctx context.Context, id uint, updates dto.UserU
 }
 
 func (u *userService) GetUserByID(ctx context.Context, id uint) (*models.User, error) {
-	cacheKey := fmt.Sprintf("user:%d", id)
-	var cachedUser *models.User
-	if err := u.cache.Get(ctx, cacheKey, &cachedUser); err == nil {
-		u.logger.Info("User retrieved from cache",
-			zap.Uint("id", cachedUser.ID),
-			zap.String("username", cachedUser.Username),
-		)
-		return cachedUser, nil
-	} else if err != db.ErrCacheMiss {
-		u.logger.Warn("Cache miss for user",
-			zap.Uint("id", id),
-			zap.Error(err),
-		)
-	}
 	user, err := u.userRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user by ID: %w", err)
-	}
-	if err := u.cache.Set(ctx, cacheKey, user, 30*time.Minute); err != nil {
-		u.logger.Error("Failed to cache user data",
-			zap.Uint("id", user.ID),
-			zap.String("username", user.Username),
-			zap.Error(err),
-		)
 	}
 	return user, nil
 }
 
 func (u *userService) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
-	cacheKey := fmt.Sprintf("user:username:%s", username)
-	var cachedUser *models.User
-	if err := u.cache.Get(ctx, cacheKey, &cachedUser); err == nil {
-		u.logger.Info("User retrieved from cache",
-			zap.String("username", cachedUser.Username),
-			zap.Uint("id", cachedUser.ID),
-		)
-		return cachedUser, nil
-	} else if err != db.ErrCacheMiss {
-		u.logger.Warn("Cache miss for user by username",
-			zap.String("username", username),
-			zap.Error(err),
-		)
-	}
 	user, err := u.userRepo.GetByUsername(ctx, username)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user by username: %w", err)
-	}
-	if err := u.cache.Set(ctx, cacheKey, user, 30*time.Minute); err != nil {
-		u.logger.Error("Failed to cache user data",
-			zap.String("username", user.Username),
-			zap.Uint("id", user.ID),
-			zap.Error(err),
-		)
 	}
 	return user, nil
 }
@@ -287,26 +216,4 @@ func (u *userService) ListUsers(ctx context.Context, limit, offset int) ([]model
 		return nil, fmt.Errorf("failed to list users: %w", err)
 	}
 	return users, nil
-}
-
-func (u *userService) clearUserCache(ctx context.Context, user *models.User) error {
-	cacheKey := fmt.Sprintf("user:%d", user.ID)
-	if err := u.cache.Del(ctx, cacheKey); err != nil {
-		u.logger.Warn("Failed to delete user from cache",
-			zap.Uint("id", user.ID),
-			zap.String("username", user.Username),
-			zap.Error(err),
-		)
-	}
-
-	cacheKey = fmt.Sprintf("user:username:%s", user.Username)
-	if err := u.cache.Del(ctx, cacheKey); err != nil {
-		u.logger.Warn("Failed to delete user by username from cache",
-			zap.String("username", user.Username),
-			zap.Uint("id", user.ID),
-			zap.Error(err),
-		)
-	}
-
-	return nil
 }

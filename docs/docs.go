@@ -1240,7 +1240,7 @@ const docTemplate = `{
                 "scopes": {
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/models.APIScope"
                     }
                 },
                 "token_type": {
@@ -1680,7 +1680,6 @@ const docTemplate = `{
                     "$ref": "#/definitions/models.UserRole"
                 },
                 "scopes": {
-                    "description": "Bitmask for API scopes",
                     "type": "integer"
                 },
                 "updated_at": {

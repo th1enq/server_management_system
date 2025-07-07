@@ -8,8 +8,7 @@
       "properties": {
         "@timestamp":    { "type": "date" },
         "server_id":     { "type": "keyword" },
-        "status":        { "type": "keyword" },
-        "response_time": { "type": "integer" }
+        "status":        { "type": "keyword" }
       }
     }
   }

@@ -65,9 +65,9 @@ func (h *Handler) RegisterRoutes() *gin.Engine {
 		servers.GET("/export", h.authMiddleware.RequireScope("server:export"), h.serverHandler.ExportServers)
 
 		// Write operations - requires server:write scope
-		servers.POST("/", h.authMiddleware.RequireScope("server:write"), h.serverHandler.CreateServer)
-		servers.PUT("/:id", h.authMiddleware.RequireScope("server:write"), h.serverHandler.UpdateServer)
-		servers.POST("/import", h.authMiddleware.RequireScope("server:import"), h.serverHandler.ImportServers)
+		servers.POST("/", h.authMiddleware.RequireAnyScope("admin:all", "server:write"), h.serverHandler.CreateServer)
+		servers.PUT("/:id", h.authMiddleware.RequireAnyScope("admin:all", "server:write"), h.serverHandler.UpdateServer)
+		servers.POST("/import", h.authMiddleware.RequireAnyScope("admin:all", "server:import"), h.serverHandler.ImportServers)
 
 		// Delete operations - requires server:delete scope
 		servers.DELETE("/:id", h.authMiddleware.RequireScope("server:delete"), h.serverHandler.DeleteServer)
@@ -77,8 +77,8 @@ func (h *Handler) RegisterRoutes() *gin.Engine {
 	reports := v1.Group("/reports")
 	reports.Use(h.authMiddleware.RequireAuth())
 	{
-		reports.POST("/", h.authMiddleware.RequireScope("report:write"), h.reportHandler.SendReportByDate)
-		reports.POST("/daily", h.authMiddleware.RequireScope("report:write"), h.reportHandler.SendReportDaily)
+		reports.POST("/", h.authMiddleware.RequireAnyScope("admin:all", "report:write"), h.reportHandler.SendReportByDate)
+		reports.POST("/daily", h.authMiddleware.RequireAnyScope("admin:all", "report:write"), h.reportHandler.SendReportDaily)
 	}
 
 	// Admin-only user management routes
@@ -89,7 +89,7 @@ func (h *Handler) RegisterRoutes() *gin.Engine {
 		users.POST("/", h.authMiddleware.RequireAnyScope("admin:all", "user:write"), h.userHandler.CreateUser)
 		users.PUT("/:id", h.authMiddleware.RequireAnyScope("admin:all", "user:write"), h.userHandler.UpdateUser)
 		users.DELETE("/:id", h.authMiddleware.RequireAnyScope("admin:all", "user:delete"), h.userHandler.DeleteUser)
-		users.GET("/profile", h.authMiddleware.RequireAnyScope("profile:read"), h.userHandler.GetProfile)
+		users.GET("/profile", h.authMiddleware.RequireAnyScope("admin:all", "profile:read"), h.userHandler.GetProfile)
 		users.PUT("/profile", h.authMiddleware.RequireScope("profile:write"), h.userHandler.UpdateProfile)
 		users.POST("/change-password", h.authMiddleware.RequireScope("profile:write"), h.userHandler.ChangePassword)
 	}
