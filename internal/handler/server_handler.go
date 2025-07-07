@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -260,8 +261,6 @@ func (h *ServerHandler) UpdateServer(c *gin.Context) {
 		return
 	}
 
-	
-
 	h.logger.Info("Server updated successfully",
 		zap.Uint64("server_id", id),
 		zap.String("server_name", server.ServerName),
@@ -352,6 +351,7 @@ func (h *ServerHandler) DeleteServer(c *gin.Context) {
 // @Security BearerAuth
 // @Router /api/v1/servers/import [post]
 func (h *ServerHandler) ImportServers(c *gin.Context) {
+	now := time.Now()
 	h.logger.Info("Starting import servers request",
 		zap.String("request_id", c.GetString("request_id")),
 		zap.String("user_id", c.GetString("user_id")))
@@ -408,12 +408,15 @@ func (h *ServerHandler) ImportServers(c *gin.Context) {
 		return
 	}
 
+	toltalDuration := time.Since(now)
+
 	h.logger.Info("Servers imported successfully",
 		zap.Int("success_count", result.SuccessCount),
 		zap.Int("failure_count", result.FailureCount),
 		zap.Strings("success_servers", result.SuccessServers),
 		zap.Strings("failure_servers", result.FailureServers),
-		zap.String("request_id", c.GetString("request_id")))
+		zap.String("request_id", c.GetString("request_id")),
+		zap.Duration("duration", toltalDuration))
 
 	c.JSON(http.StatusOK, models.NewSuccessResponse(
 		models.CodeSuccess,

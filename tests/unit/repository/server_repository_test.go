@@ -428,3 +428,16 @@ func (suite *ServerRepositoryTestSuite) TestCreateServerWithDuplicateServerName(
 	err = suite.repo.Create(suite.T().Context(), server2)
 	assert.Error(suite.T(), err) // Should fail due to unique constraint
 }
+
+func (suite *ServerRepositoryTestSuite) TestExistsByServerIDOrServerName() {
+	server := &models.Server{
+		ServerID:   "exists-server",
+		ServerName: "Exists Server",
+		IPv4:       "192.168.1.1",
+	}
+	err := suite.repo.Create(suite.T().Context(), server)
+	assert.NoError(suite.T(), err)
+	exists, err := suite.repo.ExistsByServerIDOrServerName(suite.T().Context(), server.ServerID, server.ServerName)
+	assert.NoError(suite.T(), err)
+	assert.True(suite.T(), exists)
+}

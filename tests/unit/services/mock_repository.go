@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/stretchr/testify/mock"
@@ -227,4 +228,17 @@ func (m *MockCacheClient) SMEMBERS(ctx context.Context, key string) ([]string, e
 		return members, args.Error(1)
 	}
 	return nil, args.Error(1)
+}
+
+type MockTransport struct {
+	Response    *http.Response
+	RoundTripFn func(req *http.Request) (*http.Response, error)
+}
+
+func (t *MockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return t.RoundTripFn(req)
+}
+
+type MockElasticSearch struct {
+	mock.Mock
 }

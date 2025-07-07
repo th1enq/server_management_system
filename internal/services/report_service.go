@@ -14,7 +14,7 @@ import (
 	"gopkg.in/gomail.v2"
 )
 
-type ReportService interface {
+type IReportService interface {
 	SendReportToEmail(ctx context.Context, report *models.DailyReport, emailTo, msg string) error
 	SendReportForDateRange(ctx context.Context, startDate, endDate time.Time, emailTo string) error
 	SendReportForDaily(ctx context.Context, date time.Time) error
@@ -27,7 +27,7 @@ type reportService struct {
 	logger             *zap.Logger
 }
 
-func NewReportService(cfg configs.Email, healthCheckService IHealthCheckService, logger *zap.Logger) ReportService {
+func NewReportService(cfg configs.Email, healthCheckService IHealthCheckService, logger *zap.Logger) IReportService {
 	return &reportService{
 		cfg:                cfg,
 		healthCheckService: healthCheckService,

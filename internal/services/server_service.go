@@ -28,9 +28,9 @@ type IServerService interface {
 	UpdateServerStatus(ctx context.Context, serverID string, status models.ServerStatus) error
 	GetServerStats(ctx context.Context) (map[string]int64, error)
 	CheckServerStatus(ctx context.Context) error
-	CheckServer(ctx context.Context, server models.Server)
+	CheckServer(ctx context.Context, server models.Server) error
 	GetAllServers(ctx context.Context) ([]models.Server, error)
-	clearServerCaches(ctx context.Context, server *models.Server) error
+	ClearServerCaches(ctx context.Context, server *models.Server) error
 }
 
 type serverService struct {
@@ -84,7 +84,7 @@ func (s *serverService) DeleteServer(ctx context.Context, id uint) error {
 		return fmt.Errorf("failed to delete server: %w", err)
 	}
 
-	s.clearServerCaches(ctx, server)
+	s.ClearServerCaches(ctx, server)
 
 	s.logger.Info("Server deleted successfully",
 		zap.Uint("id", server.ID),
@@ -432,7 +432,7 @@ func (s *serverService) UpdateServer(ctx context.Context, id uint, updates dto.S
 		zap.String("server_name", server.ServerName),
 	)
 
-	s.clearServerCaches(ctx, server)
+	s.ClearServerCaches(ctx, server)
 
 	return server, nil
 }
@@ -447,7 +447,7 @@ func (s *serverService) UpdateServerStatus(ctx context.Context, serverID string,
 		return fmt.Errorf("failed to update server status: %w", err)
 	}
 
-	s.clearServerCaches(ctx, server)
+	s.ClearServerCaches(ctx, server)
 
 	s.logger.Info("Server status updated successfully",
 		zap.String("server_id", serverID),
@@ -470,20 +470,30 @@ func (s *serverService) CheckServerStatus(ctx context.Context) error {
 	s.logger.Info("Checking servers", zap.Int("count", len(servers)))
 
 	workerpool := workerpool.New(50)
+	mu := sync.Mutex{}
+	var errs []error
 
 	for _, srv := range servers {
 		server := srv
 		workerpool.Submit(func() {
 			checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			defer cancel()
-			s.CheckServer(checkCtx, server)
+			err := s.CheckServer(checkCtx, server)
+			if err != nil {
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+			}
 		})
 	}
 	workerpool.StopWait()
+	if len(errs) > 0 {
+		return fmt.Errorf("some servers failed health check: %v", errs)
+	}
 	return nil
 }
 
-func (s *serverService) CheckServer(ctx context.Context, server models.Server) {
+func (s *serverService) CheckServer(ctx context.Context, server models.Server) error {
 	status := models.ServerStatusOff
 
 	// Try to ping the server
@@ -504,15 +514,18 @@ func (s *serverService) CheckServer(ctx context.Context, server models.Server) {
 				zap.String("server_id", server.ServerID),
 				zap.String("status", string(status)),
 			)
+			return fmt.Errorf("failed to update server status: %w", err)
 		}
 	}
+
 	s.logger.Info("Server checked",
 		zap.String("server_id", server.ServerID),
 		zap.String("status", string(status)),
 	)
+	return nil
 }
 
-func (s *serverService) clearServerCaches(ctx context.Context, server *models.Server) error {
+func (s *serverService) ClearServerCaches(ctx context.Context, server *models.Server) error {
 	s.cache.Del(ctx, fmt.Sprintf("server:%d", server.ID))
 	s.cache.Del(ctx, "server:stats")
 	s.cache.Del(ctx, "server:all")

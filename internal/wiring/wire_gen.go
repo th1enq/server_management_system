@@ -57,8 +57,8 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Stand
 		return nil, nil, err
 	}
 	iHealthCheckService := services.NewHealthCheckService(client, iServerService, logger)
-	reportService := services.NewReportService(email, iHealthCheckService, logger)
-	reportHandler := handler.NewReportHandler(reportService, logger)
+	iReportService := services.NewReportService(email, iHealthCheckService, logger)
+	reportHandler := handler.NewReportHandler(iReportService, logger)
 	iUserRepository := repository.NewUserRepository(iDatabaseClient)
 	iUserService := services.NewUserService(iUserRepository, logger)
 	jwt := config.JWT
@@ -70,7 +70,7 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Stand
 	httpHandler := http.NewHandler(serverHandler, reportHandler, authHandler, userHandler, authMiddleware)
 	httpServer := http.NewServer(server, logger, httpHandler)
 	cron := config.Cron
-	sendDailyReport := jobs.NewSendDailyReport(reportService)
+	sendDailyReport := jobs.NewSendDailyReport(iReportService)
 	intervalCheckStatus := jobs.NewIntervalCheckStatus(iServerService)
 	standaloneServer := app.NewStandaloneServer(httpServer, logger, cron, sendDailyReport, intervalCheckStatus)
 	return standaloneServer, func() {

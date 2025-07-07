@@ -12,10 +12,10 @@ type SendDailyReport interface {
 }
 
 type sendDailyReport struct {
-	reportService services.ReportService
+	reportService services.IReportService
 }
 
-func NewSendDailyReport(reportService services.ReportService) SendDailyReport {
+func NewSendDailyReport(reportService services.IReportService) SendDailyReport {
 	return &sendDailyReport{
 		reportService: reportService,
 	}

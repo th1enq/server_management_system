@@ -15,8 +15,8 @@ import (
 
 type IHealthCheckService interface {
 	CalculateAverageUptime(ctx context.Context, startTime, endTime time.Time) (*models.DailyReport, error)
-	calculateServerUpTime(ctx context.Context, serverID *string, startTime, endTime time.Time) (float64, error)
-	countLogStats(ctx context.Context, serverID *string, stat string, startTime, endTime time.Time) (int64, error)
+	CalculateServerUpTime(ctx context.Context, serverID *string, startTime, endTime time.Time) (float64, error)
+	CountLogStats(ctx context.Context, serverID *string, stat string, startTime, endTime time.Time) (int64, error)
 	ExportReportXLSX(ctx context.Context, report *models.DailyReport) (string, error)
 }
 
@@ -61,7 +61,7 @@ func (h *healthCheckService) CalculateAverageUptime(ctx context.Context, startTi
 		} else {
 			onlineCount++
 		}
-		uptime, err := h.calculateServerUpTime(ctx, &server.ServerID, startTime, endTime)
+		uptime, err := h.CalculateServerUpTime(ctx, &server.ServerID, startTime, endTime)
 		if err != nil {
 			h.logger.With(zap.Error(err)).Error("Failed to calculate uptime for server", zap.String("serverID", server.ServerID))
 			continue
@@ -87,7 +87,7 @@ func (h *healthCheckService) CalculateAverageUptime(ctx context.Context, startTi
 	return report, nil
 }
 
-func (h *healthCheckService) countLogStats(ctx context.Context, serverID *string, stat string, startTime, endTime time.Time) (int64, error) {
+func (h *healthCheckService) CountLogStats(ctx context.Context, serverID *string, stat string, startTime, endTime time.Time) (int64, error) {
 	query := fmt.Sprintf(`{
 		"query": {
 			"bool": {
@@ -132,16 +132,16 @@ func (h *healthCheckService) countLogStats(ctx context.Context, serverID *string
 	return total, nil
 }
 
-func (h *healthCheckService) calculateServerUpTime(ctx context.Context, serverID *string, startTime, endTime time.Time) (float64, error) {
+func (h *healthCheckService) CalculateServerUpTime(ctx context.Context, serverID *string, startTime, endTime time.Time) (float64, error) {
 	if startTime.After(endTime) {
 		return 0, fmt.Errorf("startTime cannot be after endTime")
 	}
 
-	onlineCount, err := h.countLogStats(ctx, serverID, "ON", startTime, endTime)
+	onlineCount, err := h.CountLogStats(ctx, serverID, "ON", startTime, endTime)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count online logs: %w", err)
 	}
-	offlineCount, err := h.countLogStats(ctx, serverID, "OFF", startTime, endTime)
+	offlineCount, err := h.CountLogStats(ctx, serverID, "OFF", startTime, endTime)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count offline logs: %w", err)
 	}

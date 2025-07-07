@@ -12,11 +12,11 @@ import (
 )
 
 type ReportHandler struct {
-	reportSrv services.ReportService
+	reportSrv services.IReportService
 	logger    *zap.Logger
 }
 
-func NewReportHandler(reportSrv services.ReportService, logger *zap.Logger) *ReportHandler {
+func NewReportHandler(reportSrv services.IReportService, logger *zap.Logger) *ReportHandler {
 	return &ReportHandler{
 		reportSrv: reportSrv,
 		logger:    logger,

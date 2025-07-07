@@ -526,13 +526,76 @@ func (suite *ServerServiceTestSuite) TestCheckServerStatusFail() {
 	suite.mockRepo.AssertExpectations(suite.T())
 }
 
+// func (suite *ServerServiceTestSuite) TestCheckServerSuccess() {
+// 	servers := []models.Server{
+// 		{
+// 			ID:         1,
+// 			ServerID:   "server-1",
+// 			ServerName: "Server 1",
+// 			IPv4:       "192.168.1.1",
+// 		},
+// 		{
+// 			ID:         2,
+// 			ServerID:   "server-2",
+// 			ServerName: "Server 2",
+// 			IPv4:       "192.168.1.2",
+// 		},
+// 	}
+
+// 	suite.mockRepo.On("GetAll", mock.Anything).Return(servers, nil)
+// 	suite.mockRepo.On("UpdateStatus", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+// 	err := suite.serverService.CheckServerStatus(context.Background())
+// 	suite.NoError(err)
+// 	suite.mockRepo.AssertExpectations(suite.T())
+// }
+
+// func (suite *ServerServiceTestSuite) TestCheckServerFailed() {
+// 	servers := []models.Server{
+// 		{
+// 			ID:         1,
+// 			ServerID:   "server-1",
+// 			ServerName: "Server 1",
+// 			IPv4:       "192.168.1.1",
+// 		},
+// 		{
+// 			ID:         2,
+// 			ServerID:   "server-2",
+// 			ServerName: "Server 2",
+// 			IPv4:       "192.168.1.2",
+// 		},
+// 	}
+
+// 	suite.mockRepo.On("GetAll", mock.Anything).Return(servers, nil)
+// 	suite.mockRepo.On("UpdateStatus", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("update failed"))
+// 	err := suite.serverService.CheckServerStatus(context.Background())
+// 	suite.Error(err)
+// }
+
 func (suite *ServerServiceTestSuite) TestImportServersFileNotFound() {
-	// Test with non-existent file
 	result, err := suite.serverService.ImportServers(context.Background(), "./non_existent_file.xlsx")
 
 	suite.Error(err)
 	suite.Nil(result)
 	suite.Contains(err.Error(), "failed to open file")
+}
+
+func (suite *ServerServiceTestSuite) TestImportServersSuccess() {
+	suite.mockRepo.On("BatchCreate", mock.Anything, mock.AnythingOfType("[]models.Server")).Return(nil)
+
+	result, err := suite.serverService.ImportServers(context.Background(), "./imports/servers_10000.xlsx")
+
+	suite.NoError(err)
+	suite.NotNil(result)
+}
+
+func (suite *ServerServiceTestSuite) TestImportServersFailBatch() {
+	suite.mockRepo.On("BatchCreate", mock.Anything, mock.AnythingOfType("[]models.Server")).Return(errors.New("batch create failed"))
+	suite.mockRepo.On("Create", mock.Anything, mock.AnythingOfType("*models.Server")).Return(nil).Maybe()
+
+	result, err := suite.serverService.ImportServers(context.Background(), "./imports/servers_10000.xlsx")
+
+	suite.NoError(err)
+	suite.NotNil(result)
 }
 
 // Additional edge case tests
