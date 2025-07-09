@@ -16,6 +16,15 @@ var (
 	ErrCacheMiss = errors.New("cache miss")
 )
 
+type CacheClient interface {
+	Set(ctx context.Context, key string, data any, ttl time.Duration) error
+	Get(ctx context.Context, key string, dest any) error
+	Del(ctx context.Context, key string) error
+	Keys(ctx context.Context, pattern string) ([]string, error)
+	SADD(ctx context.Context, key string, members ...string) error
+	SMEMBERS(ctx context.Context, key string) ([]string, error)
+}
+
 type redisClient struct {
 	client *redis.Client
 	logger *zap.Logger
@@ -86,7 +95,7 @@ func (r *redisClient) SMEMBERS(ctx context.Context, key string) ([]string, error
 	return members, nil
 }
 
-func NewCache(cfg configs.Cache, logger *zap.Logger) (redisClient, error) {
+func NewCache(cfg configs.Cache, logger *zap.Logger) (CacheClient, error) {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
 		Password: cfg.Password,
@@ -97,7 +106,7 @@ func NewCache(cfg configs.Cache, logger *zap.Logger) (redisClient, error) {
 	ctx := context.Background()
 	_, err := rdb.Ping(ctx).Result()
 	if err != nil {
-		return redisClient{}, fmt.Errorf("failed to connect to Redis: %w", err)
+		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
 	}
 
 	logger.Info("Redis connected successfully",
@@ -105,7 +114,7 @@ func NewCache(cfg configs.Cache, logger *zap.Logger) (redisClient, error) {
 		zap.Int("port", cfg.Port),
 		zap.Int("db", cfg.DB),
 	)
-	return redisClient{
+	return &redisClient{
 		client: rdb,
 		logger: logger,
 	}, nil

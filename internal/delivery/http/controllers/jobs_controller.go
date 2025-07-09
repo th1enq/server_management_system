@@ -4,23 +4,27 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/th1enq/server_management_system/internal/delivery/http/presenters"
+	"github.com/th1enq/server_management_system/internal/domain"
 	"github.com/th1enq/server_management_system/internal/jobs/scheduler"
-	"github.com/th1enq/server_management_system/internal/models"
 	"go.uber.org/zap"
 )
 
 type JobsController struct {
-	jobManager scheduler.JobManager
-	logger     *zap.Logger
+	jobManager    scheduler.JobManager
+	jobsPresenter presenters.JobsPresenter
+	logger        *zap.Logger
 }
 
 func NewJobsController(
 	jobManager scheduler.JobManager,
+	jobsPresenter presenters.JobsPresenter,
 	logger *zap.Logger,
 ) *JobsController {
 	return &JobsController{
-		jobManager: jobManager,
-		logger:     logger,
+		jobManager:    jobManager,
+		jobsPresenter: jobsPresenter,
+		logger:        logger,
 	}
 }
 
@@ -30,20 +34,13 @@ func NewJobsController(
 // @Tags jobs
 // @Security BearerAuth
 // @Produce json
-// @Success 200 {object} models.APIResponse{data=[]scheduler.TaskInfo}
-// @Failure 500 {object} models.APIResponse
+// @Success 200 {object} domain.APIResponse{data=[]scheduler.TaskInfo}
+// @Failure 500 {object} domain.APIResponse
 // @Router /api/v1/jobs [get]
 func (jc *JobsController) GetJobs(c *gin.Context) {
 	jc.logger.Info("Fetching job information for monitoring")
 	tasks := jc.jobManager.GetScheduler().GetTasks()
-
-	response := models.NewSuccessResponse(
-		models.CodeSuccess,
-		"Jobs information retrieved successfully",
-		tasks,
-	)
-
-	c.JSON(http.StatusOK, response)
+	jc.jobsPresenter.JobsRetrieved(c, tasks)
 }
 
 // GetJobStatus godoc
@@ -52,8 +49,8 @@ func (jc *JobsController) GetJobs(c *gin.Context) {
 // @Tags jobs
 // @Security BearerAuth
 // @Produce json
-// @Success 200 {object} models.APIResponse{data=map[string]interface{}}
-// @Failure 500 {object} models.APIResponse
+// @Success 200 {object} domain.APIResponse{data=map[string]interface{}}
+// @Failure 500 {object} domain.APIResponse
 // @Router /api/v1/jobs/status [get]
 func (jc *JobsController) GetJobStatus(c *gin.Context) {
 	jc.logger.Info("Fetching job scheduler status for monitoring")
@@ -66,8 +63,8 @@ func (jc *JobsController) GetJobStatus(c *gin.Context) {
 		"tasks":             tasks,
 	}
 
-	response := models.NewSuccessResponse(
-		models.CodeSuccess,
+	response := domain.NewSuccessResponse(
+		domain.CodeSuccess,
 		"Job scheduler status retrieved successfully",
 		status,
 	)

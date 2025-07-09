@@ -7,10 +7,11 @@ import (
 
 	"github.com/th1enq/server_management_system/internal/domain"
 	"github.com/th1enq/server_management_system/internal/dto"
+	"github.com/th1enq/server_management_system/internal/utils"
 	"go.uber.org/zap"
 )
 
-type AuthUsecase interface {
+type AuthUseCase interface {
 	Login(ctx context.Context, req dto.LoginRequest) (*dto.AuthResponse, error)
 	Register(ctx context.Context, req dto.RegisterRequest) (*dto.AuthResponse, error)
 	RefreshToken(ctx context.Context, req dto.RefreshTokenRequest) (*dto.AuthResponse, error)
@@ -18,26 +19,26 @@ type AuthUsecase interface {
 	LogoutWithToken(ctx context.Context, token string) error
 }
 
-type authUsecase struct {
-	userUsecase  UserUsecase
-	tokenUsecase TokenUsecase
+type authUseCase struct {
+	userUseCase  UserUseCase
+	tokenUseCase TokenUseCase
 	logger       *zap.Logger
 }
 
-func NewAuthUsecase(userUsecase UserUsecase, tokenUsecase TokenUsecase, logger *zap.Logger) AuthUsecase {
-	return &authUsecase{
-		userUsecase:  userUsecase,
-		tokenUsecase: tokenUsecase,
+func NewAuthUseCase(userUseCase UserUseCase, tokenUseCase TokenUseCase, logger *zap.Logger) AuthUseCase {
+	return &authUseCase{
+		userUseCase:  userUseCase,
+		tokenUseCase: tokenUseCase,
 		logger:       logger,
 	}
 }
 
-func (a *authUsecase) Login(ctx context.Context, req dto.LoginRequest) (*dto.AuthResponse, error) {
+func (a *authUseCase) Login(ctx context.Context, req dto.LoginRequest) (*dto.AuthResponse, error) {
 	username := req.Username
 	password := req.Password
 
 	// Get user by username
-	user, err := a.userUsecase.GetUserByUsername(ctx, username)
+	user, err := a.userUseCase.GetUserByUsername(ctx, username)
 	if err != nil {
 		a.logger.Error("Failed to get user by username", zap.String("username", username), zap.Error(err))
 		return nil, fmt.Errorf("invalid credentials")
@@ -49,32 +50,31 @@ func (a *authUsecase) Login(ctx context.Context, req dto.LoginRequest) (*dto.Aut
 		return nil, fmt.Errorf("account is disabled")
 	}
 
-	// Verify password
-	if err := user.CheckPassword(password); err != nil {
-		a.logger.Warn("Invalid password attempt", zap.String("username", username))
+	if utils.CheckPassword(password, user.Password) == false {
+		a.logger.Warn("Invalid password for user", zap.String("username", username))
 		return nil, fmt.Errorf("invalid credentials")
 	}
 
 	// Generate tokens
-	accessToken, err := a.tokenUsecase.GenerateAccessToken(user)
+	accessToken, err := a.tokenUseCase.GenerateAccessToken(user)
 	if err != nil {
 		a.logger.Error("Failed to generate access token", zap.Uint("user_id", user.ID), zap.Error(err))
 		return nil, fmt.Errorf("failed to generate token")
 	}
 
-	refreshToken, err := a.tokenUsecase.GenerateRefreshToken(user)
+	refreshToken, err := a.tokenUseCase.GenerateRefreshToken(user)
 	if err != nil {
 		a.logger.Error("Failed to generate refresh token", zap.Uint("user_id", user.ID), zap.Error(err))
 		return nil, fmt.Errorf("failed to generate token")
 	}
 
 	// Add tokens to Redis whitelist
-	if err := a.tokenUsecase.AddTokenToWhitelist(ctx, accessToken, user.ID, time.Hour*24); err != nil {
+	if err := a.tokenUseCase.AddTokenToWhitelist(ctx, accessToken, user.ID, time.Hour*24); err != nil {
 		a.logger.Error("Failed to add access token to whitelist", zap.Error(err))
 		return nil, fmt.Errorf("failed to whitelist token")
 	}
 
-	if err := a.tokenUsecase.AddTokenToWhitelist(ctx, refreshToken, user.ID, time.Hour*24*7); err != nil {
+	if err := a.tokenUseCase.AddTokenToWhitelist(ctx, refreshToken, user.ID, time.Hour*24*7); err != nil {
 		a.logger.Error("Failed to add refresh token to whitelist", zap.Error(err))
 		return nil, fmt.Errorf("failed to whitelist token")
 	}
@@ -91,10 +91,10 @@ func (a *authUsecase) Login(ctx context.Context, req dto.LoginRequest) (*dto.Aut
 	}, nil
 }
 
-// Register implements authUsecase.
-func (a *authUsecase) Register(ctx context.Context, req dto.RegisterRequest) (*dto.AuthResponse, error) {
+// Register implements authUseCase.
+func (a *authUseCase) Register(ctx context.Context, req dto.RegisterRequest) (*dto.AuthResponse, error) {
 
-	createdUser, err := a.userUsecase.CreateUser(ctx, req)
+	createdUser, err := a.userUseCase.CreateUser(ctx, req)
 	if err != nil {
 		a.logger.Error("Failed to create user", zap.String("username", req.Username), zap.Error(err))
 		if err.Error() == "user already exists" {
@@ -104,25 +104,25 @@ func (a *authUsecase) Register(ctx context.Context, req dto.RegisterRequest) (*d
 	}
 
 	// Generate tokens
-	accessToken, err := a.tokenUsecase.GenerateAccessToken(createdUser)
+	accessToken, err := a.tokenUseCase.GenerateAccessToken(createdUser)
 	if err != nil {
 		a.logger.Error("Failed to generate access token", zap.Uint("user_id", createdUser.ID), zap.Error(err))
 		return nil, fmt.Errorf("failed to generate token")
 	}
 
-	refreshToken, err := a.tokenUsecase.GenerateRefreshToken(createdUser)
+	refreshToken, err := a.tokenUseCase.GenerateRefreshToken(createdUser)
 	if err != nil {
 		a.logger.Error("Failed to generate refresh token", zap.Uint("user_id", createdUser.ID), zap.Error(err))
 		return nil, fmt.Errorf("failed to generate token")
 	}
 
 	// Add tokens to Redis whitelist
-	if err := a.tokenUsecase.AddTokenToWhitelist(ctx, accessToken, createdUser.ID, time.Hour*24); err != nil {
+	if err := a.tokenUseCase.AddTokenToWhitelist(ctx, accessToken, createdUser.ID, time.Hour*24); err != nil {
 		a.logger.Error("Failed to add access token to whitelist", zap.Error(err))
 		return nil, fmt.Errorf("failed to whitelist token")
 	}
 
-	if err := a.tokenUsecase.AddTokenToWhitelist(ctx, refreshToken, createdUser.ID, time.Hour*24*7); err != nil {
+	if err := a.tokenUseCase.AddTokenToWhitelist(ctx, refreshToken, createdUser.ID, time.Hour*24*7); err != nil {
 		a.logger.Error("Failed to add refresh token to whitelist", zap.Error(err))
 		return nil, fmt.Errorf("failed to whitelist token")
 	}
@@ -139,13 +139,13 @@ func (a *authUsecase) Register(ctx context.Context, req dto.RegisterRequest) (*d
 	}, nil
 }
 
-// ValidateToken implements authUsecase.
-func (a *authUsecase) ValidateToken(tokenString string) (*dto.Claims, error) {
-	return a.tokenUsecase.ValidateToken(tokenString)
+// ValidateToken implements authUseCase.
+func (a *authUseCase) ValidateToken(tokenString string) (*dto.Claims, error) {
+	return a.tokenUseCase.ValidateToken(tokenString)
 }
 
-// RefreshToken implements authUsecase.
-func (a *authUsecase) RefreshToken(ctx context.Context, req dto.RefreshTokenRequest) (*dto.AuthResponse, error) {
+// RefreshToken implements authUseCase.
+func (a *authUseCase) RefreshToken(ctx context.Context, req dto.RefreshTokenRequest) (*dto.AuthResponse, error) {
 	refreshToken := req.RefreshToken
 	// Validate refresh token
 	claims, err := a.ValidateToken(refreshToken)
@@ -158,7 +158,7 @@ func (a *authUsecase) RefreshToken(ctx context.Context, req dto.RefreshTokenRequ
 	}
 
 	// Get user
-	user, err := a.userUsecase.GetUserByID(ctx, claims.UserID)
+	user, err := a.userUseCase.GetUserByID(ctx, claims.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("user not found")
 	}
@@ -169,29 +169,29 @@ func (a *authUsecase) RefreshToken(ctx context.Context, req dto.RefreshTokenRequ
 	}
 
 	// Generate new tokens
-	newAccessToken, err := a.tokenUsecase.GenerateAccessToken(user)
+	newAccessToken, err := a.tokenUseCase.GenerateAccessToken(user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token")
 	}
 
-	newRefreshToken, err := a.tokenUsecase.GenerateRefreshToken(user)
+	newRefreshToken, err := a.tokenUseCase.GenerateRefreshToken(user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token")
 	}
 
 	// Add new tokens to whitelist and remove old refresh token
-	if err := a.tokenUsecase.AddTokenToWhitelist(ctx, newAccessToken, user.ID, time.Hour*24); err != nil {
+	if err := a.tokenUseCase.AddTokenToWhitelist(ctx, newAccessToken, user.ID, time.Hour*24); err != nil {
 		a.logger.Error("Failed to add new access token to whitelist", zap.Error(err))
 		return nil, fmt.Errorf("failed to whitelist token")
 	}
 
-	if err := a.tokenUsecase.AddTokenToWhitelist(ctx, newRefreshToken, user.ID, time.Hour*24*7); err != nil {
+	if err := a.tokenUseCase.AddTokenToWhitelist(ctx, newRefreshToken, user.ID, time.Hour*24*7); err != nil {
 		a.logger.Error("Failed to add new refresh token to whitelist", zap.Error(err))
 		return nil, fmt.Errorf("failed to whitelist token")
 	}
 
 	// Remove old refresh token from whitelist
-	a.tokenUsecase.RemoveTokenFromWhitelist(ctx, refreshToken)
+	a.tokenUseCase.RemoveTokenFromWhitelist(ctx, refreshToken)
 
 	return &dto.AuthResponse{
 		AccessToken:  newAccessToken,
@@ -203,18 +203,18 @@ func (a *authUsecase) RefreshToken(ctx context.Context, req dto.RefreshTokenRequ
 	}, nil
 }
 
-// Logout implements authUsecase.
-func (a *authUsecase) Logout(ctx context.Context, userID uint) error {
+// Logout implements authUseCase.
+func (a *authUseCase) Logout(ctx context.Context, userID uint) error {
 	// Remove all user tokens from whitelist
-	a.tokenUsecase.RemoveUserTokensFromWhitelist(ctx, userID)
+	a.tokenUseCase.RemoveUserTokensFromWhitelist(ctx, userID)
 	a.logger.Info("User logged out", zap.Uint("user_id", userID))
 	return nil
 }
 
-// LogoutWithToken implements authUsecase - logout using specific token
-func (a *authUsecase) LogoutWithToken(ctx context.Context, token string) error {
+// LogoutWithToken implements authUseCase - logout using specific token
+func (a *authUseCase) LogoutWithToken(ctx context.Context, token string) error {
 	// Remove the specific token from whitelist
-	a.tokenUsecase.RemoveTokenFromWhitelist(ctx, token)
+	a.tokenUseCase.RemoveTokenFromWhitelist(ctx, token)
 	a.logger.Info("Token revoked during logout")
 	return nil
 }

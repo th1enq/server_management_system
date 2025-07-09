@@ -14,14 +14,14 @@ type IServer interface {
 }
 
 type server struct {
-	handler    *Handler
+	controller *Controller
 	httpConfig configs.Server
 	logger     *zap.Logger
 }
 
-func NewServer(httpConfig configs.Server, logger *zap.Logger, handler *Handler) IServer {
+func NewServer(httpConfig configs.Server, logger *zap.Logger, controller *Controller) IServer {
 	return &server{
-		handler:    handler,
+		controller: controller,
 		httpConfig: httpConfig,
 		logger:     logger,
 	}
@@ -30,7 +30,7 @@ func NewServer(httpConfig configs.Server, logger *zap.Logger, handler *Handler) 
 func (s *server) Start(ctx context.Context) error {
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", s.httpConfig.Port),
-		Handler: s.handler.RegisterRoutes(),
+		Handler: s.controller.RegisterRoutes(),
 	}
 	s.logger.Info("HTTP server starting", zap.Int("port", s.httpConfig.Port))
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {

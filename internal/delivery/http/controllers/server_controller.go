@@ -1,34 +1,35 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/th1enq/server_management_system/internal/delivery/http/presenters"
 	"github.com/th1enq/server_management_system/internal/domain"
-	"github.com/th1enq/server_management_system/internal/domain/dto"
-	"github.com/th1enq/server_management_system/internal/interfaces/http/presenters"
+	"github.com/th1enq/server_management_system/internal/dto"
 	"github.com/th1enq/server_management_system/internal/usecases"
 	"go.uber.org/zap"
 )
 
-// ServerController handles HTTP requests for server operations
 type ServerController struct {
-	serverUseCase usecases.IServerUseCase
-	presenter     presenters.ServerPresenter
-	logger        *zap.Logger
+	serverUseCase   usecases.ServerUseCase
+	serverPresenter presenters.ServerPresenter
+	logger          *zap.Logger
 }
 
-// NewServerController creates a new server controller
 func NewServerController(
-	serverUseCase usecases.IServerUseCase,
-	presenter presenters.ServerPresenter,
+	serverUseCase usecases.ServerUseCase,
+	serverPresenter presenters.ServerPresenter,
 	logger *zap.Logger,
 ) *ServerController {
 	return &ServerController{
-		serverUseCase: serverUseCase,
-		presenter:     presenter,
-		logger:        logger,
+		serverUseCase:   serverUseCase,
+		serverPresenter: serverPresenter,
+		logger:          logger,
 	}
 }
 
@@ -38,171 +39,198 @@ func NewServerController(
 // @Tags servers
 // @Accept json
 // @Produce json
-// @Param server body entities.CreateServerRequest true "Server creation request"
-// @Success 201 {object} presenters.ServerResponse
-// @Failure 400 {object} presenters.ErrorResponse
-// @Failure 500 {object} presenters.ErrorResponse
+// @Param server body dto.CreateServerRequest true "Server information"
+// @Success 201 {object} domain.APIResponse{data=domain.Server}
+// @Failure 400 {object} domain.APIResponse
+// @Failure 409 {object} domain.APIResponse
+// @Failure 500 {object} domain.APIResponse
+// @Security BearerAuth
 // @Router /api/v1/servers [post]
-func (sc *ServerController) CreateServer(c *gin.Context) {
+func (h *ServerController) CreateServer(c *gin.Context) {
+	h.logger.Info("Starting create server request",
+		zap.String("request_id", c.GetString("request_id")),
+		zap.String("user_id", c.GetString("user_id")))
+
 	var req dto.CreateServerRequest
-
-	// 1. Parse and validate input (Controller responsibility)
-	if err := c.ShouldBindJSON(&req); err != nil {
-		sc.logger.Error("Invalid request body", zap.Error(err))
-		sc.presenter.Error(c, http.StatusBadRequest, "Invalid request body", err)
+	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
+		h.logger.Error("Failed to bind request body",
+			zap.Error(err),
+			zap.String("request_id", c.GetString("request_id")))
+		h.serverPresenter.InvalidRequest(c, "Invalid request body", err)
 		return
 	}
 
-	// 3. Call use case (Business logic)
-	createdServer, err := sc.serverUseCase.CreateServer(c.Request.Context(), req)
+	h.logger.Info("Creating server",
+		zap.String("server_id", req.ServerID),
+		zap.String("server_name", req.ServerName),
+		zap.String("request_id", c.GetString("request_id")))
+
+	err := h.serverUseCase.CreateServer(c.Request.Context(), req)
 	if err != nil {
-		sc.logger.Error("Failed to create server", zap.Error(err))
-		sc.presenter.Error(c, http.StatusInternalServerError, "Failed to create server", err)
+		h.logger.Error("Failed to create server",
+			zap.Error(err),
+			zap.String("server_id", req.ServerID),
+			zap.String("server_name", req.ServerName),
+			zap.String("request_id", c.GetString("request_id")))
+
+		if err.Error() == "server_id and server_name are required" {
+			h.serverPresenter.ValidationError(c, "Failed to create server", err)
+		} else if err.Error() == "server is already exists" {
+			h.serverPresenter.ConflictError(c, "Failed to create server", err)
+		} else {
+			h.serverPresenter.InternalServerError(c, "Failed to create server", err)
+		}
 		return
 	}
 
-	// 4. Present response (Controller + Presenter responsibility)
-	sc.presenter.Success(c, http.StatusCreated, "Server created successfully", createdServer)
+	h.logger.Info("Server created successfully",
+		zap.String("server_id", req.ServerID),
+		zap.String("server_name", req.ServerName),
+		zap.String("request_id", c.GetString("request_id")))
+
+	h.serverPresenter.ServerCreated(c, req)
 }
 
 // ListServers godoc
-// @Summary List all servers
-// @Description Get a list of all servers with optional filtering
+// @Summary List servers
+// @Description Get list of servers with optional filters and pagination
 // @Tags servers
 // @Accept json
 // @Produce json
+// @Param server_id query string false "Filter by server ID"
+// @Param server_name query string false "Filter by server name"
+// @Param status query string false "Filter by status"
+// @Param ipv4 query string false "Filter by IPv4"
+// @Param location query string false "Filter by location"
+// @Param os query string false "Filter by OS"
 // @Param page query int false "Page number" default(1)
-// @Param limit query int false "Items per page" default(10)
-// @Param environment query string false "Filter by environment"
-// @Success 200 {object} presenters.ServerListResponse
-// @Failure 500 {object} presenters.ErrorResponse
+// @Param page_size query int false "Page size" default(10)
+// @Param sort query string false "Sort field" default(created_time)
+// @Param order query string false "Sort order" default(desc)
+// @Success 200 {object} domain.APIResponse{data=dto.ServerListResponse}
+// @Failure 400 {object} domain.APIResponse
+// @Failure 500 {object} domain.APIResponse
+// @Security BearerAuth
 // @Router /api/v1/servers [get]
-func (sc *ServerController) ListServers(c *gin.Context) {
-	// 1. Parse query parameters (Controller responsibility)
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-	sort := c.DefaultQuery("sort", "created_time")
-	order := c.DefaultQuery("order", "desc")
+func (h *ServerController) ListServer(c *gin.Context) {
+	h.logger.Info("Starting list servers request",
+		zap.String("request_id", c.GetString("request_id")),
+		zap.String("user_id", c.GetString("user_id")))
 
-	// Parse filter parameters
-	serverID := c.Query("server_id")
-	serverName := c.Query("server_name")
-	status := c.Query("status")
-	ipv4 := c.Query("ipv4")
-	location := c.Query("location")
-	os := c.Query("os")
+	var filter dto.ServerFilter
+	var pagination dto.Pagination
 
-	// 2. Create filter and pagination objects
-	filter := dto.ServerFilter{
-		ServerID:   serverID,
-		ServerName: serverName,
-		Status:     domain.ServerStatus(status),
-		IPv4:       ipv4,
-		Location:   location,
-		OS:         os,
+	if err := c.ShouldBindQuery(&filter); err != nil {
+		h.logger.Error("Failed to bind filter parameters",
+			zap.Error(err),
+			zap.String("request_id", c.GetString("request_id")))
+		h.serverPresenter.InvalidRequest(c, "Invalid filter parameters", err)
+		return
 	}
 
-	pagination := dto.Pagination{
-		Page:     page,
-		PageSize: pageSize,
-		Sort:     sort,
-		Order:    order,
+	if err := c.ShouldBindQuery(&pagination); err != nil {
+		h.logger.Error("Failed to bind pagination parameters",
+			zap.Error(err),
+			zap.String("request_id", c.GetString("request_id")))
+		h.serverPresenter.InvalidRequest(c, "Invalid pagination parameters", err)
+		return
 	}
 
-	// 3. Call use case
-	servers, total, err := sc.serverUseCase.ListServers(c.Request.Context(), filter, pagination)
+	h.logger.Info("Listing servers with filters",
+		zap.Any("filter", filter),
+		zap.Any("pagination", pagination),
+		zap.String("request_id", c.GetString("request_id")))
+
+	response, err := h.serverUseCase.ListServers(c.Request.Context(), filter, pagination)
 	if err != nil {
-		sc.logger.Error("Failed to list servers", zap.Error(err))
-		sc.presenter.Error(c, http.StatusInternalServerError, "Failed to list servers", err)
+		h.logger.Error("Failed to list servers",
+			zap.Error(err),
+			zap.Any("filter", filter),
+			zap.Any("pagination", pagination),
+			zap.String("request_id", c.GetString("request_id")))
+		h.serverPresenter.InternalServerError(c, "Failed to list servers", err)
 		return
 	}
 
-	// 4. Present response
-	sc.presenter.SuccessList(c, http.StatusOK, "Servers retrieved successfully", servers, total, page, pageSize)
-}
+	h.logger.Info("Servers listed successfully",
+		zap.Int64("total", response.Total),
+		zap.Int("returned_count", len(response.Servers)),
+		zap.Int("page", response.Page),
+		zap.Int("size", response.Size),
+		zap.String("request_id", c.GetString("request_id")))
 
-// GetServerByID godoc
-// @Summary Get server by ID
-// @Description Get a specific server by its ID
-// @Tags servers
-// @Accept json
-// @Produce json
-// @Param id path string true "Server ID"
-// @Success 200 {object} presenters.ServerResponse
-// @Failure 404 {object} presenters.ErrorResponse
-// @Failure 500 {object} presenters.ErrorResponse
-// @Router /api/v1/servers/{id} [get]
-func (sc *ServerController) GetServerByID(c *gin.Context) {
-	// 1. Extract and validate path parameter
-	idStr := c.Param("id")
-	if idStr == "" {
-		sc.presenter.Error(c, http.StatusBadRequest, "Server ID is required", nil)
-		return
-	}
-
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		sc.presenter.Error(c, http.StatusBadRequest, "Invalid server ID", err)
-		return
-	}
-
-	// 2. Call use case
-	server, err := sc.serverUseCase.GetServerByID(c.Request.Context(), uint(id))
-	if err != nil {
-		sc.logger.Error("Failed to get server", zap.String("id", idStr), zap.Error(err))
-		sc.presenter.Error(c, http.StatusNotFound, "Server not found", err)
-		return
-	}
-
-	// 3. Present response
-	sc.presenter.Success(c, http.StatusOK, "Server retrieved successfully", server)
+	h.serverPresenter.ServersRetrieved(c, response)
 }
 
 // UpdateServer godoc
 // @Summary Update server
-// @Description Update an existing server
+// @Description Update server information
 // @Tags servers
 // @Accept json
 // @Produce json
-// @Param id path string true "Server ID"
-// @Param server body entities.UpdateServerRequest true "Server update request"
-// @Success 200 {object} presenters.ServerResponse
-// @Failure 400 {object} presenters.ErrorResponse
-// @Failure 404 {object} presenters.ErrorResponse
-// @Failure 500 {object} presenters.ErrorResponse
+// @Param id path int true "Server ID"
+// @Param updateInfo body dto.UpdateServerRequest true "Server update information"
+// @Success 200 {object} domain.APIResponse{data=domain.Server}
+// @Failure 400 {object} domain.APIResponse
+// @Failure 404 {object} domain.APIResponse
+// @Failure 409 {object} domain.APIResponse
+// @Failure 500 {object} domain.APIResponse
+// @Security BearerAuth
 // @Router /api/v1/servers/{id} [put]
-func (sc *ServerController) UpdateServer(c *gin.Context) {
-	// 1. Extract and validate path parameter
-	idStr := c.Param("id")
-	if idStr == "" {
-		sc.presenter.Error(c, http.StatusBadRequest, "Server ID is required", nil)
-		return
-	}
+func (h *ServerController) UpdateServer(c *gin.Context) {
+	h.logger.Info("Starting update server request",
+		zap.String("request_id", c.GetString("request_id")),
+		zap.String("user_id", c.GetString("user_id")))
 
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		sc.presenter.Error(c, http.StatusBadRequest, "Invalid server ID", err)
+		h.logger.Error("Failed to parse server ID",
+			zap.Error(err),
+			zap.String("id_param", c.Param("id")),
+			zap.String("request_id", c.GetString("request_id")))
+		h.serverPresenter.InvalidRequest(c, "Invalid server ID", err)
 		return
 	}
 
-	// 2. Parse and validate request body
-	var req dto.UpdateServerRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		sc.logger.Error("Invalid request body", zap.Error(err))
-		sc.presenter.Error(c, http.StatusBadRequest, "Invalid request body", err)
+	var updateInfo dto.UpdateServerRequest
+	if err := c.ShouldBindBodyWithJSON(&updateInfo); err != nil {
+		h.logger.Error("Failed to bind update request body",
+			zap.Error(err),
+			zap.Uint64("server_id", id),
+			zap.String("request_id", c.GetString("request_id")))
+		h.serverPresenter.InvalidRequest(c, "Invalid request body", err)
 		return
 	}
 
-	// 3. Call use case
-	updatedServer, err := sc.serverUseCase.UpdateServer(c.Request.Context(), uint(id), req)
+	h.logger.Info("Updating server",
+		zap.Uint64("server_id", id),
+		zap.Any("update_info", updateInfo),
+		zap.String("request_id", c.GetString("request_id")))
+
+	server, err := h.serverUseCase.UpdateServer(c.Request.Context(), uint(id), updateInfo)
 	if err != nil {
-		sc.logger.Error("Failed to update server", zap.String("id", idStr), zap.Error(err))
-		sc.presenter.Error(c, http.StatusInternalServerError, "Failed to update server", err)
+		h.logger.Error("Failed to update server",
+			zap.Error(err),
+			zap.Uint64("server_id", id),
+			zap.Any("update_info", updateInfo),
+			zap.String("request_id", c.GetString("request_id")))
+
+		if err.Error() == "server not found" {
+			h.serverPresenter.ServerNotFound(c, "Failed to update server")
+		} else if err.Error() == "server with name is already exists" {
+			h.serverPresenter.ConflictError(c, "Failed to update server", err)
+		} else {
+			h.serverPresenter.InternalServerError(c, "Failed to update server", err)
+		}
 		return
 	}
 
-	// 4. Present response
-	sc.presenter.Success(c, http.StatusOK, "Server updated successfully", updatedServer)
+	h.logger.Info("Server updated successfully",
+		zap.Uint64("server_id", id),
+		zap.String("server_name", server.ServerName),
+		zap.String("request_id", c.GetString("request_id")))
+
+	h.serverPresenter.ServerUpdated(c, server)
 }
 
 // DeleteServer godoc
@@ -211,33 +239,233 @@ func (sc *ServerController) UpdateServer(c *gin.Context) {
 // @Tags servers
 // @Accept json
 // @Produce json
-// @Param id path string true "Server ID"
-// @Success 200 {object} presenters.MessageResponse
-// @Failure 404 {object} presenters.ErrorResponse
-// @Failure 500 {object} presenters.ErrorResponse
+// @Param id path int true "Server ID"
+// @Success 200 {object} domain.APIResponse
+// @Failure 404 {object} domain.APIResponse
+// @Failure 500 {object} domain.APIResponse
+// @Security BearerAuth
 // @Router /api/v1/servers/{id} [delete]
-func (sc *ServerController) DeleteServer(c *gin.Context) {
-	// 1. Extract and validate path parameter
-	idStr := c.Param("id")
-	if idStr == "" {
-		sc.presenter.Error(c, http.StatusBadRequest, "Server ID is required", nil)
-		return
-	}
+func (h *ServerController) DeleteServer(c *gin.Context) {
+	h.logger.Info("Starting delete server request",
+		zap.String("request_id", c.GetString("request_id")),
+		zap.String("user_id", c.GetString("user_id")))
 
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		sc.presenter.Error(c, http.StatusBadRequest, "Invalid server ID", err)
+		h.logger.Error("Failed to parse server ID for deletion",
+			zap.Error(err),
+			zap.String("id_param", c.Param("id")),
+			zap.String("request_id", c.GetString("request_id")))
+		c.JSON(http.StatusBadRequest, domain.NewErrorResponse(
+			domain.CodeBadRequest,
+			"Invalid server ID",
+			err.Error(),
+		))
 		return
 	}
 
-	// 2. Call use case
-	err = sc.serverUseCase.DeleteServer(c.Request.Context(), uint(id))
+	h.logger.Info("Deleting server",
+		zap.Uint64("server_id", id),
+		zap.String("request_id", c.GetString("request_id")))
+
+	err = h.serverUseCase.DeleteServer(c.Request.Context(), uint(id))
 	if err != nil {
-		sc.logger.Error("Failed to delete server", zap.String("id", idStr), zap.Error(err))
-		sc.presenter.Error(c, http.StatusInternalServerError, "Failed to delete server", err)
+		h.logger.Error("Failed to delete server",
+			zap.Error(err),
+			zap.Uint64("server_id", id),
+			zap.String("request_id", c.GetString("request_id")))
+
+		status := http.StatusInternalServerError
+		code := domain.CodeInternalServerError
+
+		if err.Error() == "server not found" {
+			status = http.StatusNotFound
+			code = domain.CodeNotFound
+		}
+
+		c.JSON(status, domain.NewErrorResponse(code, "Failed to delete server", err.Error()))
 		return
 	}
 
-	// 3. Present response
-	sc.presenter.Message(c, http.StatusOK, "Server deleted successfully")
+	h.logger.Info("Server deleted successfully",
+		zap.Uint64("server_id", id),
+		zap.String("request_id", c.GetString("request_id")))
+
+	c.JSON(http.StatusOK, domain.NewSuccessResponse(
+		domain.CodeDeleted,
+		"Server deleted successfully",
+		nil,
+	))
+}
+
+// ImportServers godoc
+// @Summary Import servers from Excel file
+// @Description Import multiple servers from an Excel file
+// @Tags servers
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file"
+// @Success 200 {object} domain.APIResponse{data=dto.ImportResult}
+// @Failure 400 {object} domain.APIResponse
+// @Failure 500 {object} domain.APIResponse
+// @Security BearerAuth
+// @Router /api/v1/servers/import [post]
+func (h *ServerController) ImportServers(c *gin.Context) {
+	now := time.Now()
+	h.logger.Info("Starting import servers request",
+		zap.String("request_id", c.GetString("request_id")),
+		zap.String("user_id", c.GetString("user_id")))
+
+	file, err := c.FormFile("file")
+	fmt.Println(file)
+	if err != nil {
+		h.logger.Error("No file uploaded for import",
+			zap.Error(err),
+			zap.String("request_id", c.GetString("request_id")))
+		c.JSON(http.StatusBadRequest, domain.NewErrorResponse(
+			domain.CodeBadRequest,
+			"No file uploaded",
+			err.Error(),
+		))
+		return
+	}
+
+	h.logger.Info("Processing import file",
+		zap.String("filename", file.Filename),
+		zap.Int64("file_size", file.Size),
+		zap.String("request_id", c.GetString("request_id")))
+
+	filePath := "/tmp/" + uuid.New().String() + "_" + file.Filename
+	if err := c.SaveUploadedFile(file, filePath); err != nil {
+		h.logger.Error("Failed to save uploaded file",
+			zap.Error(err),
+			zap.String("filename", file.Filename),
+			zap.String("file_path", filePath),
+			zap.String("request_id", c.GetString("request_id")))
+		c.JSON(http.StatusInternalServerError, domain.NewErrorResponse(
+			domain.CodeInternalServerError,
+			"Failed to save file",
+			err.Error(),
+		))
+		return
+	}
+
+	h.logger.Info("File saved, starting import process",
+		zap.String("file_path", filePath),
+		zap.String("request_id", c.GetString("request_id")))
+
+	result, err := h.serverUseCase.ImportServers(c.Request.Context(), filePath)
+	if err != nil {
+		h.logger.Error("Failed to import servers",
+			zap.Error(err),
+			zap.String("file_path", filePath),
+			zap.String("request_id", c.GetString("request_id")))
+		c.JSON(http.StatusInternalServerError, domain.NewErrorResponse(
+			domain.CodeInternalServerError,
+			"Failed to import servers",
+			err.Error(),
+		))
+		return
+	}
+
+	toltalDuration := time.Since(now)
+
+	h.logger.Info("Servers imported successfully",
+		zap.Int("success_count", result.SuccessCount),
+		zap.Int("failure_count", result.FailureCount),
+		zap.Strings("success_servers", result.SuccessServers),
+		zap.Strings("failure_servers", result.FailureServers),
+		zap.String("request_id", c.GetString("request_id")),
+		zap.Duration("duration", toltalDuration))
+
+	c.JSON(http.StatusOK, domain.NewSuccessResponse(
+		domain.CodeSuccess,
+		"Servers imported successfully",
+		result,
+	))
+}
+
+// ExportServers godoc
+// @Summary Export servers to Excel file
+// @Description Export servers to an Excel file with optional filters
+// @Tags servers
+// @Accept json
+// @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Param server_id query string false "Filter by server ID"
+// @Param server_name query string false "Filter by server name"
+// @Param status query string false "Filter by status"
+// @Param ipv4 query string false "Filter by IPv4"
+// @Param location query string false "Filter by location"
+// @Param os query string false "Filter by OS"
+// @Param page query int false "Page number" default(1)
+// @Param page_size query int false "Page size" default(10000)
+// @Param sort query string false "Sort field" default(created_time)
+// @Param order query string false "Sort order" default(desc)
+// @Success 200 {file} binary
+// @Failure 400 {object} domain.APIResponse
+// @Failure 500 {object} domain.APIResponse
+// @Security BearerAuth
+// @Router /api/v1/servers/export [get]
+func (h *ServerController) ExportServers(c *gin.Context) {
+	h.logger.Info("Starting export servers request",
+		zap.String("request_id", c.GetString("request_id")),
+		zap.String("user_id", c.GetString("user_id")))
+
+	var filter dto.ServerFilter
+	var pagination dto.Pagination
+
+	// Bind query parameters
+	if err := c.ShouldBindQuery(&filter); err != nil {
+		h.logger.Error("Failed to bind filter parameters for export",
+			zap.Error(err),
+			zap.String("request_id", c.GetString("request_id")))
+		c.JSON(http.StatusBadRequest, domain.NewErrorResponse(
+			domain.CodeBadRequest,
+			"Invalid filter parameters",
+			err.Error(),
+		))
+		return
+	}
+
+	if err := c.ShouldBindQuery(&pagination); err != nil {
+		h.logger.Error("Failed to bind pagination parameters for export",
+			zap.Error(err),
+			zap.String("request_id", c.GetString("request_id")))
+		c.JSON(http.StatusBadRequest, domain.NewErrorResponse(
+			domain.CodeBadRequest,
+			"Invalid pagination parameters",
+			err.Error(),
+		))
+		return
+	}
+
+	h.logger.Info("Exporting servers with filters",
+		zap.Any("filter", filter),
+		zap.Any("pagination", pagination),
+		zap.String("request_id", c.GetString("request_id")))
+
+	filePath, err := h.serverUseCase.ExportServers(c.Request.Context(), filter, pagination)
+	if err != nil {
+		h.logger.Error("Failed to export servers",
+			zap.Error(err),
+			zap.Any("filter", filter),
+			zap.Any("pagination", pagination),
+			zap.String("request_id", c.GetString("request_id")))
+		c.JSON(http.StatusInternalServerError, domain.NewErrorResponse(
+			domain.CodeInternalServerError,
+			"Failed to export servers",
+			err.Error(),
+		))
+		return
+	}
+
+	h.logger.Info("Servers exported successfully",
+		zap.String("export_file_path", filePath),
+		zap.String("request_id", c.GetString("request_id")))
+
+	c.Header("Content-Description", "File Transfer")
+	c.Header("Content-Transfer-Encoding", "binary")
+	c.Header("Content-Disposition", "attachment; filename=servers.xlsx")
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.File(filePath)
 }

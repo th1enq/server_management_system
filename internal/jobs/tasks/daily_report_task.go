@@ -16,18 +16,18 @@ type DailyReportTask interface {
 }
 
 type dailyReportTask struct {
-	reportService usecases.IReportService
+	reportUseCase usecases.ReportUseCase
 	cronConfig    configs.Cron
 	logger        *zap.Logger
 }
 
 func NewDailyReportTask(
-	reportService usecases.IReportService,
+	reportUseCase usecases.ReportUseCase,
 	cronConfig configs.Cron,
 	logger *zap.Logger,
 ) DailyReportTask {
 	return &dailyReportTask{
-		reportService: reportService,
+		reportUseCase: reportUseCase,
 		cronConfig:    cronConfig,
 		logger:        logger,
 	}
@@ -39,7 +39,7 @@ func (t *dailyReportTask) Execute(ctx context.Context) error {
 	start := time.Now()
 	reportDate := time.Now().AddDate(0, 0, -1)
 
-	err := t.reportService.SendReportForDaily(ctx, reportDate)
+	err := t.reportUseCase.SendReportForDaily(ctx, reportDate)
 	duration := time.Since(start)
 
 	if err != nil {

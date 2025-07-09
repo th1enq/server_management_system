@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/th1enq/server_management_system/internal/domain"
-	"github.com/th1enq/server_management_system/internal/domain/ports"
+	"github.com/th1enq/server_management_system/internal/infrastructure/database"
 )
 
 type UserRepository interface {
@@ -18,10 +18,10 @@ type UserRepository interface {
 }
 
 type userRepository struct {
-	db ports.DatabaseClient
+	db database.DatabaseClient
 }
 
-func NewUserRepository(db ports.DatabaseClient) UserRepository {
+func NewUserRepository(db database.DatabaseClient) UserRepository {
 	return &userRepository{
 		db: db,
 	}

@@ -4,7 +4,7 @@ import (
 	"context"
 	"syscall"
 
-	"github.com/th1enq/server_management_system/internal/interfaces/http"
+	"github.com/th1enq/server_management_system/internal/delivery/http"
 	"github.com/th1enq/server_management_system/internal/jobs/scheduler"
 	"github.com/th1enq/server_management_system/internal/utils"
 	"go.uber.org/zap"

@@ -7,30 +7,26 @@ package wiring
 
 import (
 	"github.com/google/wire"
-	"github.com/th1enq/server_management_system/internal/api"
 	"github.com/th1enq/server_management_system/internal/app"
 	"github.com/th1enq/server_management_system/internal/configs"
-	"github.com/th1enq/server_management_system/internal/db"
-	"github.com/th1enq/server_management_system/internal/handler"
-	"github.com/th1enq/server_management_system/internal/middleware"
-	"github.com/th1enq/server_management_system/internal/repository"
-	"github.com/th1enq/server_management_system/internal/services"
+	"github.com/th1enq/server_management_system/internal/delivery"
+	"github.com/th1enq/server_management_system/internal/infrastructure"
+	"github.com/th1enq/server_management_system/internal/jobs"
+	"github.com/th1enq/server_management_system/internal/usecases"
 	"github.com/th1enq/server_management_system/internal/utils"
 )
 
 var WireSet = wire.NewSet(
 	app.WireSet,
 	configs.WireSet,
-	handler.WireSet,
-	db.WireSet,
-	api.WireSet,
-	repository.WireSet,
-	services.WireSet,
-	middleware.WireSet,
+	delivery.WireSet,
+	infrastructure.WireSet,
+	jobs.WireSet,
+	usecases.WireSet,
 	utils.WireSet,
 )
 
-func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.StandaloneServer, func(), error) {
+func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Application, func(), error) {
 	wire.Build(WireSet)
 
 	return nil, nil, nil

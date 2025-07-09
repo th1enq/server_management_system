@@ -2,6 +2,8 @@ package domain
 
 import (
 	"time"
+
+	"github.com/th1enq/server_management_system/internal/utils"
 )
 
 type User struct {
@@ -18,7 +20,14 @@ type User struct {
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
-// GetScopes returns the API scopes for the user
+func (u *User) SetPassword(password string) {
+	hashedPassword, err := utils.HashPassword(password)
+	if err != nil {
+		panic("failed to hash password: " + err.Error())
+	}
+	u.Password = hashedPassword
+}
+
 func (u *User) GetScopes() []APIScope {
 	scopes := []APIScope{}
 

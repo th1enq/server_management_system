@@ -1,4 +1,128 @@
 definitions:
+  domain.APIResponse:
+    properties:
+      code:
+        type: string
+      data: {}
+      error:
+        $ref: '#/definitions/domain.ErrorInfo'
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  domain.APIScope:
+    enum:
+    - server:read
+    - server:write
+    - server:delete
+    - server:import
+    - server:export
+    - user:read
+    - user:write
+    - user:delete
+    - report:read
+    - report:write
+    - profile:read
+    - profile:write
+    - admin:all
+    type: string
+    x-enum-varnames:
+    - ScopeServerRead
+    - ScopeServerWrite
+    - ScopeServerDelete
+    - ScopeServerImport
+    - ScopeServerExport
+    - ScopeUserRead
+    - ScopeUserWrite
+    - ScopeUserDelete
+    - ScopeReportRead
+    - ScopeReportWrite
+    - ScopeProfileRead
+    - ScopeProfileWrite
+    - ScopeAdminAll
+  domain.ErrorInfo:
+    properties:
+      code:
+        type: string
+      details: {}
+      message:
+        type: string
+    type: object
+  domain.Server:
+    properties:
+      cpu:
+        type: integer
+      created_time:
+        type: string
+      description:
+        type: string
+      disk:
+        description: in GB
+        type: integer
+      id:
+        type: integer
+      ipv4:
+        type: string
+      last_updated:
+        type: string
+      location:
+        type: string
+      os:
+        type: string
+      ram:
+        description: in GB
+        type: integer
+      server_id:
+        type: string
+      server_name:
+        type: string
+      status:
+        $ref: '#/definitions/domain.ServerStatus'
+    required:
+    - ipv4
+    - server_id
+    - server_name
+    type: object
+  domain.ServerStatus:
+    enum:
+    - "ON"
+    - "OFF"
+    type: string
+    x-enum-varnames:
+    - ServerStatusOn
+    - ServerStatusOff
+  domain.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      first_name:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      last_name:
+        type: string
+      role:
+        $ref: '#/definitions/domain.UserRole'
+      scopes:
+        type: integer
+      updated_at:
+        type: string
+      username:
+        type: string
+    type: object
+  domain.UserRole:
+    enum:
+    - user
+    - admin
+    type: string
+    x-enum-varnames:
+    - RoleUser
+    - RoleAdmin
   dto.AuthResponse:
     properties:
       access_token:
@@ -9,12 +133,39 @@ definitions:
         type: string
       scopes:
         items:
-          $ref: '#/definitions/models.APIScope'
+          $ref: '#/definitions/domain.APIScope'
         type: array
       token_type:
         type: string
       user:
-        $ref: '#/definitions/models.User'
+        $ref: '#/definitions/domain.User'
+    type: object
+  dto.CreateServerRequest:
+    properties:
+      cpu:
+        type: integer
+      description:
+        type: string
+      disk:
+        description: in GB
+        type: integer
+      ipv4:
+        type: string
+      location:
+        type: string
+      os:
+        type: string
+      ram:
+        description: in GB
+        type: integer
+      server_id:
+        type: string
+      server_name:
+        type: string
+    required:
+    - ipv4
+    - server_id
+    - server_name
     type: object
   dto.CreateUserRequest:
     properties:
@@ -29,14 +180,14 @@ definitions:
         type: string
       role:
         allOf:
-        - $ref: '#/definitions/models.UserRole'
+        - $ref: '#/definitions/domain.UserRole'
         default: user
         enum:
         - user
         - admin
       scopes:
         items:
-          $ref: '#/definitions/models.APIScope'
+          $ref: '#/definitions/domain.APIScope'
         type: array
       username:
         maxLength: 20
@@ -149,14 +300,14 @@ definitions:
         type: integer
       servers:
         items:
-          $ref: '#/definitions/models.Server'
+          $ref: '#/definitions/domain.Server'
         type: array
       size:
         type: integer
       total:
         type: integer
     type: object
-  dto.ServerUpdate:
+  dto.UpdateServerRequest:
     properties:
       cpu:
         type: integer
@@ -175,7 +326,7 @@ definitions:
       server_name:
         type: string
       status:
-        $ref: '#/definitions/models.ServerStatus'
+        $ref: '#/definitions/domain.ServerStatus'
     type: object
   dto.UserUpdate:
     properties:
@@ -193,143 +344,32 @@ definitions:
         type: string
       role:
         allOf:
-        - $ref: '#/definitions/models.UserRole'
+        - $ref: '#/definitions/domain.UserRole'
         enum:
         - user
         - admin
       scopes:
         items:
-          $ref: '#/definitions/models.APIScope'
+          $ref: '#/definitions/domain.APIScope'
         type: array
       username:
         maxLength: 20
         minLength: 3
         type: string
     type: object
-  models.APIResponse:
+  scheduler.TaskInfo:
     properties:
-      code:
+      last_run:
         type: string
-      data: {}
-      error:
-        $ref: '#/definitions/models.ErrorInfo'
-      message:
+      name:
         type: string
-      success:
-        type: boolean
-    type: object
-  models.APIScope:
-    enum:
-    - server:read
-    - server:write
-    - server:delete
-    - server:import
-    - server:export
-    - user:read
-    - user:write
-    - user:delete
-    - report:read
-    - report:write
-    - profile:read
-    - profile:write
-    - admin:all
-    type: string
-    x-enum-varnames:
-    - ScopeServerRead
-    - ScopeServerWrite
-    - ScopeServerDelete
-    - ScopeServerImport
-    - ScopeServerExport
-    - ScopeUserRead
-    - ScopeUserWrite
-    - ScopeUserDelete
-    - ScopeReportRead
-    - ScopeReportWrite
-    - ScopeProfileRead
-    - ScopeProfileWrite
-    - ScopeAdminAll
-  models.ErrorInfo:
-    properties:
-      code:
+      next_run:
         type: string
-      details: {}
-      message:
-        type: string
-    type: object
-  models.Server:
-    properties:
-      cpu:
-        type: integer
-      created_time:
-        type: string
-      description:
-        type: string
-      disk:
-        description: in GB
-        type: integer
-      id:
-        type: integer
-      ipv4:
-        type: string
-      last_updated:
-        type: string
-      location:
-        type: string
-      os:
-        type: string
-      ram:
-        description: in GB
-        type: integer
-      server_id:
-        type: string
-      server_name:
+      schedule:
         type: string
       status:
-        $ref: '#/definitions/models.ServerStatus'
-    required:
-    - ipv4
-    - server_id
-    - server_name
-    type: object
-  models.ServerStatus:
-    enum:
-    - "ON"
-    - "OFF"
-    type: string
-    x-enum-varnames:
-    - ServerStatusOn
-    - ServerStatusOff
-  models.User:
-    properties:
-      created_at:
-        type: string
-      email:
-        type: string
-      first_name:
-        type: string
-      id:
-        type: integer
-      is_active:
-        type: boolean
-      last_name:
-        type: string
-      role:
-        $ref: '#/definitions/models.UserRole'
-      scopes:
-        type: integer
-      updated_at:
-        type: string
-      username:
         type: string
     type: object
-  models.UserRole:
-    enum:
-    - user
-    - admin
-    type: string
-    x-enum-varnames:
-    - RoleUser
-    - RoleAdmin
 host: localhost:8080
 info:
   contact:
@@ -364,7 +404,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/models.APIResponse'
+            - $ref: '#/definitions/domain.APIResponse'
             - properties:
                 data:
                   $ref: '#/definitions/dto.AuthResponse'
@@ -372,11 +412,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
       summary: User login
       tags:
       - auth
@@ -387,11 +427,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
       security:
       - BearerAuth: []
       summary: User logout
@@ -416,7 +456,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/models.APIResponse'
+            - $ref: '#/definitions/domain.APIResponse'
             - properties:
                 data:
                   $ref: '#/definitions/dto.AuthResponse'
@@ -424,11 +464,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
       summary: Refresh JWT token
       tags:
       - auth
@@ -451,7 +491,7 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/models.APIResponse'
+            - $ref: '#/definitions/domain.APIResponse'
             - properties:
                 data:
                   $ref: '#/definitions/dto.AuthResponse'
@@ -459,14 +499,65 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
       summary: User registration
       tags:
       - auth
+  /api/v1/jobs:
+    get:
+      description: Get information about all background jobs and their schedules
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/scheduler.TaskInfo'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/domain.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Get all scheduled jobs (monitoring only)
+      tags:
+      - jobs
+  /api/v1/jobs/status:
+    get:
+      description: Get the current status of the background job scheduler
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.APIResponse'
+            - properties:
+                data:
+                  additionalProperties: true
+                  type: object
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/domain.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Get job scheduler status (monitoring only)
+      tags:
+      - jobs
   /api/v1/reports:
     post:
       consumes:
@@ -486,15 +577,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
       security:
       - BearerAuth: []
       summary: Send report by date range
@@ -511,11 +602,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
       security:
       - BearerAuth: []
       summary: Send daily report
@@ -578,7 +669,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/models.APIResponse'
+            - $ref: '#/definitions/domain.APIResponse'
             - properties:
                 data:
                   $ref: '#/definitions/dto.ServerListResponse'
@@ -586,11 +677,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
       security:
       - BearerAuth: []
       summary: List servers
@@ -606,7 +697,7 @@ paths:
         name: server
         required: true
         schema:
-          $ref: '#/definitions/models.Server'
+          $ref: '#/definitions/dto.CreateServerRequest'
       produces:
       - application/json
       responses:
@@ -614,23 +705,23 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/models.APIResponse'
+            - $ref: '#/definitions/domain.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/models.Server'
+                  $ref: '#/definitions/domain.Server'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
       security:
       - BearerAuth: []
       summary: Create a new server
@@ -653,15 +744,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
       security:
       - BearerAuth: []
       summary: Delete server
@@ -682,7 +773,7 @@ paths:
         name: updateInfo
         required: true
         schema:
-          $ref: '#/definitions/dto.ServerUpdate'
+          $ref: '#/definitions/dto.UpdateServerRequest'
       produces:
       - application/json
       responses:
@@ -690,27 +781,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/models.APIResponse'
+            - $ref: '#/definitions/domain.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/models.Server'
+                  $ref: '#/definitions/domain.Server'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
       security:
       - BearerAuth: []
       summary: Update server
@@ -776,11 +867,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
       security:
       - BearerAuth: []
       summary: Export servers to Excel file
@@ -804,7 +895,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/models.APIResponse'
+            - $ref: '#/definitions/domain.APIResponse'
             - properties:
                 data:
                   $ref: '#/definitions/dto.ImportResult'
@@ -812,11 +903,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
       security:
       - BearerAuth: []
       summary: Import servers from Excel file
@@ -843,21 +934,21 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/models.APIResponse'
+            - $ref: '#/definitions/domain.APIResponse'
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/models.User'
+                    $ref: '#/definitions/domain.User'
                   type: array
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
       security:
       - BearerAuth: []
       summary: List users
@@ -880,24 +971,24 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/models.User'
+            $ref: '#/definitions/domain.User'
         "400":
           description: Bad Request
           schema:
             allOf:
-            - $ref: '#/definitions/models.APIResponse'
+            - $ref: '#/definitions/domain.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/models.User'
+                  $ref: '#/definitions/domain.User'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
       security:
       - BearerAuth: []
       summary: Create user
@@ -916,23 +1007,23 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
       security:
       - BearerAuth: []
       summary: Delete user
@@ -961,27 +1052,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/models.APIResponse'
+            - $ref: '#/definitions/domain.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/models.User'
+                  $ref: '#/definitions/domain.User'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
       security:
       - BearerAuth: []
       summary: Update user
@@ -1005,15 +1096,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
       security:
       - BearerAuth: []
       summary: Change password
@@ -1029,19 +1120,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/models.APIResponse'
+            - $ref: '#/definitions/domain.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/models.User'
+                  $ref: '#/definitions/domain.User'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
       security:
       - BearerAuth: []
       summary: Get user profile
@@ -1065,19 +1156,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/models.APIResponse'
+            - $ref: '#/definitions/domain.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/models.User'
+                  $ref: '#/definitions/domain.User'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/models.APIResponse'
+            $ref: '#/definitions/domain.APIResponse'
       security:
       - BearerAuth: []
       summary: Update user profile

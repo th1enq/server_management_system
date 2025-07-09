@@ -8,22 +8,28 @@ package wiring
 
 import (
 	"github.com/google/wire"
-	"github.com/th1enq/server_management_system/internal/api"
-	"github.com/th1enq/server_management_system/internal/api/http"
-	"github.com/th1enq/server_management_system/internal/api/jobs"
 	"github.com/th1enq/server_management_system/internal/app"
 	"github.com/th1enq/server_management_system/internal/configs"
-	"github.com/th1enq/server_management_system/internal/db"
-	"github.com/th1enq/server_management_system/internal/handler"
-	"github.com/th1enq/server_management_system/internal/middleware"
-	"github.com/th1enq/server_management_system/internal/repository"
-	"github.com/th1enq/server_management_system/internal/services"
+	"github.com/th1enq/server_management_system/internal/delivery"
+	"github.com/th1enq/server_management_system/internal/delivery/http"
+	"github.com/th1enq/server_management_system/internal/delivery/http/controllers"
+	"github.com/th1enq/server_management_system/internal/delivery/http/presenters"
+	"github.com/th1enq/server_management_system/internal/delivery/middleware"
+	"github.com/th1enq/server_management_system/internal/infrastructure"
+	"github.com/th1enq/server_management_system/internal/infrastructure/cache"
+	"github.com/th1enq/server_management_system/internal/infrastructure/database"
+	"github.com/th1enq/server_management_system/internal/infrastructure/repository"
+	"github.com/th1enq/server_management_system/internal/infrastructure/search"
+	"github.com/th1enq/server_management_system/internal/jobs"
+	"github.com/th1enq/server_management_system/internal/jobs/scheduler"
+	"github.com/th1enq/server_management_system/internal/jobs/tasks"
+	"github.com/th1enq/server_management_system/internal/usecases"
 	"github.com/th1enq/server_management_system/internal/utils"
 )
 
 // Injectors from wire.go:
 
-func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.StandaloneServer, func(), error) {
+func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Application, func(), error) {
 	config, err := configs.NewConfig(configFilePath)
 	if err != nil {
 		return nil, nil, err
@@ -34,46 +40,55 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Stand
 	if err != nil {
 		return nil, nil, err
 	}
-	database := config.Database
-	iDatabaseClient, err := db.NewDatabase(database, logger)
+	configsDatabase := config.Database
+	databaseClient, err := database.NewDatabase(configsDatabase, logger)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	iServerRepository := repository.NewServerRepository(iDatabaseClient)
-	cache := config.Cache
-	iRedisClient, err := db.NewCache(cache, logger)
+	serverRepository := repository.NewServerRepository(databaseClient)
+	configsCache := config.Cache
+	cacheClient, err := cache.NewCache(configsCache, logger)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	iServerService := services.NewServerService(iServerRepository, iRedisClient, logger)
-	serverHandler := handler.NewServerHandler(iServerService, logger)
+	serverUseCase := usecases.NewServerUseCase(serverRepository, cacheClient, logger)
+	serverPresenter := presenters.NewServerPresenter()
+	serverController := controllers.NewServerController(serverUseCase, serverPresenter, logger)
 	email := config.Email
 	elasticSearch := config.Elasticsearch
-	client, cleanup2, err := db.LoadElasticSearch(elasticSearch, logger)
+	client, cleanup2, err := search.LoadElasticSearch(elasticSearch, logger)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	iHealthCheckService := services.NewHealthCheckService(client, iServerService, logger)
-	iReportService := services.NewReportService(email, iHealthCheckService, logger)
-	reportHandler := handler.NewReportHandler(iReportService, logger)
-	iUserRepository := repository.NewUserRepository(iDatabaseClient)
-	iUserService := services.NewUserService(iUserRepository, logger)
+	healthCheckUseCase := usecases.NewHealthCheckUseCase(client, serverUseCase, logger)
+	reportUseCase := usecases.NewReportUseCase(email, healthCheckUseCase, logger)
+	reportPresenter := presenters.NewReportPresenter()
+	reportController := controllers.NewReportController(reportUseCase, reportPresenter, logger)
+	userRepository := repository.NewUserRepository(databaseClient)
+	userUseCase := usecases.NewUserUseCase(userRepository, logger)
 	jwt := config.JWT
-	iTokenService := services.NewTokenService(jwt, logger, iRedisClient)
-	iAuthService := services.NewAuthService(iUserService, iTokenService, logger)
-	authHandler := handler.NewAuthHandler(iAuthService, logger)
-	userHandler := handler.NewUserHandler(iUserService, logger)
-	authMiddleware := middleware.NewAuthMiddleware(iAuthService, logger)
-	httpHandler := http.NewHandler(serverHandler, reportHandler, authHandler, userHandler, authMiddleware)
-	httpServer := http.NewServer(server, logger, httpHandler)
+	tokenRepository := repository.NewTokenRepository(cacheClient)
+	tokenUseCase := usecases.NewTokenUseCase(jwt, logger, tokenRepository)
+	authUseCase := usecases.NewAuthUseCase(userUseCase, tokenUseCase, logger)
+	authPresenter := presenters.NewAuthPresenter()
+	authController := controllers.NewAuthController(authUseCase, authPresenter, logger)
+	userPresenter := presenters.NewUserPresenter()
+	userController := controllers.NewUserController(userUseCase, userPresenter, logger)
+	jobScheduler := scheduler.NewJobScheduler(logger)
 	cron := config.Cron
-	sendDailyReport := jobs.NewSendDailyReport(iReportService)
-	intervalCheckStatus := jobs.NewIntervalCheckStatus(iServerService)
-	standaloneServer := app.NewStandaloneServer(httpServer, logger, cron, sendDailyReport, intervalCheckStatus)
-	return standaloneServer, func() {
+	serverHealthCheckTask := tasks.NewServerHealthCheckTask(serverUseCase, cron, logger)
+	dailyReportTask := tasks.NewDailyReportTask(reportUseCase, cron, logger)
+	jobManager := scheduler.NewJobManager(jobScheduler, serverHealthCheckTask, dailyReportTask, logger)
+	jobsPresenter := presenters.NewJobsPresenter()
+	jobsController := controllers.NewJobsController(jobManager, jobsPresenter, logger)
+	authMiddleware := middleware.NewAuthMiddleware(tokenUseCase, logger)
+	controller := http.NewController(serverController, reportController, authController, userController, jobsController, authMiddleware)
+	iServer := http.NewServer(server, logger, controller)
+	application := app.NewApplication(iServer, jobManager, logger)
+	return application, func() {
 		cleanup2()
 		cleanup()
 	}, nil
@@ -81,4 +96,4 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Stand
 
 // wire.go:
 
-var WireSet = wire.NewSet(app.WireSet, configs.WireSet, handler.WireSet, db.WireSet, api.WireSet, repository.WireSet, services.WireSet, middleware.WireSet, utils.WireSet)
+var WireSet = wire.NewSet(app.WireSet, configs.WireSet, delivery.WireSet, infrastructure.WireSet, jobs.WireSet, usecases.WireSet, utils.WireSet)

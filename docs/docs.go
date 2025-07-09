@@ -54,7 +54,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.APIResponse"
+                                    "$ref": "#/definitions/domain.APIResponse"
                                 },
                                 {
                                     "type": "object",
@@ -70,13 +70,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     }
                 }
@@ -98,13 +98,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     }
                 }
@@ -140,7 +140,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.APIResponse"
+                                    "$ref": "#/definitions/domain.APIResponse"
                                 },
                                 {
                                     "type": "object",
@@ -156,13 +156,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     }
                 }
@@ -198,7 +198,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.APIResponse"
+                                    "$ref": "#/definitions/domain.APIResponse"
                                 },
                                 {
                                     "type": "object",
@@ -214,13 +214,103 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/jobs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get information about all background jobs and their schedules",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "jobs"
+                ],
+                "summary": "Get all scheduled jobs (monitoring only)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/domain.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/scheduler.TaskInfo"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/domain.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/jobs/status": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get the current status of the background job scheduler",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "jobs"
+                ],
+                "summary": "Get job scheduler status (monitoring only)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/domain.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": true
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     }
                 }
@@ -259,19 +349,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     }
                 }
@@ -299,13 +389,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     }
                 }
@@ -401,7 +491,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.APIResponse"
+                                    "$ref": "#/definitions/domain.APIResponse"
                                 },
                                 {
                                     "type": "object",
@@ -417,13 +507,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     }
                 }
@@ -452,7 +542,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Server"
+                            "$ref": "#/definitions/dto.CreateServerRequest"
                         }
                     }
                 ],
@@ -462,13 +552,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.APIResponse"
+                                    "$ref": "#/definitions/domain.APIResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/models.Server"
+                                            "$ref": "#/definitions/domain.Server"
                                         }
                                     }
                                 }
@@ -478,19 +568,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     }
                 }
@@ -590,13 +680,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     }
                 }
@@ -635,7 +725,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.APIResponse"
+                                    "$ref": "#/definitions/domain.APIResponse"
                                 },
                                 {
                                     "type": "object",
@@ -651,13 +741,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     }
                 }
@@ -695,7 +785,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.ServerUpdate"
+                            "$ref": "#/definitions/dto.UpdateServerRequest"
                         }
                     }
                 ],
@@ -705,13 +795,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.APIResponse"
+                                    "$ref": "#/definitions/domain.APIResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/models.Server"
+                                            "$ref": "#/definitions/domain.Server"
                                         }
                                     }
                                 }
@@ -721,25 +811,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     }
                 }
@@ -774,19 +864,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     }
                 }
@@ -829,7 +919,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.APIResponse"
+                                    "$ref": "#/definitions/domain.APIResponse"
                                 },
                                 {
                                     "type": "object",
@@ -837,7 +927,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/models.User"
+                                                "$ref": "#/definitions/domain.User"
                                             }
                                         }
                                     }
@@ -848,13 +938,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     }
                 }
@@ -891,7 +981,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/models.User"
+                            "$ref": "#/definitions/domain.User"
                         }
                     },
                     "400": {
@@ -899,13 +989,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.APIResponse"
+                                    "$ref": "#/definitions/domain.APIResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/models.User"
+                                            "$ref": "#/definitions/domain.User"
                                         }
                                     }
                                 }
@@ -915,13 +1005,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     }
                 }
@@ -960,19 +1050,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     }
                 }
@@ -999,13 +1089,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.APIResponse"
+                                    "$ref": "#/definitions/domain.APIResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/models.User"
+                                            "$ref": "#/definitions/domain.User"
                                         }
                                     }
                                 }
@@ -1015,13 +1105,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     }
                 }
@@ -1060,13 +1150,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.APIResponse"
+                                    "$ref": "#/definitions/domain.APIResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/models.User"
+                                            "$ref": "#/definitions/domain.User"
                                         }
                                     }
                                 }
@@ -1076,13 +1166,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     }
                 }
@@ -1130,13 +1220,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.APIResponse"
+                                    "$ref": "#/definitions/domain.APIResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/models.User"
+                                            "$ref": "#/definitions/domain.User"
                                         }
                                     }
                                 }
@@ -1146,25 +1236,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     }
                 }
@@ -1193,31 +1283,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/domain.APIResponse"
                         }
                     }
                 }
@@ -1225,6 +1315,177 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "domain.APIResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "data": {},
+                "error": {
+                    "$ref": "#/definitions/domain.ErrorInfo"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "domain.APIScope": {
+            "type": "string",
+            "enum": [
+                "server:read",
+                "server:write",
+                "server:delete",
+                "server:import",
+                "server:export",
+                "user:read",
+                "user:write",
+                "user:delete",
+                "report:read",
+                "report:write",
+                "profile:read",
+                "profile:write",
+                "admin:all"
+            ],
+            "x-enum-varnames": [
+                "ScopeServerRead",
+                "ScopeServerWrite",
+                "ScopeServerDelete",
+                "ScopeServerImport",
+                "ScopeServerExport",
+                "ScopeUserRead",
+                "ScopeUserWrite",
+                "ScopeUserDelete",
+                "ScopeReportRead",
+                "ScopeReportWrite",
+                "ScopeProfileRead",
+                "ScopeProfileWrite",
+                "ScopeAdminAll"
+            ]
+        },
+        "domain.ErrorInfo": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "details": {},
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.Server": {
+            "type": "object",
+            "required": [
+                "ipv4",
+                "server_id",
+                "server_name"
+            ],
+            "properties": {
+                "cpu": {
+                    "type": "integer"
+                },
+                "created_time": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "disk": {
+                    "description": "in GB",
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "ipv4": {
+                    "type": "string"
+                },
+                "last_updated": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "os": {
+                    "type": "string"
+                },
+                "ram": {
+                    "description": "in GB",
+                    "type": "integer"
+                },
+                "server_id": {
+                    "type": "string"
+                },
+                "server_name": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/domain.ServerStatus"
+                }
+            }
+        },
+        "domain.ServerStatus": {
+            "type": "string",
+            "enum": [
+                "ON",
+                "OFF"
+            ],
+            "x-enum-varnames": [
+                "ServerStatusOn",
+                "ServerStatusOff"
+            ]
+        },
+        "domain.User": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "role": {
+                    "$ref": "#/definitions/domain.UserRole"
+                },
+                "scopes": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.UserRole": {
+            "type": "string",
+            "enum": [
+                "user",
+                "admin"
+            ],
+            "x-enum-varnames": [
+                "RoleUser",
+                "RoleAdmin"
+            ]
+        },
         "dto.AuthResponse": {
             "type": "object",
             "properties": {
@@ -1240,14 +1501,53 @@ const docTemplate = `{
                 "scopes": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.APIScope"
+                        "$ref": "#/definitions/domain.APIScope"
                     }
                 },
                 "token_type": {
                     "type": "string"
                 },
                 "user": {
-                    "$ref": "#/definitions/models.User"
+                    "$ref": "#/definitions/domain.User"
+                }
+            }
+        },
+        "dto.CreateServerRequest": {
+            "type": "object",
+            "required": [
+                "ipv4",
+                "server_id",
+                "server_name"
+            ],
+            "properties": {
+                "cpu": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "disk": {
+                    "description": "in GB",
+                    "type": "integer"
+                },
+                "ipv4": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "os": {
+                    "type": "string"
+                },
+                "ram": {
+                    "description": "in GB",
+                    "type": "integer"
+                },
+                "server_id": {
+                    "type": "string"
+                },
+                "server_name": {
+                    "type": "string"
                 }
             }
         },
@@ -1282,14 +1582,14 @@ const docTemplate = `{
                     ],
                     "allOf": [
                         {
-                            "$ref": "#/definitions/models.UserRole"
+                            "$ref": "#/definitions/domain.UserRole"
                         }
                     ]
                 },
                 "scopes": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.APIScope"
+                        "$ref": "#/definitions/domain.APIScope"
                     }
                 },
                 "username": {
@@ -1443,7 +1743,7 @@ const docTemplate = `{
                 "servers": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.Server"
+                        "$ref": "#/definitions/domain.Server"
                     }
                 },
                 "size": {
@@ -1454,7 +1754,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.ServerUpdate": {
+        "dto.UpdateServerRequest": {
             "type": "object",
             "properties": {
                 "cpu": {
@@ -1482,7 +1782,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
-                    "$ref": "#/definitions/models.ServerStatus"
+                    "$ref": "#/definitions/domain.ServerStatus"
                 }
             }
         },
@@ -1513,14 +1813,14 @@ const docTemplate = `{
                     ],
                     "allOf": [
                         {
-                            "$ref": "#/definitions/models.UserRole"
+                            "$ref": "#/definitions/domain.UserRole"
                         }
                     ]
                 },
                 "scopes": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.APIScope"
+                        "$ref": "#/definitions/domain.APIScope"
                     }
                 },
                 "username": {
@@ -1530,176 +1830,25 @@ const docTemplate = `{
                 }
             }
         },
-        "models.APIResponse": {
+        "scheduler.TaskInfo": {
             "type": "object",
             "properties": {
-                "code": {
+                "last_run": {
                     "type": "string"
                 },
-                "data": {},
-                "error": {
-                    "$ref": "#/definitions/models.ErrorInfo"
-                },
-                "message": {
+                "name": {
                     "type": "string"
                 },
-                "success": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "models.APIScope": {
-            "type": "string",
-            "enum": [
-                "server:read",
-                "server:write",
-                "server:delete",
-                "server:import",
-                "server:export",
-                "user:read",
-                "user:write",
-                "user:delete",
-                "report:read",
-                "report:write",
-                "profile:read",
-                "profile:write",
-                "admin:all"
-            ],
-            "x-enum-varnames": [
-                "ScopeServerRead",
-                "ScopeServerWrite",
-                "ScopeServerDelete",
-                "ScopeServerImport",
-                "ScopeServerExport",
-                "ScopeUserRead",
-                "ScopeUserWrite",
-                "ScopeUserDelete",
-                "ScopeReportRead",
-                "ScopeReportWrite",
-                "ScopeProfileRead",
-                "ScopeProfileWrite",
-                "ScopeAdminAll"
-            ]
-        },
-        "models.ErrorInfo": {
-            "type": "object",
-            "properties": {
-                "code": {
+                "next_run": {
                     "type": "string"
                 },
-                "details": {},
-                "message": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.Server": {
-            "type": "object",
-            "required": [
-                "ipv4",
-                "server_id",
-                "server_name"
-            ],
-            "properties": {
-                "cpu": {
-                    "type": "integer"
-                },
-                "created_time": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "disk": {
-                    "description": "in GB",
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "ipv4": {
-                    "type": "string"
-                },
-                "last_updated": {
-                    "type": "string"
-                },
-                "location": {
-                    "type": "string"
-                },
-                "os": {
-                    "type": "string"
-                },
-                "ram": {
-                    "description": "in GB",
-                    "type": "integer"
-                },
-                "server_id": {
-                    "type": "string"
-                },
-                "server_name": {
+                "schedule": {
                     "type": "string"
                 },
                 "status": {
-                    "$ref": "#/definitions/models.ServerStatus"
-                }
-            }
-        },
-        "models.ServerStatus": {
-            "type": "string",
-            "enum": [
-                "ON",
-                "OFF"
-            ],
-            "x-enum-varnames": [
-                "ServerStatusOn",
-                "ServerStatusOff"
-            ]
-        },
-        "models.User": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "first_name": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "is_active": {
-                    "type": "boolean"
-                },
-                "last_name": {
-                    "type": "string"
-                },
-                "role": {
-                    "$ref": "#/definitions/models.UserRole"
-                },
-                "scopes": {
-                    "type": "integer"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "username": {
                     "type": "string"
                 }
             }
-        },
-        "models.UserRole": {
-            "type": "string",
-            "enum": [
-                "user",
-                "admin"
-            ],
-            "x-enum-varnames": [
-                "RoleUser",
-                "RoleAdmin"
-            ]
         }
     },
     "securityDefinitions": {

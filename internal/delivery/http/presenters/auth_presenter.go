@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/th1enq/server_management_system/internal/models"
-	"github.com/th1enq/server_management_system/internal/models/dto"
+	"github.com/th1enq/server_management_system/internal/domain"
+	"github.com/th1enq/server_management_system/internal/dto"
 )
 
 type AuthPresenter interface {
@@ -30,8 +30,8 @@ func NewAuthPresenter() AuthPresenter {
 }
 
 func (p *authPresenter) LoginSuccess(c *gin.Context, authResponse *dto.AuthResponse) {
-	response := models.NewSuccessResponse(
-		models.CodeSuccess,
+	response := domain.NewSuccessResponse(
+		domain.CodeSuccess,
 		"Login successful",
 		authResponse,
 	)
@@ -40,8 +40,8 @@ func (p *authPresenter) LoginSuccess(c *gin.Context, authResponse *dto.AuthRespo
 }
 
 func (p *authPresenter) RegisterSuccess(c *gin.Context, authResponse *dto.AuthResponse) {
-	response := models.NewSuccessResponse(
-		models.CodeCreated,
+	response := domain.NewSuccessResponse(
+		domain.CodeCreated,
 		"Registration successful",
 		authResponse,
 	)
@@ -50,8 +50,8 @@ func (p *authPresenter) RegisterSuccess(c *gin.Context, authResponse *dto.AuthRe
 }
 
 func (p *authPresenter) RefreshTokenSuccess(c *gin.Context, authResponse *dto.AuthResponse) {
-	response := models.NewSuccessResponse(
-		models.CodeSuccess,
+	response := domain.NewSuccessResponse(
+		domain.CodeSuccess,
 		"Token refreshed successfully",
 		authResponse,
 	)
@@ -60,8 +60,8 @@ func (p *authPresenter) RefreshTokenSuccess(c *gin.Context, authResponse *dto.Au
 }
 
 func (p *authPresenter) LogoutSuccess(c *gin.Context) {
-	response := models.NewSuccessResponse(
-		models.CodeSuccess,
+	response := domain.NewSuccessResponse(
+		domain.CodeSuccess,
 		"Logout successful",
 		nil,
 	)
@@ -75,8 +75,8 @@ func (p *authPresenter) InvalidRequest(c *gin.Context, message string, err error
 		errorMsg = err.Error()
 	}
 
-	response := models.NewErrorResponse(
-		models.CodeBadRequest,
+	response := domain.NewErrorResponse(
+		domain.CodeBadRequest,
 		message,
 		errorMsg,
 	)
@@ -90,8 +90,8 @@ func (p *authPresenter) AuthenticationFailed(c *gin.Context, message string, err
 		errorMsg = err.Error()
 	}
 
-	response := models.NewErrorResponse(
-		models.CodeUnauthorized,
+	response := domain.NewErrorResponse(
+		domain.CodeUnauthorized,
 		message,
 		errorMsg,
 	)
@@ -105,8 +105,8 @@ func (p *authPresenter) RegistrationFailed(c *gin.Context, message string, err e
 		errorMsg = err.Error()
 	}
 
-	response := models.NewErrorResponse(
-		models.CodeConflict,
+	response := domain.NewErrorResponse(
+		domain.CodeConflict,
 		message,
 		errorMsg,
 	)
@@ -120,8 +120,8 @@ func (p *authPresenter) InvalidRefreshToken(c *gin.Context, message string, err 
 		errorMsg = err.Error()
 	}
 
-	response := models.NewErrorResponse(
-		models.CodeUnauthorized,
+	response := domain.NewErrorResponse(
+		domain.CodeUnauthorized,
 		message,
 		errorMsg,
 	)
@@ -130,8 +130,8 @@ func (p *authPresenter) InvalidRefreshToken(c *gin.Context, message string, err 
 }
 
 func (p *authPresenter) Unauthorized(c *gin.Context, message string) {
-	response := models.NewErrorResponse(
-		models.CodeUnauthorized,
+	response := domain.NewErrorResponse(
+		domain.CodeUnauthorized,
 		message,
 		nil,
 	)
@@ -145,8 +145,8 @@ func (p *authPresenter) InternalServerError(c *gin.Context, message string, err 
 		errorMsg = err.Error()
 	}
 
-	response := models.NewErrorResponse(
-		models.CodeInternalServerError,
+	response := domain.NewErrorResponse(
+		domain.CodeInternalServerError,
 		message,
 		errorMsg,
 	)

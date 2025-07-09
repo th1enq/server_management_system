@@ -8,55 +8,55 @@ import (
 	"time"
 
 	"github.com/elastic/go-elasticsearch/v9"
-	"github.com/th1enq/server_management_system/internal/models"
+	"github.com/th1enq/server_management_system/internal/domain"
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/zap"
 )
 
-type IHealthCheckService interface {
-	CalculateAverageUptime(ctx context.Context, startTime, endTime time.Time) (*models.DailyReport, error)
+type HealthCheckUseCase interface {
+	CalculateAverageUptime(ctx context.Context, startTime, endTime time.Time) (*domain.DailyReport, error)
 	CalculateServerUpTime(ctx context.Context, serverID *string, startTime, endTime time.Time) (float64, error)
 	CountLogStats(ctx context.Context, serverID *string, stat string, startTime, endTime time.Time) (int64, error)
-	ExportReportXLSX(ctx context.Context, report *models.DailyReport) (string, error)
+	ExportReportXLSX(ctx context.Context, report *domain.DailyReport) (string, error)
 }
 
-type healthCheckService struct {
-	esClient  *elasticsearch.Client
-	serverSrv IServerService
-	logger    *zap.Logger
+type healthCheckUseCase struct {
+	esClient      *elasticsearch.Client
+	serverUseCase ServerUseCase
+	logger        *zap.Logger
 }
 
-func NewHealthCheckService(esClient *elasticsearch.Client, serverSrv IServerService, logger *zap.Logger) IHealthCheckService {
-	return &healthCheckService{
-		esClient:  esClient,
-		serverSrv: serverSrv,
-		logger:    logger,
+func NewHealthCheckUseCase(esClient *elasticsearch.Client, serverUseCase ServerUseCase, logger *zap.Logger) HealthCheckUseCase {
+	return &healthCheckUseCase{
+		esClient:      esClient,
+		serverUseCase: serverUseCase,
+		logger:        logger,
 	}
 }
 
-func (h *healthCheckService) CalculateAverageUptime(ctx context.Context, startTime, endTime time.Time) (*models.DailyReport, error) {
-	servers, err := h.serverSrv.GetAllServers(ctx)
+func (h *healthCheckUseCase) CalculateAverageUptime(ctx context.Context, startTime, endTime time.Time) (*domain.DailyReport, error) {
+	servers, err := h.serverUseCase.GetAllServers(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get servers: %w", err)
 	}
 	if len(servers) == 0 {
-		return &models.DailyReport{
+		return &domain.DailyReport{
 			StartOfDay:   startTime,
 			EndOfDay:     endTime,
 			TotalServers: 0,
 			OnlineCount:  0,
 			OfflineCount: 0,
 			AvgUptime:    0,
-			Detail:       []models.ServerUpTime{},
+			Detail:       []domain.ServerUpTime{},
 		}, nil
 	}
 
-	var singleUpTime []models.ServerUpTime
+	var singleUpTime []domain.ServerUpTime
 	totalUpTime := 0.0
 	onlineCount := 0
 	offlineCount := 0
 	for _, server := range servers {
-		if server.Status == models.ServerStatusOff {
+		if server.Status == domain.ServerStatusOff {
 			offlineCount++
 		} else {
 			onlineCount++
@@ -66,7 +66,7 @@ func (h *healthCheckService) CalculateAverageUptime(ctx context.Context, startTi
 			h.logger.With(zap.Error(err)).Error("Failed to calculate uptime for server", zap.String("serverID", server.ServerID))
 			continue
 		}
-		singleUpTime = append(singleUpTime, models.ServerUpTime{
+		singleUpTime = append(singleUpTime, domain.ServerUpTime{
 			Server:    server,
 			AvgUpTime: uptime,
 		})
@@ -74,7 +74,7 @@ func (h *healthCheckService) CalculateAverageUptime(ctx context.Context, startTi
 	}
 	avgUptime := totalUpTime / float64(len(servers))
 
-	report := &models.DailyReport{
+	report := &domain.DailyReport{
 		StartOfDay:   startTime,
 		EndOfDay:     endTime,
 		TotalServers: int64(len(servers)),
@@ -87,7 +87,7 @@ func (h *healthCheckService) CalculateAverageUptime(ctx context.Context, startTi
 	return report, nil
 }
 
-func (h *healthCheckService) CountLogStats(ctx context.Context, serverID *string, stat string, startTime, endTime time.Time) (int64, error) {
+func (h *healthCheckUseCase) CountLogStats(ctx context.Context, serverID *string, stat string, startTime, endTime time.Time) (int64, error) {
 	query := fmt.Sprintf(`{
 		"query": {
 			"bool": {
@@ -132,7 +132,7 @@ func (h *healthCheckService) CountLogStats(ctx context.Context, serverID *string
 	return total, nil
 }
 
-func (h *healthCheckService) CalculateServerUpTime(ctx context.Context, serverID *string, startTime, endTime time.Time) (float64, error) {
+func (h *healthCheckUseCase) CalculateServerUpTime(ctx context.Context, serverID *string, startTime, endTime time.Time) (float64, error) {
 	if startTime.After(endTime) {
 		return 0, fmt.Errorf("startTime cannot be after endTime")
 	}
@@ -154,7 +154,7 @@ func (h *healthCheckService) CalculateServerUpTime(ctx context.Context, serverID
 	return float64(onlineCount) / float64(totalCount) * 100, nil
 }
 
-func (h *healthCheckService) ExportReportXLSX(ctx context.Context, report *models.DailyReport) (string, error) {
+func (h *healthCheckUseCase) ExportReportXLSX(ctx context.Context, report *domain.DailyReport) (string, error) {
 	file := excelize.NewFile()
 	streamWriter, err := file.NewStreamWriter("Sheet1")
 	if err != nil {

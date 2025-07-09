@@ -4,38 +4,37 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html/template"
 	"os"
+	"text/template"
 	"time"
 
 	"github.com/th1enq/server_management_system/internal/configs"
-	"github.com/th1enq/server_management_system/internal/models"
+	"github.com/th1enq/server_management_system/internal/domain"
 	"go.uber.org/zap"
 	"gopkg.in/gomail.v2"
 )
 
-type IReportService interface {
-	SendReportToEmail(ctx context.Context, report *models.DailyReport, emailTo, msg string) error
+type ReportUseCase interface {
+	SendReportToEmail(ctx context.Context, report *domain.DailyReport, emailTo, msg string) error
 	SendReportForDateRange(ctx context.Context, startDate, endDate time.Time, emailTo string) error
 	SendReportForDaily(ctx context.Context, date time.Time) error
 }
 
-type reportService struct {
+type reportUseCase struct {
 	cfg                configs.Email
-	healthCheckService IHealthCheckService
-	serverService      IServerService
+	healthCheckUseCase HealthCheckUseCase
 	logger             *zap.Logger
 }
 
-func NewReportService(cfg configs.Email, healthCheckService IHealthCheckService, logger *zap.Logger) IReportService {
-	return &reportService{
+func NewReportUseCase(cfg configs.Email, healthCheckUseCase HealthCheckUseCase, logger *zap.Logger) ReportUseCase {
+	return &reportUseCase{
 		cfg:                cfg,
-		healthCheckService: healthCheckService,
+		healthCheckUseCase: healthCheckUseCase,
 		logger:             logger,
 	}
 }
 
-func (s *reportService) SendReportToEmail(ctx context.Context, report *models.DailyReport, emailTo, msg string) error {
+func (s *reportUseCase) SendReportToEmail(ctx context.Context, report *domain.DailyReport, emailTo, msg string) error {
 	emailTemplate, err := os.ReadFile("template/email.html")
 	if err != nil {
 		return fmt.Errorf("failed to read email template: %w", err)
@@ -53,7 +52,7 @@ func (s *reportService) SendReportToEmail(ctx context.Context, report *models.Da
 		return fmt.Errorf("failed to execute template: %w", err)
 	}
 
-	filePath, err := s.healthCheckService.ExportReportXLSX(ctx, report)
+	filePath, err := s.healthCheckUseCase.ExportReportXLSX(ctx, report)
 	if err != nil {
 		return fmt.Errorf("failed to export report to XLSX: %w", err)
 	}
@@ -84,12 +83,12 @@ func (s *reportService) SendReportToEmail(ctx context.Context, report *models.Da
 	return nil
 }
 
-func (s *reportService) SendReportForDateRange(ctx context.Context, startDate time.Time, endDate time.Time, emailTo string) error {
+func (s *reportUseCase) SendReportForDateRange(ctx context.Context, startDate time.Time, endDate time.Time, emailTo string) error {
 	if startDate.After(endDate) {
 		return fmt.Errorf("start date must be before end date")
 	}
 
-	report, err := s.healthCheckService.CalculateAverageUptime(ctx, startDate, endDate)
+	report, err := s.healthCheckUseCase.CalculateAverageUptime(ctx, startDate, endDate)
 	if err != nil {
 		return fmt.Errorf("failed to generate report :%w", err)
 	}
@@ -99,11 +98,11 @@ func (s *reportService) SendReportForDateRange(ctx context.Context, startDate ti
 	return s.SendReportToEmail(ctx, report, emailTo, msg)
 }
 
-func (s *reportService) SendReportForDaily(ctx context.Context, date time.Time) error {
+func (s *reportUseCase) SendReportForDaily(ctx context.Context, date time.Time) error {
 	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
 	endOfDay := startOfDay.Add(24 * time.Hour)
 
-	report, err := s.healthCheckService.CalculateAverageUptime(ctx, startOfDay, endOfDay)
+	report, err := s.healthCheckUseCase.CalculateAverageUptime(ctx, startOfDay, endOfDay)
 	if err != nil {
 		return fmt.Errorf("failed to generate report for daily: %w", err)
 	}

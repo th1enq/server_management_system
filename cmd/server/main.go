@@ -19,6 +19,8 @@
 package main
 
 import (
+	"context"
+
 	_ "github.com/th1enq/server_management_system/docs"
 	"github.com/th1enq/server_management_system/internal/configs"
 	"github.com/th1enq/server_management_system/internal/wiring"
@@ -34,5 +36,5 @@ func main() {
 		panic("failed to initialize server: " + err.Error())
 	}
 	defer cleanup()
-	app.Start()
+	app.Start(context.Background())
 }

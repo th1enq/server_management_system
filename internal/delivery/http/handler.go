@@ -4,32 +4,31 @@ import (
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"github.com/th1enq/server_management_system/internal/handler"
-	"github.com/th1enq/server_management_system/internal/interfaces/http/controllers"
-	"github.com/th1enq/server_management_system/internal/middleware"
+	"github.com/th1enq/server_management_system/internal/delivery/http/controllers"
+	"github.com/th1enq/server_management_system/internal/delivery/middleware"
 )
 
-type Handler struct {
-	serverHandler  *handler.ServerHandler
-	reportHandler  *handler.ReportHandler
-	authHandler    *handler.AuthHandler
-	userHandler    *handler.UserHandler
-	jobsController *controllers.JobsController // Add jobs controller for monitoring
-	authMiddleware *middleware.AuthMiddleware
+type Controller struct {
+	serverController *controllers.ServerController
+	reportController *controllers.ReportController
+	authController   *controllers.AuthController
+	userController   *controllers.UserController
+	jobsController   *controllers.JobsController
+	authMiddleware   *middleware.AuthMiddleware
 }
 
-func NewHandler(serverHandler *handler.ServerHandler, reportHandler *handler.ReportHandler, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, jobsController *controllers.JobsController, authMiddleware *middleware.AuthMiddleware) *Handler {
-	return &Handler{
-		serverHandler:  serverHandler,
-		reportHandler:  reportHandler,
-		authHandler:    authHandler,
-		userHandler:    userHandler,
-		jobsController: jobsController,
-		authMiddleware: authMiddleware,
+func NewController(serverController *controllers.ServerController, reportController *controllers.ReportController, authController *controllers.AuthController, userController *controllers.UserController, jobsController *controllers.JobsController, authMiddleware *middleware.AuthMiddleware) *Controller {
+	return &Controller{
+		serverController: serverController,
+		reportController: reportController,
+		authController:   authController,
+		userController:   userController,
+		jobsController:   jobsController,
+		authMiddleware:   authMiddleware,
 	}
 }
 
-func (h *Handler) RegisterRoutes() *gin.Engine {
+func (h *Controller) RegisterRoutes() *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
 
@@ -47,16 +46,16 @@ func (h *Handler) RegisterRoutes() *gin.Engine {
 	// Public auth routes
 	auth := v1.Group("/auth")
 	{
-		auth.POST("/login", h.authHandler.Login)
-		auth.POST("/register", h.authHandler.Register)
-		auth.POST("/refresh", h.authHandler.RefreshToken)
+		auth.POST("/login", h.authController.Login)
+		auth.POST("/register", h.authController.Register)
+		auth.POST("/refresh", h.authController.RefreshToken)
 	}
 
 	// Protected auth routes
 	authProtected := v1.Group("/auth")
 	authProtected.Use(h.authMiddleware.RequireAuth())
 	{
-		authProtected.POST("/logout", h.authHandler.Logout)
+		authProtected.POST("/logout", h.authController.Logout)
 	}
 
 	// Protected server routes
@@ -64,37 +63,37 @@ func (h *Handler) RegisterRoutes() *gin.Engine {
 	servers.Use(h.authMiddleware.RequireAuth())
 	{
 		// Read operations - requires server:read scope
-		servers.GET("/", h.authMiddleware.RequireAnyScope("admin:all", "server:read"), h.serverHandler.ListServer)
-		servers.GET("/export", h.authMiddleware.RequireAnyScope("admin:all", "server:export"), h.serverHandler.ExportServers)
+		servers.GET("/", h.authMiddleware.RequireAnyScope("admin:all", "server:read"), h.serverController.ListServer)
+		servers.GET("/export", h.authMiddleware.RequireAnyScope("admin:all", "server:export"), h.serverController.ExportServers)
 
 		// Write operations - requires server:write scope
-		servers.POST("/", h.authMiddleware.RequireAnyScope("admin:all", "server:write"), h.serverHandler.CreateServer)
-		servers.PUT("/:id", h.authMiddleware.RequireAnyScope("admin:all", "server:write"), h.serverHandler.UpdateServer)
-		servers.POST("/import", h.authMiddleware.RequireAnyScope("admin:all", "server:import"), h.serverHandler.ImportServers)
+		servers.POST("/", h.authMiddleware.RequireAnyScope("admin:all", "server:write"), h.serverController.CreateServer)
+		servers.PUT("/:id", h.authMiddleware.RequireAnyScope("admin:all", "server:write"), h.serverController.UpdateServer)
+		servers.POST("/import", h.authMiddleware.RequireAnyScope("admin:all", "server:import"), h.serverController.ImportServers)
 
 		// Delete operations - requires server:delete scope
-		servers.DELETE("/:id", h.authMiddleware.RequireAnyScope("admin:all", "server:delete"), h.serverHandler.DeleteServer)
+		servers.DELETE("/:id", h.authMiddleware.RequireAnyScope("admin:all", "server:delete"), h.serverController.DeleteServer)
 	}
 
 	// Protected report routes
 	reports := v1.Group("/reports")
 	reports.Use(h.authMiddleware.RequireAuth())
 	{
-		reports.POST("/", h.authMiddleware.RequireAnyScope("admin:all", "report:write"), h.reportHandler.SendReportByDate)
-		reports.POST("/daily", h.authMiddleware.RequireAnyScope("admin:all", "report:write"), h.reportHandler.SendReportDaily)
+		reports.POST("/", h.authMiddleware.RequireAnyScope("admin:all", "report:write"), h.reportController.SendReportByDate)
+		reports.POST("/daily", h.authMiddleware.RequireAnyScope("admin:all", "report:write"), h.reportController.SendReportDaily)
 	}
 
 	// Admin-only user management routes
 	users := v1.Group("/users")
 	users.Use(h.authMiddleware.RequireAuth())
 	{
-		users.GET("/", h.authMiddleware.RequireAnyScope("admin:all", "user:read"), h.userHandler.ListUsers)
-		users.POST("/", h.authMiddleware.RequireAnyScope("admin:all", "user:write"), h.userHandler.CreateUser)
-		users.PUT("/:id", h.authMiddleware.RequireAnyScope("admin:all", "user:write"), h.userHandler.UpdateUser)
-		users.DELETE("/:id", h.authMiddleware.RequireAnyScope("admin:all", "user:delete"), h.userHandler.DeleteUser)
-		users.GET("/profile", h.authMiddleware.RequireAnyScope("admin:all", "profile:read"), h.userHandler.GetProfile)
-		users.PUT("/profile", h.authMiddleware.RequireAnyScope("admin:all", "profile:write"), h.userHandler.UpdateProfile)
-		users.POST("/change-password", h.authMiddleware.RequireAnyScope("admin:all", "profile:write"), h.userHandler.ChangePassword)
+		users.GET("/", h.authMiddleware.RequireAnyScope("admin:all", "user:read"), h.userController.ListUsers)
+		users.POST("/", h.authMiddleware.RequireAnyScope("admin:all", "user:write"), h.userController.CreateUser)
+		users.PUT("/:id", h.authMiddleware.RequireAnyScope("admin:all", "user:write"), h.userController.UpdateUser)
+		users.DELETE("/:id", h.authMiddleware.RequireAnyScope("admin:all", "user:delete"), h.userController.DeleteUser)
+		users.GET("/profile", h.authMiddleware.RequireAnyScope("admin:all", "profile:read"), h.userController.GetProfile)
+		users.PUT("/profile", h.authMiddleware.RequireAnyScope("admin:all", "profile:write"), h.userController.UpdateProfile)
+		users.POST("/change-password", h.authMiddleware.RequireAnyScope("admin:all", "profile:write"), h.userController.ChangePassword)
 	}
 
 	// Admin-only job monitoring routes (read-only for monitoring background jobs)

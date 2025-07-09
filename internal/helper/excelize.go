@@ -1,11 +1,11 @@
-package utils
+package helper
 
 import (
 	"fmt"
 	"strconv"
 	"strings"
 
-	"github.com/th1enq/server_management_system/internal/models"
+	"github.com/th1enq/server_management_system/internal/domain"
 )
 
 // Validate validates the header row of Excel file
@@ -37,15 +37,15 @@ func Validate(row []string) error {
 }
 
 // ParseToServer parses a row to Server model
-func ParseToServer(row []string) (models.Server, error) {
+func ParseToServer(row []string) (domain.Server, error) {
 	if len(row) < 10 {
-		return models.Server{}, fmt.Errorf("invalid row: expected at least 10 columns, got %d", len(row))
+		return domain.Server{}, fmt.Errorf("invalid row: expected at least 10 columns, got %d", len(row))
 	}
 
-	server := models.Server{
+	server := domain.Server{
 		ServerID:    strings.TrimSpace(row[0]),
 		ServerName:  strings.TrimSpace(row[1]),
-		Status:      models.ServerStatus(strings.TrimSpace(row[2])),
+		Status:      domain.ServerStatus(strings.TrimSpace(row[2])),
 		IPv4:        strings.TrimSpace(row[3]),
 		Description: strings.TrimSpace(row[4]),
 		Location:    strings.TrimSpace(row[5]),
@@ -54,17 +54,17 @@ func ParseToServer(row []string) (models.Server, error) {
 
 	// Validate required fields
 	if server.ServerID == "" {
-		return models.Server{}, fmt.Errorf("server_id is required")
+		return domain.Server{}, fmt.Errorf("server_id is required")
 	}
 	if server.ServerName == "" {
-		return models.Server{}, fmt.Errorf("server_name is required")
+		return domain.Server{}, fmt.Errorf("server_name is required")
 	}
 
 	// Parse CPU
 	if row[7] != "" {
 		cpu, err := strconv.Atoi(strings.TrimSpace(row[7]))
 		if err != nil {
-			return models.Server{}, fmt.Errorf("invalid CPU value: %s", row[7])
+			return domain.Server{}, fmt.Errorf("invalid CPU value: %s", row[7])
 		}
 		server.CPU = cpu
 	}
@@ -73,7 +73,7 @@ func ParseToServer(row []string) (models.Server, error) {
 	if row[8] != "" {
 		ram, err := strconv.Atoi(strings.TrimSpace(row[8]))
 		if err != nil {
-			return models.Server{}, fmt.Errorf("invalid RAM value: %s", row[8])
+			return domain.Server{}, fmt.Errorf("invalid RAM value: %s", row[8])
 		}
 		server.RAM = ram
 	}
@@ -82,14 +82,14 @@ func ParseToServer(row []string) (models.Server, error) {
 	if row[9] != "" {
 		disk, err := strconv.Atoi(strings.TrimSpace(row[9]))
 		if err != nil {
-			return models.Server{}, fmt.Errorf("invalid Disk value: %s", row[9])
+			return domain.Server{}, fmt.Errorf("invalid Disk value: %s", row[9])
 		}
 		server.Disk = disk
 	}
 
 	// Validate status
 	if server.Status != "" {
-		validStatuses := []models.ServerStatus{"ON", "OFF", "MAINTENANCE"}
+		validStatuses := []domain.ServerStatus{"ON", "OFF", "MAINTENANCE"}
 		isValid := false
 		for _, status := range validStatuses {
 			if server.Status == status {
@@ -98,7 +98,7 @@ func ParseToServer(row []string) (models.Server, error) {
 			}
 		}
 		if !isValid {
-			return models.Server{}, fmt.Errorf("invalid status: %s (must be ON, OFF, or MAINTENANCE)", server.Status)
+			return domain.Server{}, fmt.Errorf("invalid status: %s (must be ON, OFF, or MAINTENANCE)", server.Status)
 		}
 	} else {
 		server.Status = "OFF" // default status

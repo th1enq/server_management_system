@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/th1enq/server_management_system/internal/domain"
-	"github.com/th1enq/server_management_system/internal/domain/ports"
 	"github.com/th1enq/server_management_system/internal/dto"
+	"github.com/th1enq/server_management_system/internal/infrastructure/database"
 )
 
 type ServerRepository interface {
@@ -26,10 +26,10 @@ type ServerRepository interface {
 }
 
 type serverRepository struct {
-	db ports.DatabaseClient
+	db database.DatabaseClient
 }
 
-func NewServerRepository(db ports.DatabaseClient) ServerRepository {
+func NewServerRepository(db database.DatabaseClient) ServerRepository {
 	return &serverRepository{
 		db: db,
 	}

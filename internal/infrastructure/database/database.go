@@ -12,6 +12,24 @@ import (
 	gormLogger "gorm.io/gorm/logger"
 )
 
+type DatabaseClient interface {
+	WithContext(ctx context.Context) DatabaseClient
+	Where(query interface{}, args ...interface{}) DatabaseClient
+	Limit(limit int) DatabaseClient
+	Offset(offset int) DatabaseClient
+	Model(value interface{}) DatabaseClient
+	Order(value interface{}) DatabaseClient
+	First(dest interface{}, conds ...interface{}) error
+	Delete(value interface{}, conds ...interface{}) error
+	Find(dest interface{}, conds ...interface{}) error
+	Save(value interface{}) error
+	Count(count *int64) error
+	CreateInBatches(value interface{}, batchSize int) error
+	Create(value interface{}) error
+	Update(column string, value interface{}) error
+	DB() (*sql.DB, error)
+}
+
 type gormDatabase struct {
 	client *gorm.DB
 }
@@ -58,25 +76,25 @@ func (p *gormDatabase) First(dest interface{}, conds ...interface{}) error {
 	return nil
 }
 
-func (p *gormDatabase) Limit(limit int) *gormDatabase {
+func (p *gormDatabase) Limit(limit int) DatabaseClient {
 	return &gormDatabase{
 		client: p.client.Limit(limit),
 	}
 }
 
-func (p *gormDatabase) Model(value interface{}) *gormDatabase {
+func (p *gormDatabase) Model(value interface{}) DatabaseClient {
 	return &gormDatabase{
 		client: p.client.Model(value),
 	}
 }
 
-func (p *gormDatabase) Offset(offset int) *gormDatabase {
+func (p *gormDatabase) Offset(offset int) DatabaseClient {
 	return &gormDatabase{
 		client: p.client.Offset(offset),
 	}
 }
 
-func (p *gormDatabase) Order(value interface{}) *gormDatabase {
+func (p *gormDatabase) Order(value interface{}) DatabaseClient {
 	return &gormDatabase{
 		client: p.client.Order(value),
 	}
@@ -89,13 +107,13 @@ func (p *gormDatabase) Save(value interface{}) error {
 	return nil
 }
 
-func (p *gormDatabase) Where(query interface{}, args ...interface{}) *gormDatabase {
+func (p *gormDatabase) Where(query interface{}, args ...interface{}) DatabaseClient {
 	return &gormDatabase{
 		client: p.client.Where(query, args...),
 	}
 }
 
-func (p *gormDatabase) WithContext(ctx context.Context) *gormDatabase {
+func (p *gormDatabase) WithContext(ctx context.Context) DatabaseClient {
 	return &gormDatabase{
 		client: p.client.WithContext(ctx),
 	}
@@ -116,7 +134,7 @@ func (p *gormDatabase) Update(column string, value interface{}) error {
 	return nil
 }
 
-func NewDatabase(cfg configs.Database, logger *zap.Logger) (*gormDatabase, error) {
+func NewDatabase(cfg configs.Database, logger *zap.Logger) (DatabaseClient, error) {
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable",
 		cfg.Host,
 		cfg.User,
@@ -146,7 +164,7 @@ func NewDatabase(cfg configs.Database, logger *zap.Logger) (*gormDatabase, error
 	return &gormDatabase{client: gormDB}, nil
 }
 
-func NewDatabaseWithGorm(gormDB *gorm.DB) *gormDatabase {
+func NewDatabaseWithGorm(gormDB *gorm.DB) DatabaseClient {
 	if gormDB == nil {
 		return nil
 	}

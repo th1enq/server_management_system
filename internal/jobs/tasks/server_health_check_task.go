@@ -16,13 +16,13 @@ type ServerHealthCheckTask interface {
 }
 
 type serverHealthCheckTask struct {
-	serverService usecases.IServerService
+	serverService usecases.ServerUseCase
 	cronConfig    configs.Cron
 	logger        *zap.Logger
 }
 
 func NewServerHealthCheckTask(
-	serverService usecases.IServerService,
+	serverService usecases.ServerUseCase,
 	cronConfig configs.Cron,
 	logger *zap.Logger,
 ) ServerHealthCheckTask {

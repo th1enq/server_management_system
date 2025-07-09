@@ -2,26 +2,26 @@ package controllers
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/th1enq/server_management_system/internal/interfaces/http/presenters"
-	"github.com/th1enq/server_management_system/internal/interfaces/middleware"
-	"github.com/th1enq/server_management_system/internal/models/dto"
-	"github.com/th1enq/server_management_system/internal/services"
+	"github.com/th1enq/server_management_system/internal/delivery/http/presenters"
+	"github.com/th1enq/server_management_system/internal/delivery/middleware"
+	"github.com/th1enq/server_management_system/internal/dto"
+	"github.com/th1enq/server_management_system/internal/usecases"
 	"go.uber.org/zap"
 )
 
 type AuthController struct {
-	authService   services.IAuthService
+	authUseCase   usecases.AuthUseCase
 	authPresenter presenters.AuthPresenter
 	logger        *zap.Logger
 }
 
 func NewAuthController(
-	authService services.IAuthService,
+	authUseCase usecases.AuthUseCase,
 	authPresenter presenters.AuthPresenter,
 	logger *zap.Logger,
 ) *AuthController {
 	return &AuthController{
-		authService:   authService,
+		authUseCase:   authUseCase,
 		authPresenter: authPresenter,
 		logger:        logger,
 	}
@@ -34,9 +34,9 @@ func NewAuthController(
 // @Accept json
 // @Produce json
 // @Param request body dto.LoginRequest true "Login credentials"
-// @Success 200 {object} models.APIResponse{data=dto.AuthResponse}
-// @Failure 400 {object} models.APIResponse
-// @Failure 401 {object} models.APIResponse
+// @Success 200 {object} domain.APIResponse{data=dto.AuthResponse}
+// @Failure 400 {object} domain.APIResponse
+// @Failure 401 {object} domain.APIResponse
 // @Router /api/v1/auth/login [post]
 func (ac *AuthController) Login(c *gin.Context) {
 	var req dto.LoginRequest
@@ -46,7 +46,7 @@ func (ac *AuthController) Login(c *gin.Context) {
 		return
 	}
 
-	response, err := ac.authService.Login(c.Request.Context(), req)
+	response, err := ac.authUseCase.Login(c.Request.Context(), req)
 	if err != nil {
 		ac.logger.Error("Authentication failed", zap.String("username", req.Username), zap.Error(err))
 		ac.authPresenter.AuthenticationFailed(c, "Authentication failed", err)
@@ -64,9 +64,9 @@ func (ac *AuthController) Login(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param request body dto.RegisterRequest true "Registration data"
-// @Success 201 {object} models.APIResponse{data=dto.AuthResponse}
-// @Failure 400 {object} models.APIResponse
-// @Failure 409 {object} models.APIResponse
+// @Success 201 {object} domain.APIResponse{data=dto.AuthResponse}
+// @Failure 400 {object} domain.APIResponse
+// @Failure 409 {object} domain.APIResponse
 // @Router /api/v1/auth/register [post]
 func (ac *AuthController) Register(c *gin.Context) {
 	var req dto.RegisterRequest
@@ -75,7 +75,7 @@ func (ac *AuthController) Register(c *gin.Context) {
 		ac.authPresenter.InvalidRequest(c, "Invalid request data", err)
 		return
 	}
-	response, err := ac.authService.Register(c.Request.Context(), req)
+	response, err := ac.authUseCase.Register(c.Request.Context(), req)
 	if err != nil {
 		ac.logger.Error("Registration failed", zap.String("username", req.Username), zap.Error(err))
 		ac.authPresenter.RegistrationFailed(c, "Registration failed", err)
@@ -93,9 +93,9 @@ func (ac *AuthController) Register(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param request body dto.RefreshTokenRequest true "Refresh token"
-// @Success 200 {object} models.APIResponse{data=dto.AuthResponse}
-// @Failure 400 {object} models.APIResponse
-// @Failure 401 {object} models.APIResponse
+// @Success 200 {object} domain.APIResponse{data=dto.AuthResponse}
+// @Failure 400 {object} domain.APIResponse
+// @Failure 401 {object} domain.APIResponse
 // @Router /api/v1/auth/refresh [post]
 func (ac *AuthController) RefreshToken(c *gin.Context) {
 	var req dto.RefreshTokenRequest
@@ -105,7 +105,7 @@ func (ac *AuthController) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	response, err := ac.authService.RefreshToken(c.Request.Context(), req)
+	response, err := ac.authUseCase.RefreshToken(c.Request.Context(), req)
 	if err != nil {
 		ac.logger.Error("Failed to refresh token", zap.String("refresh_token", req.RefreshToken), zap.Error(err))
 		ac.authPresenter.InvalidRefreshToken(c, "Invalid refresh token", err)
@@ -121,8 +121,8 @@ func (ac *AuthController) RefreshToken(c *gin.Context) {
 // @Description Logout user (invalidate session)
 // @Tags auth
 // @Security BearerAuth
-// @Success 200 {object} models.APIResponse
-// @Failure 401 {object} models.APIResponse
+// @Success 200 {object} domain.APIResponse
+// @Failure 401 {object} domain.APIResponse
 // @Router /api/v1/auth/logout [post]
 func (ac *AuthController) Logout(c *gin.Context) {
 	userID, exists := middleware.GetUserID(c)
@@ -132,7 +132,7 @@ func (ac *AuthController) Logout(c *gin.Context) {
 		return
 	}
 
-	err := ac.authService.Logout(c.Request.Context(), userID)
+	err := ac.authUseCase.Logout(c.Request.Context(), userID)
 	if err != nil {
 		ac.logger.Error("Failed to logout user", zap.Uint("user_id", userID), zap.Error(err))
 		ac.authPresenter.InternalServerError(c, "Failed to logout", err)

@@ -5,19 +5,20 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/th1enq/server_management_system/internal/models"
-	"github.com/th1enq/server_management_system/internal/services"
+	"github.com/th1enq/server_management_system/internal/domain"
+	"github.com/th1enq/server_management_system/internal/usecases"
 	"go.uber.org/zap"
 )
 
 type AuthMiddleware struct {
-	logger *zap.Logger
+	tokenUseCase usecases.TokenUseCase
+	logger       *zap.Logger
 }
 
-func NewAuthMiddleware(authService services.IAuthService, logger *zap.Logger) *AuthMiddleware {
+func NewAuthMiddleware(tokenUseCase usecases.TokenUseCase, logger *zap.Logger) *AuthMiddleware {
 	return &AuthMiddleware{
-		authService: authService,
-		logger:      logger,
+		tokenUseCase: tokenUseCase,
+		logger:       logger,
 	}
 }
 
@@ -26,8 +27,8 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := m.extractTokenFromHeader(c)
 		if token == "" {
-			c.JSON(http.StatusUnauthorized, models.NewErrorResponse(
-				models.CodeUnauthorized,
+			c.JSON(http.StatusUnauthorized, domain.NewErrorResponse(
+				domain.CodeUnauthorized,
 				"Authentication required",
 				nil,
 			))
@@ -35,11 +36,11 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 			return
 		}
 
-		claims, err := m.authService.ValidateToken(token)
+		claims, err := m.tokenUseCase.ValidateToken(token)
 		if err != nil {
 			m.logger.Warn("Invalid token", zap.Error(err))
-			c.JSON(http.StatusUnauthorized, models.NewErrorResponse(
-				models.CodeUnauthorized,
+			c.JSON(http.StatusUnauthorized, domain.NewErrorResponse(
+				domain.CodeUnauthorized,
 				"Invalid token",
 				nil,
 			))
@@ -48,8 +49,8 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 		}
 		if claims.TokenType != "access" {
 			m.logger.Warn("Invalid token type", zap.String("token_type", claims.TokenType))
-			c.JSON(http.StatusUnauthorized, models.NewErrorResponse(
-				models.CodeUnauthorized,
+			c.JSON(http.StatusUnauthorized, domain.NewErrorResponse(
+				domain.CodeUnauthorized,
 				"Invalid token type",
 				nil,
 			))
@@ -75,8 +76,8 @@ func (m *AuthMiddleware) RequireRole(requiredRole string) gin.HandlerFunc {
 		// First check if user is authenticated
 		role, exists := c.Get("role")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, models.NewErrorResponse(
-				models.CodeUnauthorized,
+			c.JSON(http.StatusUnauthorized, domain.NewErrorResponse(
+				domain.CodeUnauthorized,
 				"Authentication required",
 				nil,
 			))
@@ -86,8 +87,8 @@ func (m *AuthMiddleware) RequireRole(requiredRole string) gin.HandlerFunc {
 
 		userRole, ok := role.(string)
 		if !ok {
-			c.JSON(http.StatusInternalServerError, models.NewErrorResponse(
-				models.CodeInternalServerError,
+			c.JSON(http.StatusInternalServerError, domain.NewErrorResponse(
+				domain.CodeInternalServerError,
 				"Invalid role data",
 				nil))
 			c.Abort()
@@ -95,8 +96,8 @@ func (m *AuthMiddleware) RequireRole(requiredRole string) gin.HandlerFunc {
 		}
 
 		if userRole != requiredRole {
-			c.JSON(http.StatusForbidden, models.NewErrorResponse(
-				models.CodeForbidden,
+			c.JSON(http.StatusForbidden, domain.NewErrorResponse(
+				domain.CodeForbidden,
 				"Insufficient permissions",
 				nil))
 			c.Abort()
@@ -118,18 +119,18 @@ func (m *AuthMiddleware) RequireScope(requiredScope string) gin.HandlerFunc {
 		// First check if user is authenticated
 		scopes, exists := c.Get("scopes")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, models.NewErrorResponse(
-				models.CodeUnauthorized,
+			c.JSON(http.StatusUnauthorized, domain.NewErrorResponse(
+				domain.CodeUnauthorized,
 				"Authentication required",
 				nil))
 			c.Abort()
 			return
 		}
 
-		userScopes, ok := scopes.([]models.APIScope)
+		userScopes, ok := scopes.([]domain.APIScope)
 		if !ok {
-			c.JSON(http.StatusInternalServerError, models.NewErrorResponse(
-				models.CodeInternalServerError,
+			c.JSON(http.StatusInternalServerError, domain.NewErrorResponse(
+				domain.CodeInternalServerError,
 				"Invalid scope data",
 				nil))
 			c.Abort()
@@ -146,8 +147,8 @@ func (m *AuthMiddleware) RequireScope(requiredScope string) gin.HandlerFunc {
 		}
 
 		if !hasScope {
-			c.JSON(http.StatusForbidden, models.NewErrorResponse(
-				models.CodeForbidden,
+			c.JSON(http.StatusForbidden, domain.NewErrorResponse(
+				domain.CodeForbidden,
 				"Insufficient scope permissions",
 				nil))
 			c.Abort()
@@ -164,8 +165,8 @@ func (m *AuthMiddleware) RequireAnyScope(requiredScopes ...string) gin.HandlerFu
 		// First check if user is authenticated
 		scopes, exists := c.Get("scopes")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, models.NewErrorResponse(
-				models.CodeUnauthorized,
+			c.JSON(http.StatusUnauthorized, domain.NewErrorResponse(
+				domain.CodeUnauthorized,
 				"Authentication required",
 				nil,
 			))
@@ -173,10 +174,10 @@ func (m *AuthMiddleware) RequireAnyScope(requiredScopes ...string) gin.HandlerFu
 			return
 		}
 
-		userScopes, ok := scopes.([]models.APIScope)
+		userScopes, ok := scopes.([]domain.APIScope)
 		if !ok {
-			c.JSON(http.StatusInternalServerError, models.NewErrorResponse(
-				models.CodeInternalServerError,
+			c.JSON(http.StatusInternalServerError, domain.NewErrorResponse(
+				domain.CodeInternalServerError,
 				"Invalid scope data",
 				nil,
 			))
@@ -199,8 +200,8 @@ func (m *AuthMiddleware) RequireAnyScope(requiredScopes ...string) gin.HandlerFu
 		}
 
 		if !hasScope {
-			c.JSON(http.StatusForbidden, models.NewErrorResponse(
-				models.CodeForbidden,
+			c.JSON(http.StatusForbidden, domain.NewErrorResponse(
+				domain.CodeForbidden,
 				"Insufficient scope permissions",
 				nil,
 			))

@@ -39,7 +39,7 @@ cron:
     schedule: "@every 30s"
   daily_report:
     name: "daily_report"
-    schedule: "0 8 * * *"
+    schedule: "0 0 8 * * *"
 
 email:
   smtp_host: smtp.gmail.com

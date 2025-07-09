@@ -4,42 +4,43 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/th1enq/server_management_system/internal/models"
-	"github.com/th1enq/server_management_system/internal/models/dto"
-	"github.com/th1enq/server_management_system/internal/repository"
+	"github.com/th1enq/server_management_system/internal/domain"
+	"github.com/th1enq/server_management_system/internal/dto"
+	"github.com/th1enq/server_management_system/internal/infrastructure/repository"
+	"github.com/th1enq/server_management_system/internal/utils"
 	"go.uber.org/zap"
 )
 
-type UserUsecase interface {
-	CreateUser(ctx context.Context, req dto.RegisterRequest) (*models.User, error)
-	GetUserByID(ctx context.Context, id uint) (*models.User, error)
-	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
-	UpdateUser(ctx context.Context, id uint, updates dto.UserUpdate) (*models.User, error)
-	UpdateProfile(ctx context.Context, id uint, updates dto.ProfileUpdate) (*models.User, error)
+type UserUseCase interface {
+	CreateUser(ctx context.Context, req dto.RegisterRequest) (*domain.User, error)
+	GetUserByID(ctx context.Context, id uint) (*domain.User, error)
+	GetUserByUsername(ctx context.Context, username string) (*domain.User, error)
+	UpdateUser(ctx context.Context, id uint, updates dto.UserUpdate) (*domain.User, error)
+	UpdateProfile(ctx context.Context, id uint, updates dto.ProfileUpdate) (*domain.User, error)
 	UpdatePassword(ctx context.Context, id uint, updates dto.PasswordUpdate) error
 	DeleteUser(ctx context.Context, id uint) error
-	ListUsers(ctx context.Context, limit, offset int) ([]models.User, error)
+	ListUsers(ctx context.Context, limit, offset int) ([]domain.User, error)
 }
 
-type userUsecase struct {
+type userUseCase struct {
 	userRepo repository.UserRepository
 	logger   *zap.Logger
 }
 
-func NewuserUsecase(userRepo repository.UserRepository, logger *zap.Logger) UserUsecase {
-	return &userUsecase{
+func NewUserUseCase(userRepo repository.UserRepository, logger *zap.Logger) UserUseCase {
+	return &userUseCase{
 		userRepo: userRepo,
 		logger:   logger,
 	}
 }
 
-func (u *userUsecase) CreateUser(ctx context.Context, req dto.RegisterRequest) (*models.User, error) {
-	user := &models.User{
+func (u *userUseCase) CreateUser(ctx context.Context, req dto.RegisterRequest) (*domain.User, error) {
+	user := &domain.User{
 		Username:  req.Username,
 		Email:     req.Email,
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
-		Scopes:    models.GetDefaultScopesMask(models.RoleUser),
+		Scopes:    domain.GetDefaultScopesMask(domain.RoleUser),
 	}
 	user.SetPassword(req.Password)
 
@@ -78,13 +79,13 @@ func (u *userUsecase) CreateUser(ctx context.Context, req dto.RegisterRequest) (
 	return user, nil
 }
 
-func (u *userUsecase) UpdatePassword(ctx context.Context, id uint, updates dto.PasswordUpdate) error {
+func (u *userUseCase) UpdatePassword(ctx context.Context, id uint, updates dto.PasswordUpdate) error {
 	user, err := u.userRepo.GetByID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("user not found: %w", err)
 	}
 
-	if user.CheckPassword(updates.OldPassword) != nil {
+	if utils.CheckPassword(updates.OldPassword, user.Password) {
 		return fmt.Errorf("old password is incorrect")
 	}
 
@@ -106,7 +107,7 @@ func (u *userUsecase) UpdatePassword(ctx context.Context, id uint, updates dto.P
 	return nil
 }
 
-func (u *userUsecase) UpdateProfile(ctx context.Context, id uint, updates dto.ProfileUpdate) (*models.User, error) {
+func (u *userUseCase) UpdateProfile(ctx context.Context, id uint, updates dto.ProfileUpdate) (*domain.User, error) {
 	user, err := u.userRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
@@ -128,7 +129,7 @@ func (u *userUsecase) UpdateProfile(ctx context.Context, id uint, updates dto.Pr
 	return user, nil
 }
 
-func (u *userUsecase) DeleteUser(ctx context.Context, id uint) error {
+func (u *userUseCase) DeleteUser(ctx context.Context, id uint) error {
 	user, err := u.userRepo.GetByID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("user not found: %w", err)
@@ -146,7 +147,7 @@ func (u *userUsecase) DeleteUser(ctx context.Context, id uint) error {
 	return nil
 }
 
-func (u *userUsecase) UpdateUser(ctx context.Context, id uint, updates dto.UserUpdate) (*models.User, error) {
+func (u *userUseCase) UpdateUser(ctx context.Context, id uint, updates dto.UserUpdate) (*domain.User, error) {
 	user, err := u.userRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
@@ -157,11 +158,11 @@ func (u *userUsecase) UpdateUser(ctx context.Context, id uint, updates dto.UserU
 	if updates.Password != "" {
 		user.SetPassword(updates.Password)
 	}
-	user.Role = models.UserRole(updates.Role)
+	user.Role = domain.UserRole(updates.Role)
 	user.FirstName = updates.FirstName
 	user.LastName = updates.LastName
 	user.IsActive = updates.IsActive
-	user.Scopes = models.ToBitmask(updates.Scopes)
+	user.Scopes = domain.ToBitmask(updates.Scopes)
 
 	exist, err := u.userRepo.ExistsByUserNameOrEmail(ctx, user.Username, user.Email)
 	if err != nil {
@@ -194,7 +195,7 @@ func (u *userUsecase) UpdateUser(ctx context.Context, id uint, updates dto.UserU
 	return user, nil
 }
 
-func (u *userUsecase) GetUserByID(ctx context.Context, id uint) (*models.User, error) {
+func (u *userUseCase) GetUserByID(ctx context.Context, id uint) (*domain.User, error) {
 	user, err := u.userRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user by ID: %w", err)
@@ -202,7 +203,7 @@ func (u *userUsecase) GetUserByID(ctx context.Context, id uint) (*models.User, e
 	return user, nil
 }
 
-func (u *userUsecase) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
+func (u *userUseCase) GetUserByUsername(ctx context.Context, username string) (*domain.User, error) {
 	user, err := u.userRepo.GetByUsername(ctx, username)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user by username: %w", err)
@@ -210,7 +211,7 @@ func (u *userUsecase) GetUserByUsername(ctx context.Context, username string) (*
 	return user, nil
 }
 
-func (u *userUsecase) ListUsers(ctx context.Context, limit, offset int) ([]models.User, error) {
+func (u *userUseCase) ListUsers(ctx context.Context, limit, offset int) ([]domain.User, error) {
 	users, err := u.userRepo.List(ctx, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list users: %w", err)
