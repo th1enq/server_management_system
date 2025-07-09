@@ -1,9 +1,10 @@
 module github.com/th1enq/server_management_system
 
-go 1.24.3
+go 1.23.0
+
+toolchain go1.24.4
 
 require (
-	github.com/alicebob/miniredis/v2 v2.35.0
 	github.com/elastic/go-elasticsearch/v9 v9.0.0
 	github.com/gammazero/workerpool v1.1.3
 	github.com/gin-gonic/gin v1.10.1
@@ -82,7 +83,6 @@ require (
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/xuri/efp v0.0.1 // indirect
 	github.com/xuri/nfp v0.0.1 // indirect
-	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel v1.35.0 // indirect
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect

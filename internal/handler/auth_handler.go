@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/th1enq/server_management_system/internal/middleware"
+	"github.com/th1enq/server_management_system/internal/interfaces/middleware"
 	"github.com/th1enq/server_management_system/internal/models"
 	"github.com/th1enq/server_management_system/internal/models/dto"
 	"github.com/th1enq/server_management_system/internal/services"

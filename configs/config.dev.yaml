@@ -34,10 +34,12 @@ log:
   max_age: 30
 
 cron:
-  interval_check_status:
+  health_check_server:
+    name: "health_check_server"
     schedule: "@every 30s"
-  send_daily_report:
-    schedule: "0 10 * * *"
+  daily_report:
+    name: "daily_report"
+    schedule: "0 8 * * *"
 
 email:
   smtp_host: smtp.gmail.com

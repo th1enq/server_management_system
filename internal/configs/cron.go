@@ -1,14 +1,16 @@
 package configs
 
-type SendDailyReport struct {
+type DailyReport struct {
+	Name     string `yaml:"name"`
 	Schedule string `yaml:"schedule"`
 }
 
-type IntervalCheckStatus struct {
+type HealthCheckServer struct {
+	Name     string `yaml:"name"`
 	Schedule string `yaml:"schedule"`
 }
 
 type Cron struct {
-	SendDailyReport     SendDailyReport     `yaml:"send_daily_report"`
-	IntervalCheckStatus IntervalCheckStatus `yaml:"interval_check_status"`
+	DailyReport       DailyReport       `yaml:"daily_report"`
+	HealthCheckServer HealthCheckServer `yaml:"health_check_server"`
 }

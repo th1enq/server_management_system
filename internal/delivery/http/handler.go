@@ -1,0 +1,110 @@
+package http
+
+import (
+	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+	"github.com/th1enq/server_management_system/internal/handler"
+	"github.com/th1enq/server_management_system/internal/interfaces/http/controllers"
+	"github.com/th1enq/server_management_system/internal/middleware"
+)
+
+type Handler struct {
+	serverHandler  *handler.ServerHandler
+	reportHandler  *handler.ReportHandler
+	authHandler    *handler.AuthHandler
+	userHandler    *handler.UserHandler
+	jobsController *controllers.JobsController // Add jobs controller for monitoring
+	authMiddleware *middleware.AuthMiddleware
+}
+
+func NewHandler(serverHandler *handler.ServerHandler, reportHandler *handler.ReportHandler, authHandler *handler.AuthHandler, userHandler *handler.UserHandler, jobsController *controllers.JobsController, authMiddleware *middleware.AuthMiddleware) *Handler {
+	return &Handler{
+		serverHandler:  serverHandler,
+		reportHandler:  reportHandler,
+		authHandler:    authHandler,
+		userHandler:    userHandler,
+		jobsController: jobsController,
+		authMiddleware: authMiddleware,
+	}
+}
+
+func (h *Handler) RegisterRoutes() *gin.Engine {
+	router := gin.New()
+	router.Use(gin.Recovery())
+
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status": "healthy",
+		})
+	})
+
+	// Swagger documentation endpoint
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	v1 := router.Group("/api/v1")
+
+	// Public auth routes
+	auth := v1.Group("/auth")
+	{
+		auth.POST("/login", h.authHandler.Login)
+		auth.POST("/register", h.authHandler.Register)
+		auth.POST("/refresh", h.authHandler.RefreshToken)
+	}
+
+	// Protected auth routes
+	authProtected := v1.Group("/auth")
+	authProtected.Use(h.authMiddleware.RequireAuth())
+	{
+		authProtected.POST("/logout", h.authHandler.Logout)
+	}
+
+	// Protected server routes
+	servers := v1.Group("/servers")
+	servers.Use(h.authMiddleware.RequireAuth())
+	{
+		// Read operations - requires server:read scope
+		servers.GET("/", h.authMiddleware.RequireAnyScope("admin:all", "server:read"), h.serverHandler.ListServer)
+		servers.GET("/export", h.authMiddleware.RequireAnyScope("admin:all", "server:export"), h.serverHandler.ExportServers)
+
+		// Write operations - requires server:write scope
+		servers.POST("/", h.authMiddleware.RequireAnyScope("admin:all", "server:write"), h.serverHandler.CreateServer)
+		servers.PUT("/:id", h.authMiddleware.RequireAnyScope("admin:all", "server:write"), h.serverHandler.UpdateServer)
+		servers.POST("/import", h.authMiddleware.RequireAnyScope("admin:all", "server:import"), h.serverHandler.ImportServers)
+
+		// Delete operations - requires server:delete scope
+		servers.DELETE("/:id", h.authMiddleware.RequireAnyScope("admin:all", "server:delete"), h.serverHandler.DeleteServer)
+	}
+
+	// Protected report routes
+	reports := v1.Group("/reports")
+	reports.Use(h.authMiddleware.RequireAuth())
+	{
+		reports.POST("/", h.authMiddleware.RequireAnyScope("admin:all", "report:write"), h.reportHandler.SendReportByDate)
+		reports.POST("/daily", h.authMiddleware.RequireAnyScope("admin:all", "report:write"), h.reportHandler.SendReportDaily)
+	}
+
+	// Admin-only user management routes
+	users := v1.Group("/users")
+	users.Use(h.authMiddleware.RequireAuth())
+	{
+		users.GET("/", h.authMiddleware.RequireAnyScope("admin:all", "user:read"), h.userHandler.ListUsers)
+		users.POST("/", h.authMiddleware.RequireAnyScope("admin:all", "user:write"), h.userHandler.CreateUser)
+		users.PUT("/:id", h.authMiddleware.RequireAnyScope("admin:all", "user:write"), h.userHandler.UpdateUser)
+		users.DELETE("/:id", h.authMiddleware.RequireAnyScope("admin:all", "user:delete"), h.userHandler.DeleteUser)
+		users.GET("/profile", h.authMiddleware.RequireAnyScope("admin:all", "profile:read"), h.userHandler.GetProfile)
+		users.PUT("/profile", h.authMiddleware.RequireAnyScope("admin:all", "profile:write"), h.userHandler.UpdateProfile)
+		users.POST("/change-password", h.authMiddleware.RequireAnyScope("admin:all", "profile:write"), h.userHandler.ChangePassword)
+	}
+
+	// Admin-only job monitoring routes (read-only for monitoring background jobs)
+	jobs := v1.Group("/jobs")
+	jobs.Use(h.authMiddleware.RequireAuth())
+	{
+		// Only monitoring endpoints - jobs run automatically in background
+		jobs.GET("/", h.authMiddleware.RequireAnyScope("admin:all", "jobs:read"), h.jobsController.GetJobs)
+		jobs.GET("/status", h.authMiddleware.RequireAnyScope("admin:all", "jobs:read"), h.jobsController.GetJobStatus)
+	}
+
+	return router
+}
