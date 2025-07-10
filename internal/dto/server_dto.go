@@ -1,8 +1,9 @@
 package dto
 
-import "github.com/th1enq/server_management_system/internal/domain"
+import (
+	"github.com/th1enq/server_management_system/internal/domain/entity"
+)
 
-// CreateServerRequest for creating a new server
 type CreateServerRequest struct {
 	ServerID    string `json:"server_id" binding:"required"`
 	ServerName  string `json:"server_name" binding:"required"`
@@ -15,7 +16,6 @@ type CreateServerRequest struct {
 	Disk        int    `json:"disk,omitempty" binding:"omitempty,gte=0"` // in GB
 }
 
-// UpdateServerRequest for updating an existing server
 type UpdateServerRequest struct {
 	ServerName  string `json:"server_name,omitempty"`
 	IPv4        string `json:"ipv4" binding:"omitempty,ipv4"`
@@ -29,23 +29,23 @@ type UpdateServerRequest struct {
 
 // ServerFilter for filtering servers via query parameters
 type ServerFilter struct {
-	ServerID   string              `form:"server_id"`
-	ServerName string              `form:"server_name"`
-	Status     domain.ServerStatus `form:"status"`
-	IPv4       string              `form:"ipv4" binding:"omitempty,ipv4"`
-	Location   string              `form:"location"`
-	OS         string              `form:"os"`
-	CPU        int                 `form:"cpu" binding:"omitempty,gte=0"`
-	RAM        int                 `form:"ram" binding:"omitempty,gte=0"`
-	Disk       int                 `form:"disk" binding:"omitempty,gte=0"`
+	ServerID    string              `form:"server_id"`
+	ServerName  string              `form:"server_name"`
+	Status      entity.ServerStatus `form:"status"`
+	Description string              `form:"description"`
+	IPv4        string              `form:"ipv4" binding:"omitempty,ipv4"`
+	Location    string              `form:"location"`
+	OS          string              `form:"os"`
+	CPU         int                 `form:"cpu" binding:"omitempty,gte=0"`
+	RAM         int                 `form:"ram" binding:"omitempty,gte=0"`
+	Disk        int                 `form:"disk" binding:"omitempty,gte=0"`
 }
 
 // ServerResponse for API responses
 type ServerResponse struct {
-	ID          uint                `json:"id"`
 	ServerID    string              `json:"server_id"`
 	ServerName  string              `json:"server_name"`
-	Status      domain.ServerStatus `json:"status"`
+	Status      entity.ServerStatus `json:"status"`
 	IPv4        string              `json:"ipv4"`
 	Description string              `json:"description,omitempty"`
 	Location    string              `json:"location,omitempty"`
@@ -53,22 +53,26 @@ type ServerResponse struct {
 	CPU         int                 `json:"cpu,omitempty"`
 	RAM         int                 `json:"ram,omitempty"`
 	Disk        int                 `json:"disk,omitempty"`
-	CreatedTime string              `json:"created_time"`
-	LastUpdated string              `json:"last_updated"`
+}
+
+type ServerStatusResponse struct {
+	TotalCount   int64 `json:"total_count"`
+	OnlineCount  int64 `json:"online_count"`
+	OfflineCount int64 `json:"offline_count"`
 }
 
 // Pagination parameters (for query)
 type Pagination struct {
-	Page     int    `form:"page,default=1" binding:"gte=1"`
-	PageSize int    `form:"page_size,default=10" binding:"gte=1,lte=100"`
-	Sort     string `form:"sort,default=created_time"`
-	Order    string `form:"order,default=desc" binding:"oneof=asc desc"`
+	Page     int    `form:"page" binding:"gte=1"`
+	PageSize int    `form:"page_size" binding:"gte=1,lte=100"`
+	Sort     string `form:"sort"`
+	Order    string `form:"order" binding:"oneof=asc desc"`
 }
 
 // ServerListResponse for paginated API responses
 type ServerListResponse struct {
 	Total   int64           `json:"total"`
-	Servers []domain.Server `json:"servers"`
+	Servers []entity.Server `json:"servers"`
 	Page    int             `json:"page"`
 	Size    int             `json:"size"`
 }
@@ -79,4 +83,34 @@ type ImportResult struct {
 	SuccessServers []string `json:"success_servers"`
 	FailureCount   int      `json:"failure_count"`
 	FailureServers []string `json:"failure_servers"`
+}
+
+func FromEntityToServerResponse(server *entity.Server) *ServerResponse {
+	if server == nil {
+		return nil
+	}
+	return &ServerResponse{
+		ServerID:    server.ServerID,
+		ServerName:  server.ServerName,
+		Status:      server.Status,
+		IPv4:        server.IPv4,
+		Description: server.Description,
+		Location:    server.Location,
+		OS:          server.OS,
+		CPU:         server.CPU,
+		RAM:         server.RAM,
+		Disk:        server.Disk,
+	}
+}
+
+func FromEntityListToServerResponseList(servers []entity.Server) []*ServerResponse {
+	if len(servers) == 0 {
+		return nil
+	}
+
+	responseList := make([]*ServerResponse, len(servers))
+	for i, server := range servers {
+		responseList[i] = FromEntityToServerResponse(&server)
+	}
+	return responseList
 }

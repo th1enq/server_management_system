@@ -20,6 +20,7 @@ import (
 	"github.com/th1enq/server_management_system/internal/infrastructure/database"
 	"github.com/th1enq/server_management_system/internal/infrastructure/repository"
 	"github.com/th1enq/server_management_system/internal/infrastructure/search"
+	"github.com/th1enq/server_management_system/internal/infrastructure/services"
 	"github.com/th1enq/server_management_system/internal/jobs"
 	"github.com/th1enq/server_management_system/internal/jobs/scheduler"
 	"github.com/th1enq/server_management_system/internal/jobs/tasks"
@@ -47,13 +48,14 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 		return nil, nil, err
 	}
 	serverRepository := repository.NewServerRepository(databaseClient)
+	excelizeService := services.NewExcelizeService()
 	configsCache := config.Cache
 	cacheClient, err := cache.NewCache(configsCache, logger)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	serverUseCase := usecases.NewServerUseCase(serverRepository, cacheClient, logger)
+	serverUseCase := usecases.NewServerUseCase(serverRepository, excelizeService, cacheClient, logger)
 	serverPresenter := presenters.NewServerPresenter()
 	serverController := controllers.NewServerController(serverUseCase, serverPresenter, logger)
 	email := config.Email
@@ -68,11 +70,12 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 	reportPresenter := presenters.NewReportPresenter()
 	reportController := controllers.NewReportController(reportUseCase, reportPresenter, logger)
 	userRepository := repository.NewUserRepository(databaseClient)
-	userUseCase := usecases.NewUserUseCase(userRepository, logger)
-	jwt := config.JWT
+	passwordService := services.NewBcryptService()
+	userUseCase := usecases.NewUserUseCase(userRepository, passwordService, logger)
 	tokenRepository := repository.NewTokenRepository(cacheClient)
-	tokenUseCase := usecases.NewTokenUseCase(jwt, logger, tokenRepository)
-	authUseCase := usecases.NewAuthUseCase(userUseCase, tokenUseCase, logger)
+	jwt := config.JWT
+	tokenServices := services.NewJWTService(jwt)
+	authUseCase := usecases.NewAuthUseCase(userUseCase, tokenRepository, tokenServices, passwordService, logger)
 	authPresenter := presenters.NewAuthPresenter()
 	authController := controllers.NewAuthController(authUseCase, authPresenter, logger)
 	userPresenter := presenters.NewUserPresenter()
@@ -84,7 +87,7 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 	jobManager := scheduler.NewJobManager(jobScheduler, serverHealthCheckTask, dailyReportTask, logger)
 	jobsPresenter := presenters.NewJobsPresenter()
 	jobsController := controllers.NewJobsController(jobManager, jobsPresenter, logger)
-	authMiddleware := middleware.NewAuthMiddleware(tokenUseCase, logger)
+	authMiddleware := middleware.NewAuthMiddleware(authUseCase, logger)
 	controller := http.NewController(serverController, reportController, authController, userController, jobsController, authMiddleware)
 	iServer := http.NewServer(server, logger, controller)
 	application := app.NewApplication(iServer, jobManager, logger)

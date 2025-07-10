@@ -12,14 +12,14 @@ CREATE TABLE users (
     last_name VARCHAR(255),
     last_login TIMESTAMP,
     is_active BOOLEAN DEFAULT true,
-    scopes BIGINT DEFAULT 0,
+    hashed_scopes BIGINT DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP
 );
 
 -- Insert default admin account
-INSERT INTO users (username, email, password, role, first_name, last_name, is_active, scopes) 
+INSERT INTO users (username, email, password, role, first_name, last_name, is_active, hashed_scopes) 
 VALUES (
     'admin', 
     'thienchy3305@gmail.com', 

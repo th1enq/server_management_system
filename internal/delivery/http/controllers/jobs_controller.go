@@ -1,11 +1,8 @@
 package controllers
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	"github.com/th1enq/server_management_system/internal/delivery/http/presenters"
-	"github.com/th1enq/server_management_system/internal/domain"
 	"github.com/th1enq/server_management_system/internal/jobs/scheduler"
 	"go.uber.org/zap"
 )
@@ -62,12 +59,5 @@ func (jc *JobsController) GetJobStatus(c *gin.Context) {
 		"total_tasks":       len(tasks),
 		"tasks":             tasks,
 	}
-
-	response := domain.NewSuccessResponse(
-		domain.CodeSuccess,
-		"Job scheduler status retrieved successfully",
-		status,
-	)
-
-	c.JSON(http.StatusOK, response)
+	jc.jobsPresenter.JobStatusRetrieved(c, status)
 }

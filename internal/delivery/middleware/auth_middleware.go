@@ -6,19 +6,20 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/th1enq/server_management_system/internal/domain"
+	"github.com/th1enq/server_management_system/internal/domain/scope"
 	"github.com/th1enq/server_management_system/internal/usecases"
 	"go.uber.org/zap"
 )
 
 type AuthMiddleware struct {
-	tokenUseCase usecases.TokenUseCase
-	logger       *zap.Logger
+	authUseCase usecases.AuthUseCase
+	logger      *zap.Logger
 }
 
-func NewAuthMiddleware(tokenUseCase usecases.TokenUseCase, logger *zap.Logger) *AuthMiddleware {
+func NewAuthMiddleware(authUseCase usecases.AuthUseCase, logger *zap.Logger) *AuthMiddleware {
 	return &AuthMiddleware{
-		tokenUseCase: tokenUseCase,
-		logger:       logger,
+		authUseCase: authUseCase,
+		logger:      logger,
 	}
 }
 
@@ -36,7 +37,7 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 			return
 		}
 
-		claims, err := m.tokenUseCase.ValidateToken(token)
+		claims, err := m.authUseCase.ValidateToken(c, token)
 		if err != nil {
 			m.logger.Warn("Invalid token", zap.Error(err))
 			c.JSON(http.StatusUnauthorized, domain.NewErrorResponse(
@@ -127,7 +128,7 @@ func (m *AuthMiddleware) RequireScope(requiredScope string) gin.HandlerFunc {
 			return
 		}
 
-		userScopes, ok := scopes.([]domain.APIScope)
+		userScopes, ok := scopes.([]scope.APIScope)
 		if !ok {
 			c.JSON(http.StatusInternalServerError, domain.NewErrorResponse(
 				domain.CodeInternalServerError,
@@ -174,7 +175,7 @@ func (m *AuthMiddleware) RequireAnyScope(requiredScopes ...string) gin.HandlerFu
 			return
 		}
 
-		userScopes, ok := scopes.([]domain.APIScope)
+		userScopes, ok := scopes.([]scope.APIScope)
 		if !ok {
 			c.JSON(http.StatusInternalServerError, domain.NewErrorResponse(
 				domain.CodeInternalServerError,

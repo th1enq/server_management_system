@@ -5,15 +5,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/th1enq/server_management_system/internal/domain"
+	"github.com/th1enq/server_management_system/internal/domain/entity"
 	"github.com/th1enq/server_management_system/internal/dto"
 )
 
 type ServerPresenter interface {
 	// Success responses
 	ServerCreated(c *gin.Context, response dto.CreateServerRequest)
-	ServerUpdated(c *gin.Context, server *domain.Server)
-	ServerRetrieved(c *gin.Context, server *domain.Server)
-	ServersRetrieved(c *gin.Context, response *dto.ServerListResponse)
+	ServerUpdated(c *gin.Context, server dto.ServerResponse)
+	ServerRetrieved(c *gin.Context, server dto.ServerResponse)
+	ServersRetrieved(c *gin.Context, response []*entity.Server)
 	ServerDeleted(c *gin.Context)
 	ServerStatusUpdated(c *gin.Context, message string)
 	ExportCompleted(c *gin.Context, filePath string)
@@ -42,7 +43,7 @@ func (p *serverPresenter) ServerCreated(c *gin.Context, res dto.CreateServerRequ
 	c.JSON(http.StatusCreated, response)
 }
 
-func (p *serverPresenter) ServerUpdated(c *gin.Context, server *domain.Server) {
+func (p *serverPresenter) ServerUpdated(c *gin.Context, server dto.ServerResponse) {
 	response := domain.NewSuccessResponse(
 		domain.CodeSuccess,
 		"Server updated successfully",
@@ -51,7 +52,7 @@ func (p *serverPresenter) ServerUpdated(c *gin.Context, server *domain.Server) {
 	c.JSON(http.StatusOK, response)
 }
 
-func (p *serverPresenter) ServerRetrieved(c *gin.Context, server *domain.Server) {
+func (p *serverPresenter) ServerRetrieved(c *gin.Context, server dto.ServerResponse) {
 	response := domain.NewSuccessResponse(
 		domain.CodeSuccess,
 		"Server retrieved successfully",
@@ -60,7 +61,7 @@ func (p *serverPresenter) ServerRetrieved(c *gin.Context, server *domain.Server)
 	c.JSON(http.StatusOK, response)
 }
 
-func (p *serverPresenter) ServersRetrieved(c *gin.Context, response *dto.ServerListResponse) {
+func (p *serverPresenter) ServersRetrieved(c *gin.Context, response []*entity.Server) {
 	response_data := domain.NewSuccessResponse(
 		domain.CodeSuccess,
 		"Servers retrieved successfully",

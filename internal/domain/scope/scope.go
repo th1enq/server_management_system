@@ -1,10 +1,10 @@
-package domain
+package scope
 
 type UserRole string
 
 const (
-	RoleUser  UserRole = "user"
-	RoleAdmin UserRole = "admin"
+	UserRoleAdmin UserRole = "ADMIN"
+	UserRoleUser  UserRole = "USER"
 )
 
 type APIScope string
@@ -30,6 +30,10 @@ const (
 	ScopeProfileRead  APIScope = "profile:read"
 	ScopeProfileWrite APIScope = "profile:write"
 
+	// Jobs scopes
+	ScopeJobRead  APIScope = "job:read"
+	ScopeJobWrite APIScope = "job:write"
+
 	// Admin scopes
 	ScopeAdminAll APIScope = "admin:all"
 )
@@ -42,30 +46,31 @@ var AllScopes = []APIScope{
 	ScopeAdminAll,
 }
 
-// GetDefaultScopes returns default scopes for a given role
-func GetDefaultScopes(role UserRole) []APIScope {
-	switch role {
-	case RoleAdmin:
-		return []APIScope{
-			ScopeServerRead, ScopeServerWrite, ScopeServerDelete, ScopeServerImport, ScopeServerExport,
-			ScopeUserRead, ScopeUserWrite, ScopeUserDelete,
-			ScopeReportRead, ScopeReportWrite,
-			ScopeProfileRead, ScopeProfileWrite,
-			ScopeAdminAll,
+func IsValidScope(scope APIScope) bool {
+	for _, s := range AllScopes {
+		if s == scope {
+			return true
 		}
-	case RoleUser:
+	}
+	return false
+}
+
+func GetDefaultScopesArray(role UserRole) []APIScope {
+	switch role {
+	case UserRoleAdmin:
+		return AllScopes
+	case UserRoleUser:
 		return []APIScope{
 			ScopeServerRead, ScopeServerExport,
 			ScopeReportRead,
 			ScopeProfileRead, ScopeProfileWrite,
 		}
-	default:
-		return []APIScope{ScopeProfileRead}
 	}
+	return []APIScope{}
 }
 
-func GetDefaultScopesMask(role UserRole) int64 {
-	scopes := GetDefaultScopes(role)
+func GetDefaultScopesHash(role UserRole) int64 {
+	scopes := GetDefaultScopesArray(role)
 	mask := int64(0)
 
 	for i, scope := range AllScopes {

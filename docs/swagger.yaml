@@ -11,36 +11,6 @@ definitions:
       success:
         type: boolean
     type: object
-  domain.APIScope:
-    enum:
-    - server:read
-    - server:write
-    - server:delete
-    - server:import
-    - server:export
-    - user:read
-    - user:write
-    - user:delete
-    - report:read
-    - report:write
-    - profile:read
-    - profile:write
-    - admin:all
-    type: string
-    x-enum-varnames:
-    - ScopeServerRead
-    - ScopeServerWrite
-    - ScopeServerDelete
-    - ScopeServerImport
-    - ScopeServerExport
-    - ScopeUserRead
-    - ScopeUserWrite
-    - ScopeUserDelete
-    - ScopeReportRead
-    - ScopeReportWrite
-    - ScopeProfileRead
-    - ScopeProfileWrite
-    - ScopeAdminAll
   domain.ErrorInfo:
     properties:
       code:
@@ -49,105 +19,25 @@ definitions:
       message:
         type: string
     type: object
-  domain.Server:
-    properties:
-      cpu:
-        type: integer
-      created_time:
-        type: string
-      description:
-        type: string
-      disk:
-        description: in GB
-        type: integer
-      id:
-        type: integer
-      ipv4:
-        type: string
-      last_updated:
-        type: string
-      location:
-        type: string
-      os:
-        type: string
-      ram:
-        description: in GB
-        type: integer
-      server_id:
-        type: string
-      server_name:
-        type: string
-      status:
-        $ref: '#/definitions/domain.ServerStatus'
-    required:
-    - ipv4
-    - server_id
-    - server_name
-    type: object
-  domain.ServerStatus:
-    enum:
-    - "ON"
-    - "OFF"
-    type: string
-    x-enum-varnames:
-    - ServerStatusOn
-    - ServerStatusOff
-  domain.User:
-    properties:
-      created_at:
-        type: string
-      email:
-        type: string
-      first_name:
-        type: string
-      id:
-        type: integer
-      is_active:
-        type: boolean
-      last_name:
-        type: string
-      role:
-        $ref: '#/definitions/domain.UserRole'
-      scopes:
-        type: integer
-      updated_at:
-        type: string
-      username:
-        type: string
-    type: object
-  domain.UserRole:
-    enum:
-    - user
-    - admin
-    type: string
-    x-enum-varnames:
-    - RoleUser
-    - RoleAdmin
   dto.AuthResponse:
     properties:
       access_token:
         type: string
-      expires_in:
-        type: integer
       refresh_token:
         type: string
-      scopes:
-        items:
-          $ref: '#/definitions/domain.APIScope'
-        type: array
       token_type:
         type: string
-      user:
-        $ref: '#/definitions/domain.User'
     type: object
   dto.CreateServerRequest:
     properties:
       cpu:
+        minimum: 0
         type: integer
       description:
         type: string
       disk:
         description: in GB
+        minimum: 0
         type: integer
       ipv4:
         type: string
@@ -157,6 +47,7 @@ definitions:
         type: string
       ram:
         description: in GB
+        minimum: 0
         type: integer
       server_id:
         type: string
@@ -180,18 +71,17 @@ definitions:
         type: string
       role:
         allOf:
-        - $ref: '#/definitions/domain.UserRole'
-        default: user
+        - $ref: '#/definitions/scope.UserRole'
         enum:
         - user
         - admin
       scopes:
         items:
-          $ref: '#/definitions/domain.APIScope'
+          $ref: '#/definitions/scope.APIScope'
         type: array
       username:
         maxLength: 20
-        minLength: 3
+        minLength: 5
         type: string
     required:
     - email
@@ -300,14 +190,14 @@ definitions:
         type: integer
       servers:
         items:
-          $ref: '#/definitions/domain.Server'
+          $ref: '#/definitions/entity.Server'
         type: array
       size:
         type: integer
       total:
         type: integer
     type: object
-  dto.UpdateServerRequest:
+  dto.ServerResponse:
     properties:
       cpu:
         type: integer
@@ -323,10 +213,47 @@ definitions:
         type: string
       ram:
         type: integer
+      server_id:
+        type: string
       server_name:
         type: string
       status:
-        $ref: '#/definitions/domain.ServerStatus'
+        $ref: '#/definitions/entity.ServerStatus'
+    type: object
+  dto.UpdateServerRequest:
+    properties:
+      cpu:
+        minimum: 0
+        type: integer
+      description:
+        type: string
+      disk:
+        minimum: 0
+        type: integer
+      ipv4:
+        type: string
+      location:
+        type: string
+      os:
+        type: string
+      ram:
+        minimum: 0
+        type: integer
+      server_name:
+        type: string
+    type: object
+  dto.UserResponse:
+    properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      role:
+        $ref: '#/definitions/scope.UserRole'
+      username:
+        type: string
     type: object
   dto.UserUpdate:
     properties:
@@ -338,25 +265,50 @@ definitions:
         type: boolean
       last_name:
         type: string
-      password:
-        maxLength: 100
-        minLength: 6
-        type: string
       role:
         allOf:
-        - $ref: '#/definitions/domain.UserRole'
+        - $ref: '#/definitions/scope.UserRole'
         enum:
         - user
         - admin
       scopes:
         items:
-          $ref: '#/definitions/domain.APIScope'
+          $ref: '#/definitions/scope.APIScope'
         type: array
-      username:
-        maxLength: 20
-        minLength: 3
-        type: string
     type: object
+  entity.Server:
+    properties:
+      cpu:
+        type: integer
+      description:
+        type: string
+      disk:
+        type: integer
+      id:
+        type: integer
+      ipv4:
+        type: string
+      location:
+        type: string
+      os:
+        type: string
+      ram:
+        type: integer
+      serverID:
+        type: string
+      serverName:
+        type: string
+      status:
+        $ref: '#/definitions/entity.ServerStatus'
+    type: object
+  entity.ServerStatus:
+    enum:
+    - "ON"
+    - "OFF"
+    type: string
+    x-enum-varnames:
+    - ServerStatusOn
+    - ServerStatusOff
   scheduler.TaskInfo:
     properties:
       last_run:
@@ -370,6 +322,48 @@ definitions:
       status:
         type: string
     type: object
+  scope.APIScope:
+    enum:
+    - server:read
+    - server:write
+    - server:delete
+    - server:import
+    - server:export
+    - user:read
+    - user:write
+    - user:delete
+    - report:read
+    - report:write
+    - profile:read
+    - profile:write
+    - job:read
+    - job:write
+    - admin:all
+    type: string
+    x-enum-varnames:
+    - ScopeServerRead
+    - ScopeServerWrite
+    - ScopeServerDelete
+    - ScopeServerImport
+    - ScopeServerExport
+    - ScopeUserRead
+    - ScopeUserWrite
+    - ScopeUserDelete
+    - ScopeReportRead
+    - ScopeReportWrite
+    - ScopeProfileRead
+    - ScopeProfileWrite
+    - ScopeJobRead
+    - ScopeJobWrite
+    - ScopeAdminAll
+  scope.UserRole:
+    enum:
+    - ADMIN
+    - USER
+    type: string
+    x-enum-varnames:
+    - UserRoleAdmin
+    - UserRoleUser
 host: localhost:8080
 info:
   contact:
@@ -708,7 +702,7 @@ paths:
             - $ref: '#/definitions/domain.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/domain.Server'
+                  $ref: '#/definitions/dto.ServerResponse'
               type: object
         "400":
           description: Bad Request
@@ -784,7 +778,7 @@ paths:
             - $ref: '#/definitions/domain.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/domain.Server'
+                  $ref: '#/definitions/dto.ServerResponse'
               type: object
         "400":
           description: Bad Request
@@ -938,7 +932,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/domain.User'
+                    $ref: '#/definitions/dto.UserResponse'
                   type: array
               type: object
         "401":
@@ -971,7 +965,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/domain.User'
+            $ref: '#/definitions/dto.UserResponse'
         "400":
           description: Bad Request
           schema:
@@ -979,7 +973,7 @@ paths:
             - $ref: '#/definitions/domain.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/domain.User'
+                  $ref: '#/definitions/dto.UserResponse'
               type: object
         "401":
           description: Unauthorized
@@ -1055,7 +1049,7 @@ paths:
             - $ref: '#/definitions/domain.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/domain.User'
+                  $ref: '#/definitions/dto.UserResponse'
               type: object
         "400":
           description: Bad Request
@@ -1123,7 +1117,7 @@ paths:
             - $ref: '#/definitions/domain.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/domain.User'
+                  $ref: '#/definitions/dto.UserResponse'
               type: object
         "401":
           description: Unauthorized
@@ -1159,7 +1153,7 @@ paths:
             - $ref: '#/definitions/domain.APIResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/domain.User'
+                  $ref: '#/definitions/dto.UserResponse'
               type: object
         "400":
           description: Bad Request

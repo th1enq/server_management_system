@@ -40,7 +40,7 @@ func NewServerController(
 // @Accept json
 // @Produce json
 // @Param server body dto.CreateServerRequest true "Server information"
-// @Success 201 {object} domain.APIResponse{data=domain.Server}
+// @Success 201 {object} domain.APIResponse{data=dto.ServerResponse}
 // @Failure 400 {object} domain.APIResponse
 // @Failure 409 {object} domain.APIResponse
 // @Failure 500 {object} domain.APIResponse
@@ -53,7 +53,7 @@ func (h *ServerController) CreateServer(c *gin.Context) {
 
 	var req dto.CreateServerRequest
 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
-		h.logger.Error("Failed to bind request body",
+		h.logger.Warn("Failed to bind request body",
 			zap.Error(err),
 			zap.String("request_id", c.GetString("request_id")))
 		h.serverPresenter.InvalidRequest(c, "Invalid request body", err)
@@ -152,12 +152,7 @@ func (h *ServerController) ListServer(c *gin.Context) {
 		return
 	}
 
-	h.logger.Info("Servers listed successfully",
-		zap.Int64("total", response.Total),
-		zap.Int("returned_count", len(response.Servers)),
-		zap.Int("page", response.Page),
-		zap.Int("size", response.Size),
-		zap.String("request_id", c.GetString("request_id")))
+	h.logger.Info("Servers listed successfully")
 
 	h.serverPresenter.ServersRetrieved(c, response)
 }
@@ -170,7 +165,7 @@ func (h *ServerController) ListServer(c *gin.Context) {
 // @Produce json
 // @Param id path int true "Server ID"
 // @Param updateInfo body dto.UpdateServerRequest true "Server update information"
-// @Success 200 {object} domain.APIResponse{data=domain.Server}
+// @Success 200 {object} domain.APIResponse{data=dto.ServerResponse}
 // @Failure 400 {object} domain.APIResponse
 // @Failure 404 {object} domain.APIResponse
 // @Failure 409 {object} domain.APIResponse
@@ -225,12 +220,25 @@ func (h *ServerController) UpdateServer(c *gin.Context) {
 		return
 	}
 
+	response := dto.ServerResponse{
+		ServerID:    server.ServerID,
+		ServerName:  server.ServerName,
+		Status:      server.Status,
+		IPv4:        server.IPv4,
+		Location:    server.Location,
+		OS:          server.OS,
+		Description: server.Description,
+		CPU:         server.CPU,
+		RAM:         server.RAM,
+		Disk:        server.Disk,
+	}
+
 	h.logger.Info("Server updated successfully",
 		zap.Uint64("server_id", id),
-		zap.String("server_name", server.ServerName),
+		zap.String("server_name", response.ServerName),
 		zap.String("request_id", c.GetString("request_id")))
 
-	h.serverPresenter.ServerUpdated(c, server)
+	h.serverPresenter.ServerUpdated(c, response)
 }
 
 // DeleteServer godoc

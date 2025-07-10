@@ -1,12 +1,10 @@
 package controllers
 
 import (
-	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/th1enq/server_management_system/internal/delivery/http/presenters"
-	"github.com/th1enq/server_management_system/internal/domain"
 	"github.com/th1enq/server_management_system/internal/dto"
 	"github.com/th1enq/server_management_system/internal/usecases"
 	"go.uber.org/zap"
@@ -66,63 +64,38 @@ func (h *ReportController) SendReportDaily(c *gin.Context) {
 func (h *ReportController) SendReportByDate(c *gin.Context) {
 	var req dto.ReportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, domain.NewErrorResponse(
-			domain.CodeBadRequest,
-			"Invalid request body",
-			err.Error(),
-		))
-		return
+		h.logger.Warn("Invalid report request", zap.Error(err))
+		h.reportPresenter.InvalidRequest(c, "Invalid request data", err)
 	}
 
 	loc, err := time.LoadLocation("Asia/Ho_Chi_Minh")
 	if err != nil {
-		h.logger.Error("Failed to load timezone", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, domain.NewErrorResponse(
-			domain.CodeInternalServerError,
-			"Internal server error",
-			"Failed to load timezone",
-		))
+		h.logger.Warn("Failed to load timezone", zap.Error(err))
+		h.reportPresenter.InternalServerError(c, "Failed to load timezone", err)
 		return
 	}
 
 	startDate, err := time.ParseInLocation("2006-01-02 15:04:05", req.StartDate, loc)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, domain.NewErrorResponse(
-			domain.CodeBadRequest,
-			"Invalid start date format, expected YYYY-MM-DD HH:MM:SS",
-			err.Error(),
-		))
+		h.logger.Warn("Invalid start date format", zap.Error(err))
+		h.reportPresenter.ValidationError(c, "Invalid start date format, expected YYYY-MM-DD HH:MM:SS", err)
 		return
 	}
 
 	endDate, err := time.ParseInLocation("2006-01-02 15:04:05", req.EndDate, loc)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, domain.NewErrorResponse(
-			domain.CodeBadRequest,
-			"Invalid end date format, expected YYYY-MM-DD HH:MM:SS",
-			err.Error(),
-		))
+		h.logger.Warn("Invalid end date format", zap.Error(err))
+		h.reportPresenter.ValidationError(c, "Invalid end date format, expected YYYY-MM-DD HH:MM:SS", err)
 		return
 	}
 
 	err = h.reportUseCase.SendReportForDateRange(c.Request.Context(), startDate, endDate, req.Email)
 	if err != nil {
-
-		c.JSON(http.StatusInternalServerError, domain.NewErrorResponse(
-			domain.CodeInternalServerError,
-			"Failed to send report",
-			err.Error(),
-		))
+		h.logger.Error("Failed to send report for date range", zap.Error(err), zap.String("email", req.Email))
+		h.reportPresenter.InternalServerError(c, "Failed to send report for date range", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, domain.NewSuccessResponse(
-		domain.CodeSuccess,
-		"Report sent successfully",
-		map[string]interface{}{
-			"email":      req.Email,
-			"start_date": req.StartDate,
-			"end_date":   req.EndDate,
-		},
-	))
+	h.logger.Info("Report sent successfully", zap.String("email", req.Email), zap.Time("start_date", startDate), zap.Time("end_date", endDate))
+	h.reportPresenter.CustomReportSent(c)
 }

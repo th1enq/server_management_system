@@ -558,7 +558,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/domain.Server"
+                                            "$ref": "#/definitions/dto.ServerResponse"
                                         }
                                     }
                                 }
@@ -801,7 +801,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/domain.Server"
+                                            "$ref": "#/definitions/dto.ServerResponse"
                                         }
                                     }
                                 }
@@ -927,7 +927,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/domain.User"
+                                                "$ref": "#/definitions/dto.UserResponse"
                                             }
                                         }
                                     }
@@ -981,7 +981,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/domain.User"
+                            "$ref": "#/definitions/dto.UserResponse"
                         }
                     },
                     "400": {
@@ -995,7 +995,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/domain.User"
+                                            "$ref": "#/definitions/dto.UserResponse"
                                         }
                                     }
                                 }
@@ -1095,7 +1095,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/domain.User"
+                                            "$ref": "#/definitions/dto.UserResponse"
                                         }
                                     }
                                 }
@@ -1156,7 +1156,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/domain.User"
+                                            "$ref": "#/definitions/dto.UserResponse"
                                         }
                                     }
                                 }
@@ -1226,7 +1226,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/domain.User"
+                                            "$ref": "#/definitions/dto.UserResponse"
                                         }
                                     }
                                 }
@@ -1333,39 +1333,6 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.APIScope": {
-            "type": "string",
-            "enum": [
-                "server:read",
-                "server:write",
-                "server:delete",
-                "server:import",
-                "server:export",
-                "user:read",
-                "user:write",
-                "user:delete",
-                "report:read",
-                "report:write",
-                "profile:read",
-                "profile:write",
-                "admin:all"
-            ],
-            "x-enum-varnames": [
-                "ScopeServerRead",
-                "ScopeServerWrite",
-                "ScopeServerDelete",
-                "ScopeServerImport",
-                "ScopeServerExport",
-                "ScopeUserRead",
-                "ScopeUserWrite",
-                "ScopeUserDelete",
-                "ScopeReportRead",
-                "ScopeReportWrite",
-                "ScopeProfileRead",
-                "ScopeProfileWrite",
-                "ScopeAdminAll"
-            ]
-        },
         "domain.ErrorInfo": {
             "type": "object",
             "properties": {
@@ -1378,137 +1345,17 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.Server": {
-            "type": "object",
-            "required": [
-                "ipv4",
-                "server_id",
-                "server_name"
-            ],
-            "properties": {
-                "cpu": {
-                    "type": "integer"
-                },
-                "created_time": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "disk": {
-                    "description": "in GB",
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "ipv4": {
-                    "type": "string"
-                },
-                "last_updated": {
-                    "type": "string"
-                },
-                "location": {
-                    "type": "string"
-                },
-                "os": {
-                    "type": "string"
-                },
-                "ram": {
-                    "description": "in GB",
-                    "type": "integer"
-                },
-                "server_id": {
-                    "type": "string"
-                },
-                "server_name": {
-                    "type": "string"
-                },
-                "status": {
-                    "$ref": "#/definitions/domain.ServerStatus"
-                }
-            }
-        },
-        "domain.ServerStatus": {
-            "type": "string",
-            "enum": [
-                "ON",
-                "OFF"
-            ],
-            "x-enum-varnames": [
-                "ServerStatusOn",
-                "ServerStatusOff"
-            ]
-        },
-        "domain.User": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "first_name": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "is_active": {
-                    "type": "boolean"
-                },
-                "last_name": {
-                    "type": "string"
-                },
-                "role": {
-                    "$ref": "#/definitions/domain.UserRole"
-                },
-                "scopes": {
-                    "type": "integer"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "username": {
-                    "type": "string"
-                }
-            }
-        },
-        "domain.UserRole": {
-            "type": "string",
-            "enum": [
-                "user",
-                "admin"
-            ],
-            "x-enum-varnames": [
-                "RoleUser",
-                "RoleAdmin"
-            ]
-        },
         "dto.AuthResponse": {
             "type": "object",
             "properties": {
                 "access_token": {
                     "type": "string"
                 },
-                "expires_in": {
-                    "type": "integer"
-                },
                 "refresh_token": {
                     "type": "string"
                 },
-                "scopes": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.APIScope"
-                    }
-                },
                 "token_type": {
                     "type": "string"
-                },
-                "user": {
-                    "$ref": "#/definitions/domain.User"
                 }
             }
         },
@@ -1521,14 +1368,16 @@ const docTemplate = `{
             ],
             "properties": {
                 "cpu": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "description": {
                     "type": "string"
                 },
                 "disk": {
                     "description": "in GB",
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "ipv4": {
                     "type": "string"
@@ -1541,7 +1390,8 @@ const docTemplate = `{
                 },
                 "ram": {
                     "description": "in GB",
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "server_id": {
                     "type": "string"
@@ -1575,27 +1425,26 @@ const docTemplate = `{
                     "minLength": 6
                 },
                 "role": {
-                    "default": "user",
                     "enum": [
                         "user",
                         "admin"
                     ],
                     "allOf": [
                         {
-                            "$ref": "#/definitions/domain.UserRole"
+                            "$ref": "#/definitions/scope.UserRole"
                         }
                     ]
                 },
                 "scopes": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/domain.APIScope"
+                        "$ref": "#/definitions/scope.APIScope"
                     }
                 },
                 "username": {
                     "type": "string",
                     "maxLength": 20,
-                    "minLength": 3
+                    "minLength": 5
                 }
             }
         },
@@ -1743,7 +1592,7 @@ const docTemplate = `{
                 "servers": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/domain.Server"
+                        "$ref": "#/definitions/entity.Server"
                     }
                 },
                 "size": {
@@ -1754,7 +1603,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.UpdateServerRequest": {
+        "dto.ServerResponse": {
             "type": "object",
             "properties": {
                 "cpu": {
@@ -1778,11 +1627,66 @@ const docTemplate = `{
                 "ram": {
                     "type": "integer"
                 },
+                "server_id": {
+                    "type": "string"
+                },
                 "server_name": {
                     "type": "string"
                 },
                 "status": {
-                    "$ref": "#/definitions/domain.ServerStatus"
+                    "$ref": "#/definitions/entity.ServerStatus"
+                }
+            }
+        },
+        "dto.UpdateServerRequest": {
+            "type": "object",
+            "properties": {
+                "cpu": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "description": {
+                    "type": "string"
+                },
+                "disk": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "ipv4": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "os": {
+                    "type": "string"
+                },
+                "ram": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "server_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.UserResponse": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "role": {
+                    "$ref": "#/definitions/scope.UserRole"
+                },
+                "username": {
+                    "type": "string"
                 }
             }
         },
@@ -1801,11 +1705,6 @@ const docTemplate = `{
                 "last_name": {
                     "type": "string"
                 },
-                "password": {
-                    "type": "string",
-                    "maxLength": 100,
-                    "minLength": 6
-                },
                 "role": {
                     "enum": [
                         "user",
@@ -1813,22 +1712,66 @@ const docTemplate = `{
                     ],
                     "allOf": [
                         {
-                            "$ref": "#/definitions/domain.UserRole"
+                            "$ref": "#/definitions/scope.UserRole"
                         }
                     ]
                 },
                 "scopes": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/domain.APIScope"
+                        "$ref": "#/definitions/scope.APIScope"
                     }
-                },
-                "username": {
-                    "type": "string",
-                    "maxLength": 20,
-                    "minLength": 3
                 }
             }
+        },
+        "entity.Server": {
+            "type": "object",
+            "properties": {
+                "cpu": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "disk": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "ipv4": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "os": {
+                    "type": "string"
+                },
+                "ram": {
+                    "type": "integer"
+                },
+                "serverID": {
+                    "type": "string"
+                },
+                "serverName": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/entity.ServerStatus"
+                }
+            }
+        },
+        "entity.ServerStatus": {
+            "type": "string",
+            "enum": [
+                "ON",
+                "OFF"
+            ],
+            "x-enum-varnames": [
+                "ServerStatusOn",
+                "ServerStatusOff"
+            ]
         },
         "scheduler.TaskInfo": {
             "type": "object",
@@ -1849,6 +1792,54 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "scope.APIScope": {
+            "type": "string",
+            "enum": [
+                "server:read",
+                "server:write",
+                "server:delete",
+                "server:import",
+                "server:export",
+                "user:read",
+                "user:write",
+                "user:delete",
+                "report:read",
+                "report:write",
+                "profile:read",
+                "profile:write",
+                "job:read",
+                "job:write",
+                "admin:all"
+            ],
+            "x-enum-varnames": [
+                "ScopeServerRead",
+                "ScopeServerWrite",
+                "ScopeServerDelete",
+                "ScopeServerImport",
+                "ScopeServerExport",
+                "ScopeUserRead",
+                "ScopeUserWrite",
+                "ScopeUserDelete",
+                "ScopeReportRead",
+                "ScopeReportWrite",
+                "ScopeProfileRead",
+                "ScopeProfileWrite",
+                "ScopeJobRead",
+                "ScopeJobWrite",
+                "ScopeAdminAll"
+            ]
+        },
+        "scope.UserRole": {
+            "type": "string",
+            "enum": [
+                "ADMIN",
+                "USER"
+            ],
+            "x-enum-varnames": [
+                "UserRoleAdmin",
+                "UserRoleUser"
+            ]
         }
     },
     "securityDefinitions": {

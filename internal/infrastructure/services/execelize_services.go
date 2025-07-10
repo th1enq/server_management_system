@@ -1,15 +1,21 @@
-package helper
+package services
 
 import (
 	"fmt"
 	"strconv"
 	"strings"
 
-	"github.com/th1enq/server_management_system/internal/domain"
+	"github.com/th1enq/server_management_system/internal/domain/entity"
+	"github.com/th1enq/server_management_system/internal/domain/services"
 )
 
-// Validate validates the header row of Excel file
-func Validate(row []string) error {
+type excelizeService struct{}
+
+func NewExcelizeService() services.ExcelizeService {
+	return &excelizeService{}
+}
+
+func (e *excelizeService) Validate(row []string) error {
 	expectedHeaders := []string{
 		"server_id",
 		"server_name",
@@ -37,15 +43,15 @@ func Validate(row []string) error {
 }
 
 // ParseToServer parses a row to Server model
-func ParseToServer(row []string) (domain.Server, error) {
+func (e *excelizeService) ParseToServer(row []string) (entity.Server, error) {
 	if len(row) < 10 {
-		return domain.Server{}, fmt.Errorf("invalid row: expected at least 10 columns, got %d", len(row))
+		return entity.Server{}, fmt.Errorf("invalid row: expected at least 10 columns, got %d", len(row))
 	}
 
-	server := domain.Server{
+	server := entity.Server{
 		ServerID:    strings.TrimSpace(row[0]),
 		ServerName:  strings.TrimSpace(row[1]),
-		Status:      domain.ServerStatus(strings.TrimSpace(row[2])),
+		Status:      entity.ServerStatus(strings.TrimSpace(row[2])),
 		IPv4:        strings.TrimSpace(row[3]),
 		Description: strings.TrimSpace(row[4]),
 		Location:    strings.TrimSpace(row[5]),
@@ -54,17 +60,17 @@ func ParseToServer(row []string) (domain.Server, error) {
 
 	// Validate required fields
 	if server.ServerID == "" {
-		return domain.Server{}, fmt.Errorf("server_id is required")
+		return entity.Server{}, fmt.Errorf("server_id is required")
 	}
 	if server.ServerName == "" {
-		return domain.Server{}, fmt.Errorf("server_name is required")
+		return entity.Server{}, fmt.Errorf("server_name is required")
 	}
 
 	// Parse CPU
 	if row[7] != "" {
 		cpu, err := strconv.Atoi(strings.TrimSpace(row[7]))
 		if err != nil {
-			return domain.Server{}, fmt.Errorf("invalid CPU value: %s", row[7])
+			return entity.Server{}, fmt.Errorf("invalid CPU value: %s", row[7])
 		}
 		server.CPU = cpu
 	}
@@ -73,7 +79,7 @@ func ParseToServer(row []string) (domain.Server, error) {
 	if row[8] != "" {
 		ram, err := strconv.Atoi(strings.TrimSpace(row[8]))
 		if err != nil {
-			return domain.Server{}, fmt.Errorf("invalid RAM value: %s", row[8])
+			return entity.Server{}, fmt.Errorf("invalid RAM value: %s", row[8])
 		}
 		server.RAM = ram
 	}
@@ -82,14 +88,14 @@ func ParseToServer(row []string) (domain.Server, error) {
 	if row[9] != "" {
 		disk, err := strconv.Atoi(strings.TrimSpace(row[9]))
 		if err != nil {
-			return domain.Server{}, fmt.Errorf("invalid Disk value: %s", row[9])
+			return entity.Server{}, fmt.Errorf("invalid Disk value: %s", row[9])
 		}
 		server.Disk = disk
 	}
 
 	// Validate status
 	if server.Status != "" {
-		validStatuses := []domain.ServerStatus{"ON", "OFF", "MAINTENANCE"}
+		validStatuses := []entity.ServerStatus{"ON", "OFF", "MAINTENANCE"}
 		isValid := false
 		for _, status := range validStatuses {
 			if server.Status == status {
@@ -98,7 +104,7 @@ func ParseToServer(row []string) (domain.Server, error) {
 			}
 		}
 		if !isValid {
-			return domain.Server{}, fmt.Errorf("invalid status: %s (must be ON, OFF, or MAINTENANCE)", server.Status)
+			return entity.Server{}, fmt.Errorf("invalid status: %s (must be ON, OFF, or MAINTENANCE)", server.Status)
 		}
 	} else {
 		server.Status = "OFF" // default status

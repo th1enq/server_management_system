@@ -41,7 +41,7 @@ func NewAuthController(
 func (ac *AuthController) Login(c *gin.Context) {
 	var req dto.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ac.logger.Error("Invalid login request", zap.Error(err))
+		ac.logger.Warn("Invalid login request", zap.Error(err))
 		ac.authPresenter.InvalidRequest(c, "Invalid request data", err)
 		return
 	}
@@ -71,7 +71,7 @@ func (ac *AuthController) Login(c *gin.Context) {
 func (ac *AuthController) Register(c *gin.Context) {
 	var req dto.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ac.logger.Error("Invalid registration request", zap.Error(err))
+		ac.logger.Warn("Invalid registration request", zap.Error(err))
 		ac.authPresenter.InvalidRequest(c, "Invalid request data", err)
 		return
 	}
@@ -100,7 +100,7 @@ func (ac *AuthController) Register(c *gin.Context) {
 func (ac *AuthController) RefreshToken(c *gin.Context) {
 	var req dto.RefreshTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ac.logger.Error("Invalid refresh token request", zap.Error(err))
+		ac.logger.Warn("Invalid refresh token request", zap.Error(err))
 		ac.authPresenter.InvalidRequest(c, "Invalid request data", err)
 		return
 	}

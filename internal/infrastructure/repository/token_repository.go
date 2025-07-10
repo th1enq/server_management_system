@@ -5,21 +5,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/th1enq/server_management_system/internal/domain/repository"
 	"github.com/th1enq/server_management_system/internal/infrastructure/cache"
 )
-
-type TokenRepository interface {
-	AddTokenToWhitelist(ctx context.Context, token string, userID uint, expiration time.Duration) error
-	IsTokenWhitelisted(ctx context.Context, token string) bool
-	RemoveTokenFromWhitelist(ctx context.Context, token string) error
-	RemoveUserTokensFromWhitelist(ctx context.Context, userID uint) error
-}
 
 type tokenRepository struct {
 	cache cache.CacheClient
 }
 
-func NewTokenRepository(cache cache.CacheClient) TokenRepository {
+func NewTokenRepository(cache cache.CacheClient) repository.TokenRepository {
 	return &tokenRepository{
 		cache: cache,
 	}

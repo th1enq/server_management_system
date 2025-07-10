@@ -5,16 +5,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/th1enq/server_management_system/internal/domain"
+	"github.com/th1enq/server_management_system/internal/dto"
 )
 
 type UserPresenter interface {
 	// Success responses
-	ProfileRetrieved(c *gin.Context, user *domain.User)
-	ProfileUpdated(c *gin.Context, user *domain.User)
+	ProfileRetrieved(c *gin.Context, user *dto.UserResponse)
+	ProfileUpdated(c *gin.Context, user *dto.UserResponse)
 	PasswordChanged(c *gin.Context)
-	UsersRetrieved(c *gin.Context, users []domain.User)
-	UserCreated(c *gin.Context, user *domain.User)
-	UserUpdated(c *gin.Context, user *domain.User)
+	UsersRetrieved(c *gin.Context, users []dto.UserResponse)
+	UserCreated(c *gin.Context, user *dto.UserResponse)
+	UserUpdated(c *gin.Context, user *dto.UserResponse)
 	UserDeleted(c *gin.Context)
 
 	// Error responses
@@ -33,7 +34,7 @@ func NewUserPresenter() UserPresenter {
 	return &userPresenter{}
 }
 
-func (p *userPresenter) ProfileRetrieved(c *gin.Context, user *domain.User) {
+func (p *userPresenter) ProfileRetrieved(c *gin.Context, user *dto.UserResponse) {
 	response := domain.NewSuccessResponse(
 		domain.CodeSuccess,
 		"Profile retrieved successfully",
@@ -42,7 +43,7 @@ func (p *userPresenter) ProfileRetrieved(c *gin.Context, user *domain.User) {
 	c.JSON(http.StatusOK, response)
 }
 
-func (p *userPresenter) ProfileUpdated(c *gin.Context, user *domain.User) {
+func (p *userPresenter) ProfileUpdated(c *gin.Context, user *dto.UserResponse) {
 	response := domain.NewSuccessResponse(
 		domain.CodeSuccess,
 		"Profile updated successfully",
@@ -60,7 +61,7 @@ func (p *userPresenter) PasswordChanged(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-func (p *userPresenter) UsersRetrieved(c *gin.Context, users []domain.User) {
+func (p *userPresenter) UsersRetrieved(c *gin.Context, users []dto.UserResponse) {
 	response := domain.NewSuccessResponse(
 		domain.CodeSuccess,
 		"Users retrieved successfully",
@@ -69,7 +70,7 @@ func (p *userPresenter) UsersRetrieved(c *gin.Context, users []domain.User) {
 	c.JSON(http.StatusOK, response)
 }
 
-func (p *userPresenter) UserCreated(c *gin.Context, user *domain.User) {
+func (p *userPresenter) UserCreated(c *gin.Context, user *dto.UserResponse) {
 	response := domain.NewSuccessResponse(
 		domain.CodeCreated,
 		"User created successfully",
@@ -78,7 +79,7 @@ func (p *userPresenter) UserCreated(c *gin.Context, user *domain.User) {
 	c.JSON(http.StatusCreated, response)
 }
 
-func (p *userPresenter) UserUpdated(c *gin.Context, user *domain.User) {
+func (p *userPresenter) UserUpdated(c *gin.Context, user *dto.UserResponse) {
 	response := domain.NewSuccessResponse(
 		domain.CodeSuccess,
 		"User updated successfully",

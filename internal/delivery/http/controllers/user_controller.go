@@ -8,6 +8,7 @@ import (
 	"github.com/th1enq/server_management_system/internal/delivery/http/presenters"
 	"github.com/th1enq/server_management_system/internal/delivery/middleware"
 	"github.com/th1enq/server_management_system/internal/domain"
+	"github.com/th1enq/server_management_system/internal/domain/entity"
 	"github.com/th1enq/server_management_system/internal/dto"
 	"github.com/th1enq/server_management_system/internal/usecases"
 	"go.uber.org/zap"
@@ -37,7 +38,7 @@ func NewUserController(
 // @Tags user
 // @Security BearerAuth
 // @Produce json
-// @Success 200 {object} domain.APIResponse{data=domain.User}
+// @Success 200 {object} domain.APIResponse{data=dto.UserResponse}
 // @Failure 401 {object} domain.APIResponse
 // @Failure 404 {object} domain.APIResponse
 // @Router /api/v1/users/profile [get]
@@ -53,13 +54,13 @@ func (h *UserController) GetProfile(c *gin.Context) {
 
 	user, err := h.userUseCase.GetUserByID(c.Request.Context(), userID)
 	if err != nil {
-		h.log.Error("GetProfile: user not found", zap.Uint("userID", userID), zap.Error(err))
+		h.log.Warn("GetProfile: user not found", zap.Uint("userID", userID), zap.Error(err))
 		h.userPresenter.UserNotFound(c, "User not found")
 		return
 	}
 
 	h.log.Info("GetProfile: user profile retrieved successfully", zap.Uint("userID", userID))
-	h.userPresenter.ProfileRetrieved(c, user)
+	h.userPresenter.ProfileRetrieved(c, dto.FromEntityToUserResponse(user))
 }
 
 // UpdateProfile updates the current user's profile
@@ -70,7 +71,7 @@ func (h *UserController) GetProfile(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param request body dto.ProfileUpdate true "Profile updates"
-// @Success 200 {object} domain.APIResponse{data=domain.User}
+// @Success 200 {object} domain.APIResponse{data=dto.UserResponse}
 // @Failure 400 {object} domain.APIResponse
 // @Failure 401 {object} domain.APIResponse
 // @Router /api/v1/users/profile [put]
@@ -178,45 +179,32 @@ func (h *UserController) ChangePassword(c *gin.Context) {
 // @Produce json
 // @Param limit query int false "Limit" default(10)
 // @Param offset query int false "Offset" default(0)
-// @Success 200 {object} domain.APIResponse{data=[]domain.User}
+// @Success 200 {object} domain.APIResponse{data=[]dto.UserResponse}
 // @Failure 401 {object} domain.APIResponse
 // @Failure 403 {object} domain.APIResponse
 // @Router /api/v1/users [get]
 func (h *UserController) ListUsers(c *gin.Context) {
-	// Parse query parameters
-	limit := 10
-	offset := 0
+	var pagination dto.UserPagination
 
-	if l := c.Query("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
-			limit = parsed
-		}
+	if err := c.ShouldBindQuery(&pagination); err != nil {
+		h.log.Warn("ListUsers: invalid query parameters", zap.Error(err))
+		h.userPresenter.InvalidRequest(c, "Invalid query parameters", err)
 	}
 
-	if o := c.Query("offset"); o != "" {
-		if parsed, err := strconv.Atoi(o); err == nil && parsed >= 0 {
-			offset = parsed
-		}
-	}
-
-	h.log.Info("ListUsers: fetching users", zap.Int("limit", limit), zap.Int("offset", offset))
-
-	users, err := h.userUseCase.ListUsers(c.Request.Context(), limit, offset)
+	users, err := h.userUseCase.ListUsers(c.Request.Context(), pagination)
 	if err != nil {
 		h.log.Error("ListUsers: failed to fetch users", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, domain.NewErrorResponse(
-			domain.CodeInternalServerError,
-			"Failed to fetch users",
-			err.Error(),
-		))
+		h.userPresenter.InternalServerError(c, "Failed to fetch users", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, domain.NewSuccessResponse(
-		domain.CodeSuccess,
-		"Users retrieved successfully",
-		users,
-	))
+	h.log.Info("ListUsers: users retrieved successfully",
+		zap.Int("total", len(users)),
+		zap.Any("pagination", pagination),
+		zap.String("request_id", c.GetString("request_id")),
+	)
+
+	h.userPresenter.UsersRetrieved(c, dto.FromEntityListToUserResponseList(users))
 }
 
 // CreateUser creates a new user (admin only)
@@ -227,13 +215,13 @@ func (h *UserController) ListUsers(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param request body dto.CreateUserRequest true "User data"
-// @Success 201 {object} domain.User
-// @Failure 400 {object} domain.APIResponse{data=domain.User}
+// @Success 201 {object} dto.UserResponse
+// @Failure 400 {object} domain.APIResponse{data=dto.UserResponse}
 // @Failure 401 {object} domain.APIResponse
 // @Failure 403 {object} domain.APIResponse
 // @Router /api/v1/users [post]
 func (h *UserController) CreateUser(c *gin.Context) {
-	var req dto.RegisterRequest
+	var req dto.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.log.Warn("CreateUser: invalid request body", zap.Error(err))
 		c.JSON(http.StatusBadRequest, domain.NewErrorResponse(
@@ -251,7 +239,7 @@ func (h *UserController) CreateUser(c *gin.Context) {
 		zap.String("lastName", req.LastName),
 	)
 
-	var createdUser *domain.User
+	var createdUser *entity.User
 	var err error
 
 	if createdUser, err = h.userUseCase.CreateUser(c.Request.Context(), req); err != nil {
@@ -280,7 +268,7 @@ func (h *UserController) CreateUser(c *gin.Context) {
 // @Produce json
 // @Param id path int true "User ID"
 // @Param request body dto.UserUpdate true "User updates"
-// @Success 200 {object} domain.APIResponse{data=domain.User}
+// @Success 200 {object} domain.APIResponse{data=dto.UserResponse}
 // @Failure 400 {object} domain.APIResponse
 // @Failure 401 {object} domain.APIResponse
 // @Failure 403 {object} domain.APIResponse

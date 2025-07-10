@@ -8,16 +8,17 @@ import (
 	"time"
 
 	"github.com/elastic/go-elasticsearch/v9"
-	"github.com/th1enq/server_management_system/internal/domain"
+	"github.com/th1enq/server_management_system/internal/domain/entity"
+	"github.com/th1enq/server_management_system/internal/domain/report"
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/zap"
 )
 
 type HealthCheckUseCase interface {
-	CalculateAverageUptime(ctx context.Context, startTime, endTime time.Time) (*domain.DailyReport, error)
+	CalculateAverageUptime(ctx context.Context, startTime, endTime time.Time) (*report.DailyReport, error)
 	CalculateServerUpTime(ctx context.Context, serverID *string, startTime, endTime time.Time) (float64, error)
 	CountLogStats(ctx context.Context, serverID *string, stat string, startTime, endTime time.Time) (int64, error)
-	ExportReportXLSX(ctx context.Context, report *domain.DailyReport) (string, error)
+	ExportReportXLSX(ctx context.Context, report *report.DailyReport) (string, error)
 }
 
 type healthCheckUseCase struct {
@@ -34,29 +35,29 @@ func NewHealthCheckUseCase(esClient *elasticsearch.Client, serverUseCase ServerU
 	}
 }
 
-func (h *healthCheckUseCase) CalculateAverageUptime(ctx context.Context, startTime, endTime time.Time) (*domain.DailyReport, error) {
+func (h *healthCheckUseCase) CalculateAverageUptime(ctx context.Context, startTime, endTime time.Time) (*report.DailyReport, error) {
 	servers, err := h.serverUseCase.GetAllServers(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get servers: %w", err)
 	}
 	if len(servers) == 0 {
-		return &domain.DailyReport{
+		return &report.DailyReport{
 			StartOfDay:   startTime,
 			EndOfDay:     endTime,
 			TotalServers: 0,
 			OnlineCount:  0,
 			OfflineCount: 0,
 			AvgUptime:    0,
-			Detail:       []domain.ServerUpTime{},
+			Detail:       []report.ServerUpTime{},
 		}, nil
 	}
 
-	var singleUpTime []domain.ServerUpTime
+	var singleUpTime []report.ServerUpTime
 	totalUpTime := 0.0
 	onlineCount := 0
 	offlineCount := 0
 	for _, server := range servers {
-		if server.Status == domain.ServerStatusOff {
+		if server.Status == entity.ServerStatusOff {
 			offlineCount++
 		} else {
 			onlineCount++
@@ -66,15 +67,15 @@ func (h *healthCheckUseCase) CalculateAverageUptime(ctx context.Context, startTi
 			h.logger.With(zap.Error(err)).Error("Failed to calculate uptime for server", zap.String("serverID", server.ServerID))
 			continue
 		}
-		singleUpTime = append(singleUpTime, domain.ServerUpTime{
-			Server:    server,
+		singleUpTime = append(singleUpTime, report.ServerUpTime{
+			Server:    *server,
 			AvgUpTime: uptime,
 		})
 		totalUpTime += uptime
 	}
 	avgUptime := totalUpTime / float64(len(servers))
 
-	report := &domain.DailyReport{
+	report := &report.DailyReport{
 		StartOfDay:   startTime,
 		EndOfDay:     endTime,
 		TotalServers: int64(len(servers)),
@@ -154,7 +155,7 @@ func (h *healthCheckUseCase) CalculateServerUpTime(ctx context.Context, serverID
 	return float64(onlineCount) / float64(totalCount) * 100, nil
 }
 
-func (h *healthCheckUseCase) ExportReportXLSX(ctx context.Context, report *domain.DailyReport) (string, error) {
+func (h *healthCheckUseCase) ExportReportXLSX(ctx context.Context, report *report.DailyReport) (string, error) {
 	file := excelize.NewFile()
 	streamWriter, err := file.NewStreamWriter("Sheet1")
 	if err != nil {
