@@ -27,7 +27,7 @@ func NewController(serverController *controllers.ServerController, reportControl
 		authMiddleware:   authMiddleware,
 	}
 }
-``
+
 func (h *Controller) RegisterRoutes() *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
