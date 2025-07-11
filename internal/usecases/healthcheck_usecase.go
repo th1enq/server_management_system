@@ -16,8 +16,9 @@ import (
 
 type HealthCheckUseCase interface {
 	CalculateAverageUptime(ctx context.Context, startTime, endTime time.Time) (*report.DailyReport, error)
-	CalculateServerUpTime(ctx context.Context, serverID *string, startTime, endTime time.Time) (float64, error)
+	CalculateServerUpTime(ctx context.Context, serverID *string, startTime, endTime time.Time) (entity.ServerStatus, float64, error)
 	CountLogStats(ctx context.Context, serverID *string, stat string, startTime, endTime time.Time) (int64, error)
+	GetLastServerStatus(ctx context.Context, serverID *string, startTime, endTime time.Time) (entity.ServerStatus, error)
 	ExportReportXLSX(ctx context.Context, report *report.DailyReport) (string, error)
 }
 
@@ -57,15 +58,16 @@ func (h *healthCheckUseCase) CalculateAverageUptime(ctx context.Context, startTi
 	onlineCount := 0
 	offlineCount := 0
 	for _, server := range servers {
-		if server.Status == entity.ServerStatusOff {
-			offlineCount++
-		} else {
-			onlineCount++
-		}
-		uptime, err := h.CalculateServerUpTime(ctx, &server.ServerID, startTime, endTime)
+		stat, uptime, err := h.CalculateServerUpTime(ctx, &server.ServerID, startTime, endTime)
 		if err != nil {
 			h.logger.With(zap.Error(err)).Error("Failed to calculate uptime for server", zap.String("serverID", server.ServerID))
 			continue
+		}
+		server.Status = stat
+		if stat == entity.ServerStatusOn {
+			onlineCount++
+		} else {
+			offlineCount++
 		}
 		singleUpTime = append(singleUpTime, report.ServerUpTime{
 			Server:    *server,
@@ -88,7 +90,7 @@ func (h *healthCheckUseCase) CalculateAverageUptime(ctx context.Context, startTi
 	return report, nil
 }
 
-func (h *healthCheckUseCase) CountLogStats(ctx context.Context, serverID *string, stat string, startTime, endTime time.Time) (int64, error) {
+func (h *healthCheckUseCase) GetLastServerStatus(ctx context.Context, serverID *string, startTime, endTime time.Time) (entity.ServerStatus, error) {
 	query := fmt.Sprintf(`{
 		"query": {
 			"bool": {
@@ -98,8 +100,60 @@ func (h *healthCheckUseCase) CountLogStats(ctx context.Context, serverID *string
 				]
 			}
 		},
-		"size": 10000
+		"sort": [
+			{ "timestamp": { "order": "desc" }}
+		],
+		"size": 1
 	}`, *serverID, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
+
+	res, err := h.esClient.Search(
+		h.esClient.Search.WithContext(ctx),
+		h.esClient.Search.WithIndex("vcs-sms-server-checks-*"),
+		h.esClient.Search.WithBody(strings.NewReader(query)),
+		h.esClient.Search.WithTrackTotalHits(true),
+	)
+	if err != nil {
+		return "", fmt.Errorf("elasticsearch search failed: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		return "", fmt.Errorf("elasticsearch error: %s", res.String())
+	}
+
+	var body struct {
+		Hits struct {
+			Hits []struct {
+				Source struct {
+					Status entity.ServerStatus `json:"status"`
+				} `json:"_source"`
+			} `json:"hits"`
+		} `json:"hits"`
+	}
+
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		return "", fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if len(body.Hits.Hits) == 0 {
+		return "", fmt.Errorf("no logs found for server %s in the specified time range", *serverID)
+	}
+	return body.Hits.Hits[0].Source.Status, nil
+}
+
+func (h *healthCheckUseCase) CountLogStats(ctx context.Context, serverID *string, stat string, startTime, endTime time.Time) (int64, error) {
+	query := fmt.Sprintf(`{
+		"query": {
+			"bool": {
+				"must": [
+					{ "term": { "server_id": "%s" }},
+					{ "term": { "status": "%s" }},
+					{ "range": { "timestamp": { "gte": "%s", "lt": "%s" }}}
+				]
+			}
+		},
+		"size": 10000
+	}`, *serverID, stat, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
 
 	res, err := h.esClient.Search(
 		h.esClient.Search.WithContext(ctx),
@@ -133,26 +187,31 @@ func (h *healthCheckUseCase) CountLogStats(ctx context.Context, serverID *string
 	return total, nil
 }
 
-func (h *healthCheckUseCase) CalculateServerUpTime(ctx context.Context, serverID *string, startTime, endTime time.Time) (float64, error) {
+func (h *healthCheckUseCase) CalculateServerUpTime(ctx context.Context, serverID *string, startTime, endTime time.Time) (entity.ServerStatus, float64, error) {
 	if startTime.After(endTime) {
-		return 0, fmt.Errorf("startTime cannot be after endTime")
+		return "", 0, fmt.Errorf("startTime cannot be after endTime")
 	}
 
 	onlineCount, err := h.CountLogStats(ctx, serverID, "ON", startTime, endTime)
 	if err != nil {
-		return 0, fmt.Errorf("failed to count online logs: %w", err)
+		return "", 0, fmt.Errorf("failed to count online logs: %w", err)
 	}
 	offlineCount, err := h.CountLogStats(ctx, serverID, "OFF", startTime, endTime)
 	if err != nil {
-		return 0, fmt.Errorf("failed to count offline logs: %w", err)
+		return "", 0, fmt.Errorf("failed to count offline logs: %w", err)
 	}
 
 	totalCount := onlineCount + offlineCount
 	if totalCount == 0 {
-		return 0, nil
+		return "", 0, nil
 	}
 
-	return float64(onlineCount) / float64(totalCount) * 100, nil
+	lastStatus, err := h.GetLastServerStatus(ctx, serverID, startTime, endTime)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to get last server status: %w", err)
+	}
+
+	return lastStatus, float64(onlineCount) / float64(totalCount) * 100, nil
 }
 
 func (h *healthCheckUseCase) ExportReportXLSX(ctx context.Context, report *report.DailyReport) (string, error) {

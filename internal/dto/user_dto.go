@@ -25,8 +25,8 @@ type UserResponse struct {
 
 type PasswordUpdate struct {
 	OldPassword    string `json:"old_password" binding:"required,min=6,max=100"`
-	RepeatPassword string `json:"repeat_password " binding:"required,min=6,max=100"`
-	NewPassword    string `json:"new_password " binding:"required,min=6,max=100"`
+	RepeatPassword string `json:"repeat_password" binding:"required,min=6,max=100"`
+	NewPassword    string `json:"new_password" binding:"required,min=6,max=100"`
 }
 
 type UserUpdate struct {

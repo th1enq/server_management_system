@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/th1enq/server_management_system/internal/configs"
+	"github.com/th1enq/server_management_system/internal/infrastructure/validator"
 	"go.uber.org/zap"
 )
 
@@ -32,6 +33,7 @@ func (s *server) Start(ctx context.Context) error {
 		Addr:    fmt.Sprintf(":%d", s.httpConfig.Port),
 		Handler: s.controller.RegisterRoutes(),
 	}
+	validator.RegisterCustomValidators()
 	s.logger.Info("HTTP server starting", zap.Int("port", s.httpConfig.Port))
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		s.logger.Fatal("failed to start HTTP Server", zap.Error(err))

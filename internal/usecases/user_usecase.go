@@ -41,7 +41,7 @@ func NewUserUseCase(userRepo repository.UserRepository, passwordService services
 func (u *userUseCase) CreateUser(ctx context.Context, req dto.CreateUserRequest) (*entity.User, error) {
 	hashedPassword, err := u.passwordService.Hash(req.Password)
 	if err != nil {
-		u.logger.Error("Failed to hash password",
+		u.logger.Warn("Failed to hash password",
 			zap.String("username", req.Username),
 			zap.String("email", req.Email),
 			zap.Error(err),
