@@ -1,4 +1,4 @@
-## Architechture
+## Clean Architechture
 
 ```
 ├── cmd/                     # Entry points
