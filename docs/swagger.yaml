@@ -911,16 +911,26 @@ paths:
     get:
       description: Get a list of all users (admin only)
       parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
       - default: 10
-        description: Limit
+        description: Page size
         in: query
-        name: limit
+        name: page_size
         type: integer
-      - default: 0
-        description: Offset
+      - default: created_time
+        description: Sort field
         in: query
-        name: offset
-        type: integer
+        name: sort
+        type: string
+      - default: desc
+        description: Sort order
+        in: query
+        name: order
+        type: string
       produces:
       - application/json
       responses:

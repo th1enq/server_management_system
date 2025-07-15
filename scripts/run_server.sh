@@ -1,7 +1,7 @@
 echo 'Docker Setup ...'
 docker-compose up --build -d
 echo 'Waiting for docker ...'
-sleep 10
+sleep 20
 echo 'Docker setup successfully !!!'
 
 echo 'Migrate up database ...'

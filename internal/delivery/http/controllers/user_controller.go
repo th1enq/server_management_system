@@ -111,11 +111,7 @@ func (h *UserController) UpdateProfile(c *gin.Context) {
 		return
 	}
 	h.log.Info("UpdateProfile: user profile updated successfully", zap.Uint("userID", userID))
-	c.JSON(http.StatusOK, domain.NewSuccessResponse(
-		domain.CodeSuccess,
-		"User profile updated successfully",
-		user,
-	))
+	h.userPresenter.ProfileUpdated(c, dto.FromEntityToUserResponse(user))
 }
 
 // ChangePassword allows the user to change their password
@@ -164,11 +160,8 @@ func (h *UserController) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, domain.NewSuccessResponse(
-		domain.CodeSuccess,
-		"Password changed successfully",
-		nil,
-	))
+	h.log.Info("ChangePassword: password changed successfully", zap.Uint("userID", userID))
+	h.userPresenter.PasswordChanged(c)
 }
 
 // ListUsers returns a list of users (admin only)
@@ -177,8 +170,10 @@ func (h *UserController) ChangePassword(c *gin.Context) {
 // @Tags users
 // @Security BearerAuth
 // @Produce json
-// @Param limit query int false "Limit" default(10)
-// @Param offset query int false "Offset" default(0)
+// @Param page query int false "Page number" default(1)
+// @Param page_size query int false "Page size" default(10)
+// @Param sort query string false "Sort field" default(username)
+// @Param order query string false "Sort order" default(desc)
 // @Success 200 {object} domain.APIResponse{data=[]dto.UserResponse}
 // @Failure 401 {object} domain.APIResponse
 // @Failure 403 {object} domain.APIResponse
@@ -252,11 +247,8 @@ func (h *UserController) CreateUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, domain.NewSuccessResponse(
-		domain.CodeSuccess,
-		"User created successfully",
-		createdUser,
-	))
+	h.log.Info("CreateUser: user created successfully", zap.Uint("userID", createdUser.ID))
+	h.userPresenter.UserCreated(c, dto.FromEntityToUserResponse(createdUser))
 }
 
 // UpdateUser updates a user (admin only)
@@ -309,11 +301,8 @@ func (h *UserController) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, domain.NewSuccessResponse(
-		domain.CodeSuccess,
-		"User updated successfully",
-		user,
-	))
+	h.log.Info("UpdateUser: user updated successfully", zap.Uint("id", user.ID), zap.String("username", user.Username))
+	h.userPresenter.UserUpdated(c, dto.FromEntityToUserResponse(user))
 }
 
 // DeleteUser deletes a user (admin only)
@@ -353,9 +342,5 @@ func (h *UserController) DeleteUser(c *gin.Context) {
 	}
 
 	h.log.Info("DeleteUser: user deleted successfully", zap.Uint("id", uint(id)))
-	c.JSON(http.StatusOK, domain.NewSuccessResponse(
-		domain.CodeSuccess,
-		"User deleted successfully",
-		nil,
-	))
+	h.userPresenter.UserDeleted(c)
 }
