@@ -294,59 +294,7 @@ func (s *serverUseCase) ImportServers(ctx context.Context, filePath string) (*dt
 }
 
 func (s *serverUseCase) ExportServers(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) (string, error) {
-	var queryFilter query.ServerFilter
-
-	if filter.ServerID != "" {
-		queryFilter.ServerID = filter.ServerID
-	}
-	if filter.ServerName != "" {
-		queryFilter.ServerName = filter.ServerName
-	}
-	if filter.Status != "" {
-		queryFilter.Status = filter.Status
-	}
-	if filter.Description != "" {
-		queryFilter.Description = filter.Description
-	}
-	if filter.IPv4 != "" {
-		queryFilter.IPv4 = filter.IPv4
-	}
-	if filter.Location != "" {
-		queryFilter.Location = filter.Location
-	}
-	if filter.OS != "" {
-		queryFilter.OS = filter.OS
-	}
-	if filter.CPU > 0 {
-		queryFilter.CPU = filter.CPU
-	}
-	if filter.RAM > 0 {
-		queryFilter.RAM = filter.RAM
-	}
-	if filter.Disk > 0 {
-		queryFilter.Disk = filter.Disk
-	}
-
-	queryPagination := query.Pagination{
-		Page:     pagination.Page,
-		PageSize: pagination.PageSize,
-		Sort:     pagination.Sort,
-		Order:    pagination.Order,
-	}
-	if queryPagination.Page < 1 {
-		queryPagination.Page = 1
-	}
-	if queryPagination.PageSize < 1 {
-		queryPagination.PageSize = 10
-	}
-	if queryPagination.Sort == "" {
-		queryPagination.Sort = "created_at"
-	}
-	if queryPagination.Order == "" {
-		queryPagination.Order = "desc"
-	}
-
-	servers, _, err := s.serverRepo.List(ctx, queryFilter, queryPagination)
+	servers, err := s.ListServers(ctx, filter, pagination)
 	if err != nil {
 		s.logger.Error("Failed to list servers for export",
 			zap.Error(err),
@@ -528,16 +476,15 @@ func (s *serverUseCase) GetServerStats(ctx context.Context) (dto.ServerStatusRes
 
 func (s *serverUseCase) ListServers(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) ([]*entity.Server, error) {
 	queryFilter := query.ServerFilter{
-		ServerID:    filter.ServerID,
-		ServerName:  filter.ServerName,
-		Status:      filter.Status,
-		Description: filter.Description,
-		IPv4:        filter.IPv4,
-		Location:    filter.Location,
-		OS:          filter.OS,
-		CPU:         filter.CPU,
-		RAM:         filter.RAM,
-		Disk:        filter.Disk,
+		ServerID:   filter.ServerID,
+		ServerName: filter.ServerName,
+		Status:     filter.Status,
+		IPv4:       filter.IPv4,
+		Location:   filter.Location,
+		OS:         filter.OS,
+		CPU:        filter.CPU,
+		RAM:        filter.RAM,
+		Disk:       filter.Disk,
 	}
 
 	queryPagination := query.Pagination{
@@ -546,6 +493,20 @@ func (s *serverUseCase) ListServers(ctx context.Context, filter dto.ServerFilter
 		Sort:     pagination.Sort,
 		Order:    pagination.Order,
 	}
+
+	if queryPagination.Page < 1 {
+		queryPagination.Page = 1
+	}
+	if queryPagination.PageSize < 1 {
+		queryPagination.PageSize = 10
+	}
+	if queryPagination.Sort == "" {
+		queryPagination.Sort = "created_at"
+	}
+	if queryPagination.Order == "" {
+		queryPagination.Order = "desc"
+	}
+
 	servers, total, err := s.serverRepo.List(ctx, queryFilter, queryPagination)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list servers: %w", err)

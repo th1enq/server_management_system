@@ -29,16 +29,15 @@ type UpdateServerRequest struct {
 
 // ServerFilter for filtering servers via query parameters
 type ServerFilter struct {
-	ServerID    string              `form:"server_id"`
-	ServerName  string              `form:"server_name"`
-	Status      entity.ServerStatus `form:"status"`
-	Description string              `form:"description"`
-	IPv4        string              `form:"ipv4" binding:"omitempty,ipv4"`
-	Location    string              `form:"location"`
-	OS          string              `form:"os"`
-	CPU         int                 `form:"cpu" binding:"omitempty,gte=0"`
-	RAM         int                 `form:"ram" binding:"omitempty,gte=0"`
-	Disk        int                 `form:"disk" binding:"omitempty,gte=0"`
+	ServerID   string              `form:"server_id"`
+	ServerName string              `form:"server_name"`
+	Status     entity.ServerStatus `form:"status"`
+	IPv4       string              `form:"ipv4" binding:"omitempty,ipv4"`
+	Location   string              `form:"location"`
+	OS         string              `form:"os"`
+	CPU        int                 `form:"cpu" binding:"omitempty,gte=0"`
+	RAM        int                 `form:"ram" binding:"omitempty,gte=0"`
+	Disk       int                 `form:"disk" binding:"omitempty,gte=0"`
 }
 
 // ServerResponse for API responses

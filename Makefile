@@ -26,3 +26,9 @@ migrate-down: ## Rollback database migrations
 migrate-up: ## Rollback database migrations
 	@echo "Migrations..."
 	@go run ./cmd/migrate up
+
+test-coverage: ## Run tests with coverage
+	@echo "Running tests with coverage..."
+	@go test -v -coverpkg=./internal/... -coverprofile=coverage.out ./tests/unit/...
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"

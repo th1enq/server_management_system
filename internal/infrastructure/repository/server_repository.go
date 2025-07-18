@@ -103,6 +103,17 @@ func (s *serverRepository) List(ctx context.Context, filter query.ServerFilter, 
 	if filter.OS != "" {
 		query = query.Where("os LIKE ?", "%"+filter.OS+"%")
 	}
+	if filter.CPU > 0 {
+		query = query.Where("cpu = ?", filter.CPU)
+	}
+
+	if filter.RAM > 0 {
+		query = query.Where("ram = ?", filter.RAM)
+	}
+
+	if filter.Disk > 0 {
+		query = query.Where("disk = ?", filter.Disk)
+	}
 
 	if err := query.Count(&total); err != nil {
 		return nil, 0, err
