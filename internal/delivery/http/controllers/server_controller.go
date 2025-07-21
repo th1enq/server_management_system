@@ -33,6 +33,53 @@ func NewServerController(
 	}
 }
 
+func (h *ServerController) Register(c *gin.Context) {
+	var req dto.RegisterMetricsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Warn("Invalid register metrics request", zap.Error(err))
+		h.serverPresenter.InvalidRequest(c, "Invalid request data", err)
+		return
+	}
+
+	IPv4 := c.ClientIP()
+
+	reqCreate := dto.CreateServerRequest{
+		ServerID:    req.ServerID,
+		ServerName:  req.ServerName,
+		IPv4:        IPv4,
+		Description: req.Description,
+		Location:    req.Location,
+		OS:          req.OS,
+	}
+
+	fmt.Println(reqCreate)
+
+	response, err := h.serverUseCase.Register(c.Request.Context(), reqCreate)
+	if err != nil {
+		h.logger.Error("Failed to create server",
+			zap.Error(err),
+			zap.String("server_id", req.ServerID),
+			zap.String("server_name", req.ServerName),
+			zap.String("request_id", c.GetString("request_id")))
+
+		if err.Error() == "server_id and server_name are required" {
+			h.serverPresenter.ValidationError(c, "Failed to create server", err)
+		} else if err.Error() == "server is already exists" {
+			h.serverPresenter.ConflictError(c, "Failed to create server", err)
+		} else {
+			h.serverPresenter.InternalServerError(c, "Failed to create server", err)
+		}
+		return
+	}
+
+	h.logger.Info("Server registered successfully",
+		zap.String("server_id", req.ServerID),
+		zap.String("server_name", req.ServerName),
+		zap.String("request_id", c.GetString("request_id")))
+
+	h.serverPresenter.ServerRegistered(c, response)
+}
+
 // CreateServer godoc
 // @Summary Create a new server
 // @Description Create a new server with the provided information
@@ -65,7 +112,7 @@ func (h *ServerController) CreateServer(c *gin.Context) {
 		zap.String("server_name", req.ServerName),
 		zap.String("request_id", c.GetString("request_id")))
 
-	err := h.serverUseCase.CreateServer(c.Request.Context(), req)
+	_, err := h.serverUseCase.CreateServer(c.Request.Context(), req)
 	if err != nil {
 		h.logger.Error("Failed to create server",
 			zap.Error(err),

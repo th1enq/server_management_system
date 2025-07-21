@@ -26,6 +26,7 @@ type ServerPresenter interface {
 	ConflictError(c *gin.Context, message string, err error)
 	Unauthorized(c *gin.Context, message string)
 	InternalServerError(c *gin.Context, message string, err error)
+	ServerRegistered(c *gin.Context, response *dto.AuthResponse)
 }
 
 type serverPresenter struct{}
@@ -172,4 +173,13 @@ func (p *serverPresenter) InternalServerError(c *gin.Context, message string, er
 		errorMsg,
 	)
 	c.JSON(http.StatusInternalServerError, response)
+}
+
+func (p *serverPresenter) ServerRegistered(c *gin.Context, response *dto.AuthResponse) {
+	resp := domain.NewSuccessResponse(
+		domain.CodeCreated,
+		"Server registered successfully",
+		response,
+	)
+	c.JSON(http.StatusCreated, resp)
 }

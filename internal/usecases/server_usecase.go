@@ -19,7 +19,8 @@ import (
 )
 
 type ServerUseCase interface {
-	CreateServer(ctx context.Context, req dto.CreateServerRequest) error
+	Register(ctx context.Context, req dto.CreateServerRequest) (*dto.AuthResponse, error)
+	CreateServer(ctx context.Context, req dto.CreateServerRequest) (*entity.Server, error)
 	GetServer(ctx context.Context, id uint) (*entity.Server, error)
 	ListServers(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) ([]*entity.Server, error)
 	UpdateServer(ctx context.Context, id uint, updates dto.UpdateServerRequest) (*entity.Server, error)
@@ -37,32 +38,68 @@ type ServerUseCase interface {
 type serverUseCase struct {
 	logger           *zap.Logger
 	serverRepo       repository.ServerRepository
+	tokenServices    services.TokenServices
 	excelizeServices services.ExcelizeService
 	cache            cache.CacheClient
 }
 
-func NewServerUseCase(serverRepo repository.ServerRepository, excelizeServices services.ExcelizeService, cache cache.CacheClient, logger *zap.Logger) ServerUseCase {
+func NewServerUseCase(serverRepo repository.ServerRepository, tokenServices services.TokenServices, excelizeServices services.ExcelizeService, cache cache.CacheClient, logger *zap.Logger) ServerUseCase {
 	return &serverUseCase{
 		serverRepo:       serverRepo,
+		tokenServices:    tokenServices,
 		excelizeServices: excelizeServices,
 		cache:            cache,
 		logger:           logger,
 	}
 }
-func (s *serverUseCase) CreateServer(ctx context.Context, req dto.CreateServerRequest) error {
+
+func (s *serverUseCase) Register(ctx context.Context, req dto.CreateServerRequest) (*dto.AuthResponse, error) {
+	server, err := s.CreateServer(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register server: %w", err)
+	}
+
+	accessToken, err := s.tokenServices.GenerateServerAccessToken(ctx, server)
+	if err != nil {
+		s.logger.Error("Failed to generate access token for server",
+			zap.String("server_id", server.ServerID),
+			zap.String("server_name", server.ServerName),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("failed to generate access token: %w", err)
+	}
+
+	refreshToken, err := s.tokenServices.GenerateServerRefreshToken(ctx, server)
+	if err != nil {
+		s.logger.Error("Failed to generate refresh token for server",
+			zap.String("server_id", server.ServerID),
+			zap.String("server_name", server.ServerName),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	return &dto.AuthResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		TokenType:    "Bearer",
+	}, nil
+}
+
+func (s *serverUseCase) CreateServer(ctx context.Context, req dto.CreateServerRequest) (*entity.Server, error) {
 	if exists, err := s.serverRepo.ExistsByServerIDOrServerName(ctx, req.ServerID, req.ServerName); err != nil {
 		s.logger.Error("Failed to check if server exists",
 			zap.String("server_id", req.ServerID),
 			zap.String("server_name", req.ServerName),
 			zap.Error(err),
 		)
-		return fmt.Errorf("failed to check if server exists: %w", err)
+		return nil, fmt.Errorf("failed to check if server exists: %w", err)
 	} else if exists {
 		s.logger.Warn("Server already exists",
 			zap.String("server_id", req.ServerID),
 			zap.String("server_name", req.ServerName),
 		)
-		return fmt.Errorf("server with ID '%s' or name '%s' already exists", req.ServerID, req.ServerName)
+		return nil, fmt.Errorf("server with ID '%s' or name '%s' already exists", req.ServerID, req.ServerName)
 	}
 
 	server := &entity.Server{
@@ -97,7 +134,7 @@ func (s *serverUseCase) CreateServer(ctx context.Context, req dto.CreateServerRe
 			zap.String("server_name", req.ServerName),
 			zap.Error(err),
 		)
-		return fmt.Errorf("failed to create server: %w", err)
+		return nil, fmt.Errorf("failed to create server: %w", err)
 	}
 
 	s.logger.Info("Server created successfully",
@@ -106,7 +143,7 @@ func (s *serverUseCase) CreateServer(ctx context.Context, req dto.CreateServerRe
 		zap.String("server_name", server.ServerName),
 	)
 
-	return nil
+	return server, nil
 }
 
 func (s *serverUseCase) DeleteServer(ctx context.Context, id uint) error {

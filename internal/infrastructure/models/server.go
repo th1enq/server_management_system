@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/th1enq/server_management_system/internal/domain/entity"
-	"gorm.io/gorm"
 )
 
 type Server struct {
@@ -21,7 +20,6 @@ type Server struct {
 	Disk        int
 	CreatedTime time.Time `gorm:"autoCreateTime"`
 	LastUpdated time.Time `gorm:"autoUpdateTime"`
-	DeletedAt   gorm.DeletedAt
 }
 
 func FromServerEntity(s *entity.Server) *Server {

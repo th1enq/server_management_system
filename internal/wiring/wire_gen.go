@@ -48,6 +48,8 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 		return nil, nil, err
 	}
 	serverRepository := repository.NewServerRepository(databaseClient)
+	jwt := config.JWT
+	tokenServices := services.NewJWTService(jwt)
 	excelizeService := services.NewExcelizeService()
 	configsCache := config.Cache
 	cacheClient, err := cache.NewCache(configsCache, logger)
@@ -55,7 +57,7 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 		cleanup()
 		return nil, nil, err
 	}
-	serverUseCase := usecases.NewServerUseCase(serverRepository, excelizeService, cacheClient, logger)
+	serverUseCase := usecases.NewServerUseCase(serverRepository, tokenServices, excelizeService, cacheClient, logger)
 	serverPresenter := presenters.NewServerPresenter()
 	serverController := controllers.NewServerController(serverUseCase, serverPresenter, logger)
 	email := config.Email
@@ -73,8 +75,6 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 	passwordService := services.NewBcryptService()
 	userUseCase := usecases.NewUserUseCase(userRepository, passwordService, logger)
 	tokenRepository := repository.NewTokenRepository(cacheClient)
-	jwt := config.JWT
-	tokenServices := services.NewJWTService(jwt)
 	authUseCase := usecases.NewAuthUseCase(userUseCase, tokenRepository, tokenServices, passwordService, logger)
 	authPresenter := presenters.NewAuthPresenter()
 	authController := controllers.NewAuthController(authUseCase, authPresenter, logger)

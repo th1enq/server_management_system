@@ -20,3 +20,10 @@ type Claims struct {
 	TokenType string           `json:"token_type"`
 	jwt.RegisteredClaims
 }
+
+type ServerClaims struct {
+	ServerID   string `json:"server_id"`
+	ServerName string `json:"server_name"`
+	TokenType  string `json:"token_type"`
+	jwt.RegisteredClaims
+}

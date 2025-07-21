@@ -4,6 +4,14 @@ import (
 	"github.com/th1enq/server_management_system/internal/domain/entity"
 )
 
+type RegisterMetricsRequest struct {
+	ServerID    string `json:"server_id" binding:"required"`
+	ServerName  string `json:"server_name" binding:"required"`
+	Description string `json:"description,omitempty"`
+	Location    string `json:"location,omitempty"`
+	OS          string `json:"os,omitempty"`
+}
+
 type CreateServerRequest struct {
 	ServerID    string `json:"server_id" binding:"required"`
 	ServerName  string `json:"server_name" binding:"required"`

@@ -5,7 +5,6 @@ import (
 
 	"github.com/th1enq/server_management_system/internal/domain/entity"
 	"github.com/th1enq/server_management_system/internal/domain/scope"
-	"gorm.io/gorm"
 )
 
 type User struct {
@@ -20,7 +19,6 @@ type User struct {
 	IsActive     bool      `gorm:"not null;default:true"`
 	CreatedAt    time.Time `gorm:"autoCreateTime"`
 	UpdatedAt    time.Time `gorm:"autoUpdateTime"`
-	DeletedAt    gorm.DeletedAt
 }
 
 func FromUserEntity(u *entity.User) *User {

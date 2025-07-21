@@ -14,8 +14,7 @@ CREATE TABLE servers (
     ram INTEGER,
     disk INTEGER,
     created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_servers_server_id ON servers (server_id);

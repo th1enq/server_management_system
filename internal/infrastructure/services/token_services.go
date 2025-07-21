@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -20,6 +21,42 @@ func NewJWTService(cfg configs.JWT) services.TokenServices {
 	return &jwtService{
 		jwtConfig: cfg,
 	}
+}
+
+func (j *jwtService) GenerateServerAccessToken(ctx context.Context, server *entity.Server) (string, error) {
+	claims := &dto.ServerClaims{
+		ServerID:   server.ServerID,
+		ServerName: server.ServerName,
+		TokenType:  "server_access",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.jwtConfig.Expiration)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			Issuer:    "server_management_system",
+			Subject:   server.ServerID,
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(j.jwtConfig.Secret))
+}
+
+func (j *jwtService) GenerateServerRefreshToken(ctx context.Context, server *entity.Server) (string, error) {
+	claims := &dto.ServerClaims{
+		ServerID:   server.ServerID,
+		ServerName: server.ServerName,
+		TokenType:  "server_refresh",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.jwtConfig.Expiration * 7)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			Issuer:    "server_management_system",
+			Subject:   server.ServerID,
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(j.jwtConfig.Secret))
 }
 
 func (j *jwtService) GenerateAccessToken(user *entity.User) (string, error) {

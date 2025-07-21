@@ -60,6 +60,10 @@ func (h *Controller) RegisterRoutes() *gin.Engine {
 
 	// Protected server routes
 	servers := v1.Group("/servers")
+	{
+		servers.POST("/register", h.serverController.Register)
+	}
+
 	servers.Use(h.authMiddleware.RequireAuth())
 	{
 		// Read operations - requires server:read scope
