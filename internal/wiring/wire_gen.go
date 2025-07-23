@@ -50,14 +50,15 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 	serverRepository := repository.NewServerRepository(databaseClient)
 	jwt := config.JWT
 	tokenServices := services.NewJWTService(jwt)
-	excelizeService := services.NewExcelizeService()
 	configsCache := config.Cache
 	cacheClient, err := cache.NewCache(configsCache, logger)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	serverUseCase := usecases.NewServerUseCase(serverRepository, tokenServices, excelizeService, cacheClient, logger)
+	tokenRepository := repository.NewTokenRepository(cacheClient)
+	excelizeService := services.NewExcelizeService()
+	serverUseCase := usecases.NewServerUseCase(serverRepository, tokenServices, tokenRepository, excelizeService, cacheClient, logger)
 	serverPresenter := presenters.NewServerPresenter()
 	serverController := controllers.NewServerController(serverUseCase, serverPresenter, logger)
 	email := config.Email
@@ -74,7 +75,6 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 	userRepository := repository.NewUserRepository(databaseClient)
 	passwordService := services.NewBcryptService()
 	userUseCase := usecases.NewUserUseCase(userRepository, passwordService, logger)
-	tokenRepository := repository.NewTokenRepository(cacheClient)
 	authUseCase := usecases.NewAuthUseCase(userUseCase, tokenRepository, tokenServices, passwordService, logger)
 	authPresenter := presenters.NewAuthPresenter()
 	authController := controllers.NewAuthController(authUseCase, authPresenter, logger)
@@ -82,9 +82,8 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 	userController := controllers.NewUserController(userUseCase, userPresenter, logger)
 	jobScheduler := scheduler.NewJobScheduler(logger)
 	cron := config.Cron
-	serverHealthCheckTask := tasks.NewServerHealthCheckTask(serverUseCase, cron, logger)
 	dailyReportTask := tasks.NewDailyReportTask(reportUseCase, cron, logger)
-	jobManager := scheduler.NewJobManager(jobScheduler, serverHealthCheckTask, dailyReportTask, logger)
+	jobManager := scheduler.NewJobManager(jobScheduler, dailyReportTask, logger)
 	jobsPresenter := presenters.NewJobsPresenter()
 	jobsController := controllers.NewJobsController(jobManager, jobsPresenter, logger)
 	authMiddleware := middleware.NewAuthMiddleware(authUseCase, logger)
