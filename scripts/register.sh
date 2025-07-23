@@ -5,6 +5,7 @@ SERVER_NAME="$2"
 DESCRIPTION="This is $SERVER_NAME"
 LOCATION="Data Center A"
 OS="Linux"
+INTERVAL_TIME="$3"
 
 RESPONSE=$(curl -s -X POST http://$HOST_IP:8080/api/v1/servers/register \
   -H "Content-Type: application/json" \
@@ -13,7 +14,8 @@ RESPONSE=$(curl -s -X POST http://$HOST_IP:8080/api/v1/servers/register \
     \"server_name\": \"$SERVER_NAME\",
     \"description\": \"$DESCRIPTION\",
     \"location\": \"$LOCATION\",
-    \"os\": \"$OS\"
+    \"os\": \"$OS\",
+    \"interval_time\": \"$INTERVAL_TIME\",
   }")
 
 echo "Register response: $RESPONSE"

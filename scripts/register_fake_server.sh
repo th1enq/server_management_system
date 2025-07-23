@@ -3,6 +3,7 @@
 for i in $(seq 2 11); do
   ID="server-$i"
   NAME="Fake Server $i"
+  INTERVAL_TIME=$((RANDOM % 51 + 10))
   echo "Register from fake-server-$i"
-  docker exec fake-server-$i ./register.sh "$ID" "$NAME"
+  docker exec fake-server-$i ./register.sh "$ID" "$NAME" "$INTERVAL_TIME"
 done
