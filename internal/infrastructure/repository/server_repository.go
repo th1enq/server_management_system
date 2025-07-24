@@ -103,17 +103,6 @@ func (s *serverRepository) List(ctx context.Context, filter query.ServerFilter, 
 	if filter.OS != "" {
 		query = query.Where("os LIKE ?", "%"+filter.OS+"%")
 	}
-	if filter.CPU > 0 {
-		query = query.Where("cpu = ?", filter.CPU)
-	}
-
-	if filter.RAM > 0 {
-		query = query.Where("ram = ?", filter.RAM)
-	}
-
-	if filter.Disk > 0 {
-		query = query.Where("disk = ?", filter.Disk)
-	}
 
 	if err := query.Count(&total); err != nil {
 		return nil, 0, err
@@ -136,8 +125,12 @@ func (s *serverRepository) Update(ctx context.Context, server *entity.Server) er
 	return s.db.WithContext(ctx).Save(model)
 }
 
-func (s *serverRepository) UpdateStatus(ctx context.Context, serverID string, status entity.ServerStatus) error {
-	return s.db.WithContext(ctx).Model(&models.Server{}).Where("server_id = ?", serverID).Update("status", status)
+func (s *serverRepository) UpdateStatus(ctx context.Context, serverID string, status entity.ServerStatus) (*entity.Server, error) {
+	var server models.Server
+	if err := s.db.WithContext(ctx).Model(&server).Where("server_id = ?", serverID).Update("status", status); err != nil {
+		return nil, err
+	}
+	return models.ToServerEntity(&server), nil
 }
 
 func (s *serverRepository) ExistsByServerIDOrServerName(ctx context.Context, serverID string, serverName string) (bool, error) {

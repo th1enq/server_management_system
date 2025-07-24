@@ -2,7 +2,6 @@ package services
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/th1enq/server_management_system/internal/domain/entity"
@@ -64,33 +63,6 @@ func (e *excelizeService) ParseToServer(row []string) (entity.Server, error) {
 	}
 	if server.ServerName == "" {
 		return entity.Server{}, fmt.Errorf("server_name is required")
-	}
-
-	// Parse CPU
-	if row[7] != "" {
-		cpu, err := strconv.Atoi(strings.TrimSpace(row[7]))
-		if err != nil {
-			return entity.Server{}, fmt.Errorf("invalid CPU value: %s", row[7])
-		}
-		server.CPU = cpu
-	}
-
-	// Parse RAM
-	if row[8] != "" {
-		ram, err := strconv.Atoi(strings.TrimSpace(row[8]))
-		if err != nil {
-			return entity.Server{}, fmt.Errorf("invalid RAM value: %s", row[8])
-		}
-		server.RAM = ram
-	}
-
-	// Parse Disk
-	if row[9] != "" {
-		disk, err := strconv.Atoi(strings.TrimSpace(row[9]))
-		if err != nil {
-			return entity.Server{}, fmt.Errorf("invalid Disk value: %s", row[9])
-		}
-		server.Disk = disk
 	}
 
 	// Validate status

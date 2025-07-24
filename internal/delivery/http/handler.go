@@ -64,6 +64,11 @@ func (h *Controller) RegisterRoutes() *gin.Engine {
 		servers.POST("/register", h.serverController.Register)
 	}
 
+	servers.Use(h.authMiddleware.ServerRequireAuth())
+	{
+		servers.POST("/monitoring", h.serverController.Monitoring)
+	}
+
 	servers.Use(h.authMiddleware.RequireAuth())
 	{
 		// Read operations - requires server:read scope

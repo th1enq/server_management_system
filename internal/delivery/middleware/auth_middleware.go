@@ -59,13 +59,53 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 			return
 		}
 
-		// Store user info in context
 		c.Set("user_id", claims.UserID)
 		c.Set("username", claims.Username)
 		c.Set("email", claims.Email)
 		c.Set("role", string(claims.Role))
 		c.Set("scopes", claims.Scopes)
 		c.Set("claims", claims)
+
+		c.Next()
+	}
+}
+
+func (m *AuthMiddleware) ServerRequireAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := m.extractTokenFromHeader(c)
+		if token == "" {
+			c.JSON(http.StatusUnauthorized, domain.NewErrorResponse(
+				domain.CodeUnauthorized,
+				"Authentication required",
+				nil,
+			))
+			c.Abort()
+			return
+		}
+
+		claims, err := m.authUseCase.ValidateToken(c, token)
+		if err != nil {
+			m.logger.Warn("Invalid token", zap.Error(err))
+			c.JSON(http.StatusUnauthorized, domain.NewErrorResponse(
+				domain.CodeUnauthorized,
+				"Invalid token",
+				nil,
+			))
+			c.Abort()
+			return
+		}
+		if claims.TokenType != "access" {
+			m.logger.Warn("Invalid token type", zap.String("token_type", claims.TokenType))
+			c.JSON(http.StatusUnauthorized, domain.NewErrorResponse(
+				domain.CodeUnauthorized,
+				"Invalid token type",
+				nil,
+			))
+			c.Abort()
+			return
+		}
+
+		c.Set("token", token)
 
 		c.Next()
 	}

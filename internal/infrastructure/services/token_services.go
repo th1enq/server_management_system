@@ -27,12 +27,12 @@ func (j *jwtService) GenerateServerAccessToken(ctx context.Context, server *enti
 	claims := &dto.ServerClaims{
 		ServerID:   server.ServerID,
 		ServerName: server.ServerName,
-		TokenType:  "server_access",
+		TokenType:  "access",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.jwtConfig.Expiration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
-			Issuer:    "server_management_system",
+			Issuer:    "monitor.server_management_system",
 			Subject:   server.ServerID,
 		},
 	}
@@ -45,12 +45,12 @@ func (j *jwtService) GenerateServerRefreshToken(ctx context.Context, server *ent
 	claims := &dto.ServerClaims{
 		ServerID:   server.ServerID,
 		ServerName: server.ServerName,
-		TokenType:  "server_refresh",
+		TokenType:  "refresh",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.jwtConfig.Expiration * 7)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
-			Issuer:    "server_management_system",
+			Issuer:    "monitor.server_management_system",
 			Subject:   server.ServerID,
 		},
 	}
@@ -72,7 +72,7 @@ func (j *jwtService) GenerateAccessToken(user *entity.User) (string, error) {
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.jwtConfig.Expiration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
-			Issuer:    "server_management_system",
+			Issuer:    "auth.server_management_system",
 			Subject:   fmt.Sprintf("%d", user.ID),
 		},
 	}
@@ -95,7 +95,7 @@ func (j *jwtService) GenerateRefreshToken(user *entity.User) (string, error) {
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.jwtConfig.Expiration * 7)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
-			Issuer:    "server_management_system",
+			Issuer:    "auth.server_management_system",
 			Subject:   fmt.Sprintf("%d", user.ID),
 		},
 	}

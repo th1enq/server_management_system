@@ -33,6 +33,36 @@ func NewServerController(
 	}
 }
 
+func (h *ServerController) Monitoring(c *gin.Context) {
+	h.logger.Info("Starting server monitoring request",
+		zap.String("request_id", c.GetString("request_id")),
+		zap.String("user_id", c.GetString("user_id")))
+
+	serverID := c.Param("server_id")
+	if serverID == "" {
+		h.logger.Error("Server ID is required for monitoring",
+			zap.String("request_id", c.GetString("request_id")))
+		h.serverPresenter.InvalidRequest(c, "Server ID is required", nil)
+		return
+	}
+
+	err := h.serverUseCase.Monitoring(c.Request.Context(), serverID)
+	if err != nil {
+		h.logger.Error("Failed to monitor server",
+			zap.Error(err),
+			zap.String("server_id", serverID),
+			zap.String("request_id", c.GetString("request_id")))
+		h.serverPresenter.InternalServerError(c, "Failed to monitor server", err)
+		return
+	}
+
+	h.logger.Info("Server monitored successfully",
+		zap.String("server_id", serverID),
+		zap.String("request_id", c.GetString("request_id")))
+
+	h.serverPresenter.ServerMonitored(c, "Server monitoring started successfully")
+}
+
 func (h *ServerController) Register(c *gin.Context) {
 	var req dto.RegisterMetricsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -44,12 +74,13 @@ func (h *ServerController) Register(c *gin.Context) {
 	IPv4 := c.ClientIP()
 
 	reqCreate := dto.CreateServerRequest{
-		ServerID:    req.ServerID,
-		ServerName:  req.ServerName,
-		IPv4:        IPv4,
-		Description: req.Description,
-		Location:    req.Location,
-		OS:          req.OS,
+		ServerID:     req.ServerID,
+		ServerName:   req.ServerName,
+		IPv4:         IPv4,
+		Description:  req.Description,
+		Location:     req.Location,
+		OS:           req.OS,
+		IntervalTime: req.IntervalTime,
 	}
 
 	fmt.Println(reqCreate)
@@ -275,9 +306,6 @@ func (h *ServerController) UpdateServer(c *gin.Context) {
 		Location:    server.Location,
 		OS:          server.OS,
 		Description: server.Description,
-		CPU:         server.CPU,
-		RAM:         server.RAM,
-		Disk:        server.Disk,
 	}
 
 	h.logger.Info("Server updated successfully",

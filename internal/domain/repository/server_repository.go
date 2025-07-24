@@ -16,7 +16,7 @@ type ServerRepository interface {
 	Update(ctx context.Context, server *entity.Server) error
 	List(ctx context.Context, filter query.ServerFilter, pagination query.Pagination) ([]*entity.Server, int64, error)
 	BatchCreate(ctx context.Context, servers []entity.Server) error
-	UpdateStatus(ctx context.Context, serverID string, status entity.ServerStatus) error
+	UpdateStatus(ctx context.Context, serverID string, status entity.ServerStatus) (*entity.Server, error)
 	CountByStatus(ctx context.Context, status entity.ServerStatus) (int64, error)
 	CountAll(ctx context.Context) (int64, error)
 	GetAll(ctx context.Context) ([]*entity.Server, error)

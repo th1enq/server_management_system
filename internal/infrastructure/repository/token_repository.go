@@ -19,14 +19,9 @@ func NewTokenRepository(cache cache.CacheClient) repository.TokenRepository {
 	}
 }
 
-func (t *tokenRepository) AddTokenToWhitelist(ctx context.Context, token string, userID uint, expiration time.Duration) error {
-	cacheKey := fmt.Sprintf("user_tokens:%d", userID)
-	err := t.cache.SADD(ctx, cacheKey, token)
-	if err != nil {
-		return err
-	}
-	cacheKey = fmt.Sprintf("token:whitelist:%s", token)
-	err = t.cache.Set(ctx, cacheKey, "valid", expiration)
+func (t *tokenRepository) AddTokenToWhitelist(ctx context.Context, token string, expiration time.Duration) error {
+	cacheKey := fmt.Sprintf("token:whitelist:%s", token)
+	err := t.cache.Set(ctx, cacheKey, "valid", expiration)
 	if err != nil {
 		return err
 	}
@@ -46,19 +41,4 @@ func (t *tokenRepository) IsTokenWhitelisted(ctx context.Context, token string) 
 func (t *tokenRepository) RemoveTokenFromWhitelist(ctx context.Context, token string) error {
 	key := fmt.Sprintf("token:whitelist:%s", token)
 	return t.cache.Del(ctx, key)
-}
-
-func (t *tokenRepository) RemoveUserTokensFromWhitelist(ctx context.Context, userID uint) error {
-	cacheKey := fmt.Sprintf("user_tokens:%d", userID)
-	token, err := t.cache.SMEMBERS(ctx, cacheKey)
-	if err != nil {
-		return err
-	}
-	for _, to := range token {
-		t.cache.Del(ctx, fmt.Sprintf("token:whitelist:%s", to))
-	}
-	if err := t.cache.Del(ctx, cacheKey); err != nil {
-		return err
-	}
-	return nil
 }

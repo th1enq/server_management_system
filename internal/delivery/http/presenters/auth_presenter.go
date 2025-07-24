@@ -13,6 +13,7 @@ type AuthPresenter interface {
 	RegisterSuccess(c *gin.Context, authResponse *dto.AuthResponse)
 	RefreshTokenSuccess(c *gin.Context, authResponse *dto.AuthResponse)
 	LogoutSuccess(c *gin.Context)
+	LogoutFailed(c *gin.Context, message string, err error)
 
 	// Error responses
 	InvalidRequest(c *gin.Context, message string, err error)
@@ -27,6 +28,21 @@ type authPresenter struct{}
 
 func NewAuthPresenter() AuthPresenter {
 	return &authPresenter{}
+}
+
+func (p *authPresenter) LogoutFailed(c *gin.Context, message string, err error) {
+	var errorMsg interface{}
+	if err != nil {
+		errorMsg = err.Error()
+	}
+
+	response := domain.NewErrorResponse(
+		domain.CodeInternalServerError,
+		message,
+		errorMsg,
+	)
+
+	c.JSON(http.StatusInternalServerError, response)
 }
 
 func (p *authPresenter) LoginSuccess(c *gin.Context, authResponse *dto.AuthResponse) {

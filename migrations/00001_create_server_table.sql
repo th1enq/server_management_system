@@ -10,9 +10,7 @@ CREATE TABLE servers (
     description TEXT,
     location TEXT,
     os TEXT,
-    cpu INTEGER,
-    ram INTEGER,
-    disk INTEGER,
+    interval_time INTEGER,
     created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

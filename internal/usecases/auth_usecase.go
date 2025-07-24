@@ -16,7 +16,7 @@ type AuthUseCase interface {
 	Register(ctx context.Context, req dto.RegisterRequest) (*dto.AuthResponse, error)
 	RefreshToken(ctx context.Context, req dto.RefreshTokenRequest) (*dto.AuthResponse, error)
 	ValidateToken(ctx context.Context, tokenString string) (*dto.Claims, error)
-	Logout(ctx context.Context, userID uint) error
+	Logout(ctx context.Context, token string) error
 }
 
 type authUseCase struct {
@@ -75,12 +75,12 @@ func (a *authUseCase) Login(ctx context.Context, req dto.LoginRequest) (*dto.Aut
 	}
 
 	// Add tokens to Redis whitelist
-	if err := a.tokenRepository.AddTokenToWhitelist(ctx, accessToken, user.ID, time.Hour*24); err != nil {
+	if err := a.tokenRepository.AddTokenToWhitelist(ctx, accessToken, time.Hour*24); err != nil {
 		a.logger.Error("Failed to add access token to whitelist", zap.Error(err))
 		return nil, fmt.Errorf("failed to whitelist token")
 	}
 
-	if err := a.tokenRepository.AddTokenToWhitelist(ctx, refreshToken, user.ID, time.Hour*24*7); err != nil {
+	if err := a.tokenRepository.AddTokenToWhitelist(ctx, refreshToken, time.Hour*24*7); err != nil {
 		a.logger.Error("Failed to add refresh token to whitelist", zap.Error(err))
 		return nil, fmt.Errorf("failed to whitelist token")
 	}
@@ -125,12 +125,12 @@ func (a *authUseCase) Register(ctx context.Context, req dto.RegisterRequest) (*d
 	}
 
 	// Add tokens to Redis whitelist
-	if err := a.tokenRepository.AddTokenToWhitelist(ctx, accessToken, createdUser.ID, time.Hour*24); err != nil {
+	if err := a.tokenRepository.AddTokenToWhitelist(ctx, accessToken, time.Hour*24); err != nil {
 		a.logger.Error("Failed to add access token to whitelist", zap.Error(err))
 		return nil, fmt.Errorf("failed to whitelist token")
 	}
 
-	if err := a.tokenRepository.AddTokenToWhitelist(ctx, refreshToken, createdUser.ID, time.Hour*24*7); err != nil {
+	if err := a.tokenRepository.AddTokenToWhitelist(ctx, refreshToken, time.Hour*24*7); err != nil {
 		a.logger.Error("Failed to add refresh token to whitelist", zap.Error(err))
 		return nil, fmt.Errorf("failed to whitelist token")
 	}
@@ -189,12 +189,12 @@ func (a *authUseCase) RefreshToken(ctx context.Context, req dto.RefreshTokenRequ
 	}
 
 	// Add new tokens to whitelist and remove old refresh token
-	if err := a.tokenRepository.AddTokenToWhitelist(ctx, newAccessToken, user.ID, time.Hour*24); err != nil {
+	if err := a.tokenRepository.AddTokenToWhitelist(ctx, newAccessToken, time.Hour*24); err != nil {
 		a.logger.Error("Failed to add new access token to whitelist", zap.Error(err))
 		return nil, fmt.Errorf("failed to whitelist token")
 	}
 
-	if err := a.tokenRepository.AddTokenToWhitelist(ctx, newRefreshToken, user.ID, time.Hour*24*7); err != nil {
+	if err := a.tokenRepository.AddTokenToWhitelist(ctx, newRefreshToken, time.Hour*24*7); err != nil {
 		a.logger.Error("Failed to add new refresh token to whitelist", zap.Error(err))
 		return nil, fmt.Errorf("failed to whitelist token")
 	}
@@ -213,12 +213,12 @@ func (a *authUseCase) RefreshToken(ctx context.Context, req dto.RefreshTokenRequ
 }
 
 // Logout implements authUseCase.
-func (a *authUseCase) Logout(ctx context.Context, userID uint) error {
+func (a *authUseCase) Logout(ctx context.Context, token string) error {
 	// Remove all user tokens from whitelist
-	if err := a.tokenRepository.RemoveUserTokensFromWhitelist(ctx, userID); err != nil {
-		a.logger.Error("Failed to remove user tokens from whitelist", zap.Uint("user_id", userID), zap.Error(err))
+	if err := a.tokenRepository.RemoveTokenFromWhitelist(ctx, token); err != nil {
+		a.logger.Error("Failed to remove user tokens from whitelist", zap.String("token", token), zap.Error(err))
 		return fmt.Errorf("failed to logout user")
 	}
-	a.logger.Info("User logged out", zap.Uint("user_id", userID))
+	a.logger.Info("User logged out", zap.String("token", token))
 	return nil
 }

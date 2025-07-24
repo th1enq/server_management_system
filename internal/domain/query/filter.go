@@ -10,7 +10,4 @@ type ServerFilter struct {
 	IPv4        string
 	Location    string
 	OS          string
-	CPU         int
-	RAM         int
-	Disk        int
 }

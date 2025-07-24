@@ -3,7 +3,6 @@ package controllers
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/th1enq/server_management_system/internal/delivery/http/presenters"
-	"github.com/th1enq/server_management_system/internal/delivery/middleware"
 	"github.com/th1enq/server_management_system/internal/dto"
 	"github.com/th1enq/server_management_system/internal/usecases"
 	"go.uber.org/zap"
@@ -125,20 +124,19 @@ func (ac *AuthController) RefreshToken(c *gin.Context) {
 // @Failure 401 {object} domain.APIResponse
 // @Router /api/v1/auth/logout [post]
 func (ac *AuthController) Logout(c *gin.Context) {
-	userID, exists := middleware.GetUserID(c)
+	token, exists := c.Get("token")
 	if !exists {
-		ac.logger.Warn("Logout attempt without user ID")
-		ac.authPresenter.Unauthorized(c, "Unauthorized")
+		ac.logger.Warn("No token found in context")
+		ac.authPresenter.Unauthorized(c, "Authentication required")
 		return
 	}
 
-	err := ac.authUseCase.Logout(c.Request.Context(), userID)
-	if err != nil {
-		ac.logger.Error("Failed to logout user", zap.Uint("user_id", userID), zap.Error(err))
-		ac.authPresenter.InternalServerError(c, "Failed to logout", err)
+	if err := ac.authUseCase.Logout(c.Request.Context(), token.(string)); err != nil {
+		ac.logger.Error("Failed to logout user", zap.String("token", "[REDACTED]"), zap.Error(err))
+		ac.authPresenter.LogoutFailed(c, "Failed to logout user", err)
 		return
 	}
 
-	ac.logger.Info("User logged out successfully", zap.Uint("user_id", userID))
+	ac.logger.Info("User logged out successfully", zap.String("token", "[REDACTED]"))
 	ac.authPresenter.LogoutSuccess(c)
 }

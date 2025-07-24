@@ -1,9 +1,5 @@
 package entity
 
-import (
-	"time"
-)
-
 type ServerStatus string
 
 const (
@@ -20,8 +16,5 @@ type Server struct {
 	Description  string
 	Location     string
 	OS           string
-	CPU          int
-	RAM          int
-	Disk         int
-	IntervalTime time.Duration
+	IntervalTime int
 }

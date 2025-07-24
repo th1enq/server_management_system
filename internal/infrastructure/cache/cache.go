@@ -23,6 +23,7 @@ type CacheClient interface {
 	Keys(ctx context.Context, pattern string) ([]string, error)
 	SADD(ctx context.Context, key string, members ...string) error
 	SMEMBERS(ctx context.Context, key string) ([]string, error)
+	Expire(ctx context.Context, key string, ttl time.Duration) error
 }
 
 type redisClient struct {
@@ -93,6 +94,14 @@ func (r *redisClient) SMEMBERS(ctx context.Context, key string) ([]string, error
 		return nil, fmt.Errorf("failed to get members from Redis set: %w", err)
 	}
 	return members, nil
+}
+
+func (r *redisClient) Expire(ctx context.Context, key string, ttl time.Duration) error {
+	if err := r.client.Expire(ctx, key, ttl).Err(); err != nil {
+		r.logger.Error("Failed to set expiration for Redis key", zap.String("key", key), zap.Error(err))
+		return fmt.Errorf("failed to set expiration for Redis key: %w", err)
+	}
+	return nil
 }
 
 func NewCache(cfg configs.Cache, logger *zap.Logger) (CacheClient, error) {
