@@ -5,12 +5,12 @@ type DailyReport struct {
 	Schedule string `yaml:"schedule"`
 }
 
-type HealthCheckServer struct {
+type UpdateStatus struct {
 	Name     string `yaml:"name"`
 	Schedule string `yaml:"schedule"`
 }
 
 type Cron struct {
-	DailyReport       DailyReport       `yaml:"daily_report"`
-	HealthCheckServer HealthCheckServer `yaml:"health_check_server"`
+	DailyReport  DailyReport  `yaml:"daily_report"`
+	UpdateStatus UpdateStatus `yaml:"update_status"`
 }

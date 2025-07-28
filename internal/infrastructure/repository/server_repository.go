@@ -21,6 +21,14 @@ func NewServerRepository(db database.DatabaseClient) repository.ServerRepository
 	}
 }
 
+func (s *serverRepository) GetByIPv4(ctx context.Context, ipv4 string) (*entity.Server, error) {
+	var server models.Server
+	if err := s.db.WithContext(ctx).Where("ipv4 = ?", ipv4).First(&server); err != nil {
+		return nil, err
+	}
+	return models.ToServerEntity(&server), nil
+}
+
 func (s *serverRepository) BatchCreate(ctx context.Context, servers []entity.Server) error {
 	models := models.FromServerEntities(servers)
 	return s.db.WithContext(ctx).CreateInBatches(models, len(models))
@@ -137,7 +145,11 @@ func (s *serverRepository) Update(ctx context.Context, server *entity.Server) er
 }
 
 func (s *serverRepository) UpdateStatus(ctx context.Context, serverID string, status entity.ServerStatus) error {
-	return s.db.WithContext(ctx).Model(&models.Server{}).Where("server_id = ?", serverID).Update("status", status)
+	var server models.Server
+	if err := s.db.WithContext(ctx).Model(&server).Where("server_id = ?", serverID).Update("status", status); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *serverRepository) ExistsByServerIDOrServerName(ctx context.Context, serverID string, serverName string) (bool, error) {
@@ -149,4 +161,8 @@ func (s *serverRepository) ExistsByServerIDOrServerName(ctx context.Context, ser
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (s *serverRepository) ExecuteRawQuery(ctx context.Context, query string, args ...interface{}) error {
+	return s.db.WithContext(ctx).Exec(query, args...)
 }

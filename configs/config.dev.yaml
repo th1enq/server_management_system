@@ -12,6 +12,25 @@ database:
   max_idle_conns: 10
   max_open_conns: 100
 
+tsdb:
+  host: localhost
+  port: 8086
+  db: metrics
+  user: admin
+  password: admin123
+
+mq:
+  addresses:
+    - localhost:9092
+  client_id: "vcs_sms"
+  consumer_groups:
+    - group_id: "vcs_sms-metrics"
+      topics: 
+        - "monitoring_event"
+    - group_id: "vcs_sms-status"
+      topics:
+        - "monitoring_event"
+
 cache:
   host: localhost
   port: 6379
@@ -34,9 +53,9 @@ log:
   max_age: 30
 
 cron:
-  health_check_server:
-    name: "health_check_server"
-    schedule: "@every 30s"
+  update_status:
+    name: "update_status"
+    schedule: "@every 1m"  
   daily_report:
     name: "daily_report"
     schedule: "0 0 8 * * *"
@@ -48,4 +67,3 @@ email:
   password: rtac iyoq zaad rkui
   from: thienchy3305@gmail.com
   admin_email: miyaki08x@gmail.com
-  

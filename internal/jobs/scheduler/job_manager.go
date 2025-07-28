@@ -15,23 +15,23 @@ type JobManager interface {
 }
 
 type jobManager struct {
-	scheduler       JobScheduler
-	healthCheckTask tasks.ServerHealthCheckTask
-	dailyReportTask tasks.DailyReportTask
-	logger          *zap.Logger
+	scheduler        JobScheduler
+	dailyReportTask  tasks.DailyReportTask
+	updateStatusTask tasks.UpdateStatusTask
+	logger           *zap.Logger
 }
 
 func NewJobManager(
 	scheduler JobScheduler,
-	healthCheckTask tasks.ServerHealthCheckTask,
 	dailyReportTask tasks.DailyReportTask,
+	updateStatusTask tasks.UpdateStatusTask,
 	logger *zap.Logger,
 ) JobManager {
 	return &jobManager{
-		scheduler:       scheduler,
-		healthCheckTask: healthCheckTask,
-		dailyReportTask: dailyReportTask,
-		logger:          logger,
+		scheduler:        scheduler,
+		dailyReportTask:  dailyReportTask,
+		updateStatusTask: updateStatusTask,
+		logger:           logger,
 	}
 }
 
@@ -39,8 +39,8 @@ func (jm *jobManager) Initialize(ctx context.Context) error {
 	jm.logger.Info("Initializing job manager")
 
 	taskList := []Task{
-		jm.healthCheckTask,
 		jm.dailyReportTask,
+		jm.updateStatusTask,
 	}
 
 	for _, task := range taskList {

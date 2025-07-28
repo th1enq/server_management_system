@@ -753,6 +753,126 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/servers/monitoring": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Send server monitoring data to the system",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "servers"
+                ],
+                "summary": "Send server monitoring data",
+                "parameters": [
+                    {
+                        "description": "Monitoring data",
+                        "name": "monitoring",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/producer.MonitoringMessage"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/domain.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/domain.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/servers/register": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Register server metrics with the system",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "servers"
+                ],
+                "summary": "Register server metrics",
+                "parameters": [
+                    {
+                        "description": "Register metrics request",
+                        "name": "register",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.RegisterMetricsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/domain.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.ServerResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/domain.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/domain.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/domain.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/servers/{id}": {
             "put": {
                 "security": [
@@ -914,7 +1034,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "default": "created_time",
+                        "default": "username",
                         "description": "Sort field",
                         "name": "sort",
                         "in": "query"
@@ -1381,17 +1501,13 @@ const docTemplate = `{
                 "server_name"
             ],
             "properties": {
-                "cpu": {
-                    "type": "integer",
-                    "minimum": 0
-                },
                 "description": {
                     "type": "string"
                 },
-                "disk": {
-                    "description": "in GB",
+                "interval_time": {
+                    "description": "in seconds",
                     "type": "integer",
-                    "minimum": 0
+                    "minimum": 1
                 },
                 "ipv4": {
                     "type": "string"
@@ -1401,11 +1517,6 @@ const docTemplate = `{
                 },
                 "os": {
                     "type": "string"
-                },
-                "ram": {
-                    "description": "in GB",
-                    "type": "integer",
-                    "minimum": 0
                 },
                 "server_id": {
                     "type": "string"
@@ -1547,6 +1658,35 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.RegisterMetricsRequest": {
+            "type": "object",
+            "required": [
+                "server_id",
+                "server_name"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "interval_time": {
+                    "description": "in seconds",
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "location": {
+                    "type": "string"
+                },
+                "os": {
+                    "type": "string"
+                },
+                "server_id": {
+                    "type": "string"
+                },
+                "server_name": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.RegisterRequest": {
             "type": "object",
             "required": [
@@ -1666,6 +1806,10 @@ const docTemplate = `{
                     "type": "integer",
                     "minimum": 0
                 },
+                "interval_time": {
+                    "type": "integer",
+                    "minimum": 1
+                },
                 "ipv4": {
                     "type": "string"
                 },
@@ -1741,16 +1885,13 @@ const docTemplate = `{
         "entity.Server": {
             "type": "object",
             "properties": {
-                "cpu": {
-                    "type": "integer"
-                },
                 "description": {
                     "type": "string"
                 },
-                "disk": {
+                "id": {
                     "type": "integer"
                 },
-                "id": {
+                "intervalTime": {
                     "type": "integer"
                 },
                 "ipv4": {
@@ -1761,9 +1902,6 @@ const docTemplate = `{
                 },
                 "os": {
                     "type": "string"
-                },
-                "ram": {
-                    "type": "integer"
                 },
                 "serverID": {
                     "type": "string"
@@ -1786,6 +1924,32 @@ const docTemplate = `{
                 "ServerStatusOn",
                 "ServerStatusOff"
             ]
+        },
+        "producer.MonitoringMessage": {
+            "type": "object",
+            "required": [
+                "cpu",
+                "disk",
+                "ram",
+                "server_id"
+            ],
+            "properties": {
+                "cpu": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "disk": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "ram": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "server_id": {
+                    "type": "string"
+                }
+            }
         },
         "scheduler.TaskInfo": {
             "type": "object",

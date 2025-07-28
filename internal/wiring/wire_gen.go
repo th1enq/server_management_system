@@ -11,16 +11,21 @@ import (
 	"github.com/th1enq/server_management_system/internal/app"
 	"github.com/th1enq/server_management_system/internal/configs"
 	"github.com/th1enq/server_management_system/internal/delivery"
+	"github.com/th1enq/server_management_system/internal/delivery/consumers"
 	"github.com/th1enq/server_management_system/internal/delivery/http"
 	"github.com/th1enq/server_management_system/internal/delivery/http/controllers"
 	"github.com/th1enq/server_management_system/internal/delivery/http/presenters"
+	"github.com/th1enq/server_management_system/internal/delivery/http/routes"
 	"github.com/th1enq/server_management_system/internal/delivery/middleware"
 	"github.com/th1enq/server_management_system/internal/infrastructure"
 	"github.com/th1enq/server_management_system/internal/infrastructure/cache"
 	"github.com/th1enq/server_management_system/internal/infrastructure/database"
+	"github.com/th1enq/server_management_system/internal/infrastructure/mq/consumer"
+	"github.com/th1enq/server_management_system/internal/infrastructure/mq/producer"
 	"github.com/th1enq/server_management_system/internal/infrastructure/repository"
 	"github.com/th1enq/server_management_system/internal/infrastructure/search"
 	"github.com/th1enq/server_management_system/internal/infrastructure/services"
+	"github.com/th1enq/server_management_system/internal/infrastructure/tsdb"
 	"github.com/th1enq/server_management_system/internal/jobs"
 	"github.com/th1enq/server_management_system/internal/jobs/scheduler"
 	"github.com/th1enq/server_management_system/internal/jobs/tasks"
@@ -47,9 +52,9 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 		cleanup()
 		return nil, nil, err
 	}
-	serverRepository := repository.NewServerRepository(databaseClient)
-	jwt := config.JWT
-	tokenServices := services.NewJWTService(jwt)
+	userRepository := repository.NewUserRepository(databaseClient)
+	passwordService := services.NewBcryptService()
+	userUseCase := usecases.NewUserUseCase(userRepository, passwordService, logger)
 	configsCache := config.Cache
 	cacheClient, err := cache.NewCache(configsCache, logger)
 	if err != nil {
@@ -57,39 +62,71 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 		return nil, nil, err
 	}
 	tokenRepository := repository.NewTokenRepository(cacheClient)
+	jwt := config.JWT
+	tokenServices := services.NewJWTService(jwt)
+	authUseCase := usecases.NewAuthUseCase(userUseCase, tokenRepository, tokenServices, passwordService, logger)
+	authPresenter := presenters.NewAuthPresenter()
+	authController := controllers.NewAuthController(authUseCase, authPresenter, logger)
+	authMiddleware := middleware.NewAuthMiddleware(authUseCase, logger)
+	authRouter := routes.NewAuthRouter(authController, authMiddleware)
+	serverRepository := repository.NewServerRepository(databaseClient)
 	excelizeService := services.NewExcelizeService()
-	serverUseCase := usecases.NewServerUseCase(serverRepository, tokenServices, tokenRepository, excelizeService, cacheClient, logger)
-	serverPresenter := presenters.NewServerPresenter()
-	serverController := controllers.NewServerController(serverUseCase, serverPresenter, logger)
-	email := config.Email
-	elasticSearch := config.Elasticsearch
-	client, cleanup2, err := search.LoadElasticSearch(elasticSearch, logger)
+	mq := config.MQ
+	client, err := producer.NewClient(mq, logger)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	healthCheckUseCase := usecases.NewHealthCheckUseCase(client, serverUseCase, logger)
+	monitoringMessageProducer := producer.NewMonitoringMessageProducer(client, logger)
+	serverUseCase := usecases.NewServerUseCase(serverRepository, tokenServices, excelizeService, monitoringMessageProducer, logger)
+	serverPresenter := presenters.NewServerPresenter()
+	serverController := controllers.NewServerController(serverUseCase, serverPresenter, logger)
+	serverRouter := routes.NewServerRouter(serverController, authMiddleware)
+	email := config.Email
+	elasticSearch := config.Elasticsearch
+	elasticsearchClient, cleanup2, err := search.LoadElasticSearch(elasticSearch, logger)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	healthCheckUseCase := usecases.NewHealthCheckUseCase(elasticsearchClient, serverUseCase, logger)
 	reportUseCase := usecases.NewReportUseCase(email, healthCheckUseCase, logger)
 	reportPresenter := presenters.NewReportPresenter()
 	reportController := controllers.NewReportController(reportUseCase, reportPresenter, logger)
-	userRepository := repository.NewUserRepository(databaseClient)
-	passwordService := services.NewBcryptService()
-	userUseCase := usecases.NewUserUseCase(userRepository, passwordService, logger)
-	authUseCase := usecases.NewAuthUseCase(userUseCase, tokenRepository, tokenServices, passwordService, logger)
-	authPresenter := presenters.NewAuthPresenter()
-	authController := controllers.NewAuthController(authUseCase, authPresenter, logger)
+	reportRouter := routes.NewReportRouter(reportController, authMiddleware)
 	userPresenter := presenters.NewUserPresenter()
 	userController := controllers.NewUserController(userUseCase, userPresenter, logger)
+	userRouter := routes.NewUserRouter(userController, authMiddleware)
 	jobScheduler := scheduler.NewJobScheduler(logger)
 	cron := config.Cron
 	dailyReportTask := tasks.NewDailyReportTask(reportUseCase, cron, logger)
-	jobManager := scheduler.NewJobManager(jobScheduler, dailyReportTask, logger)
+	updateStatusTask := tasks.NewUpdateStatusTask(serverUseCase, cron, logger)
+	jobManager := scheduler.NewJobManager(jobScheduler, dailyReportTask, updateStatusTask, logger)
 	jobsPresenter := presenters.NewJobsPresenter()
 	jobsController := controllers.NewJobsController(jobManager, jobsPresenter, logger)
-	authMiddleware := middleware.NewAuthMiddleware(authUseCase, logger)
-	controller := http.NewController(serverController, reportController, authController, userController, jobsController, authMiddleware)
-	iServer := http.NewServer(server, logger, controller)
-	application := app.NewApplication(iServer, jobManager, logger)
+	jobsRouter := routes.NewJobsRouter(jobsController, authMiddleware)
+	handler := routes.NewHandler(authRouter, serverRouter, reportRouter, userRouter, jobsRouter)
+	iServer := http.NewServer(server, logger, handler)
+	configsTSDB := config.TSDB
+	tsdbClient := tsdb.NewTSDBClient(configsTSDB, logger)
+	metricsRepository := repository.NewMetricsRepository(tsdbClient)
+	metricsUseCase := usecases.NewMetricsUseCase(metricsRepository, logger)
+	metricsUpdate := consumers.NewMetricsUpdate(metricsUseCase, logger)
+	updateStatus := consumers.NewUpdateStatus(serverUseCase, logger)
+	serverConsumer, err := consumer.NewServerConsumer(mq, logger)
+	if err != nil {
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	metricsConsumer, err := consumer.NewMetricsConsumer(mq, logger)
+	if err != nil {
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	root := consumers.NewRoot(metricsUpdate, updateStatus, serverConsumer, metricsConsumer, logger)
+	application := app.NewApplication(iServer, jobManager, root, logger)
 	return application, func() {
 		cleanup2()
 		cleanup()

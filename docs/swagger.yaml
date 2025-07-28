@@ -30,14 +30,11 @@ definitions:
     type: object
   dto.CreateServerRequest:
     properties:
-      cpu:
-        minimum: 0
-        type: integer
       description:
         type: string
-      disk:
-        description: in GB
-        minimum: 0
+      interval_time:
+        description: in seconds
+        minimum: 1
         type: integer
       ipv4:
         type: string
@@ -45,10 +42,6 @@ definitions:
         type: string
       os:
         type: string
-      ram:
-        description: in GB
-        minimum: 0
-        type: integer
       server_id:
         type: string
       server_name:
@@ -148,6 +141,26 @@ definitions:
     required:
     - refresh_token
     type: object
+  dto.RegisterMetricsRequest:
+    properties:
+      description:
+        type: string
+      interval_time:
+        description: in seconds
+        minimum: 1
+        type: integer
+      location:
+        type: string
+      os:
+        type: string
+      server_id:
+        type: string
+      server_name:
+        type: string
+    required:
+    - server_id
+    - server_name
+    type: object
   dto.RegisterRequest:
     properties:
       email:
@@ -230,6 +243,9 @@ definitions:
       disk:
         minimum: 0
         type: integer
+      interval_time:
+        minimum: 1
+        type: integer
       ipv4:
         type: string
       location:
@@ -278,13 +294,11 @@ definitions:
     type: object
   entity.Server:
     properties:
-      cpu:
-        type: integer
       description:
         type: string
-      disk:
-        type: integer
       id:
+        type: integer
+      intervalTime:
         type: integer
       ipv4:
         type: string
@@ -292,8 +306,6 @@ definitions:
         type: string
       os:
         type: string
-      ram:
-        type: integer
       serverID:
         type: string
       serverName:
@@ -309,6 +321,25 @@ definitions:
     x-enum-varnames:
     - ServerStatusOn
     - ServerStatusOff
+  producer.MonitoringMessage:
+    properties:
+      cpu:
+        minimum: 0
+        type: integer
+      disk:
+        minimum: 0
+        type: integer
+      ram:
+        minimum: 0
+        type: integer
+      server_id:
+        type: string
+    required:
+    - cpu
+    - disk
+    - ram
+    - server_id
+    type: object
   scheduler.TaskInfo:
     properties:
       last_run:
@@ -907,6 +938,79 @@ paths:
       summary: Import servers from Excel file
       tags:
       - servers
+  /api/v1/servers/monitoring:
+    post:
+      consumes:
+      - application/json
+      description: Send server monitoring data to the system
+      parameters:
+      - description: Monitoring data
+        in: body
+        name: monitoring
+        required: true
+        schema:
+          $ref: '#/definitions/producer.MonitoringMessage'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/domain.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/domain.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Send server monitoring data
+      tags:
+      - servers
+  /api/v1/servers/register:
+    post:
+      consumes:
+      - application/json
+      description: Register server metrics with the system
+      parameters:
+      - description: Register metrics request
+        in: body
+        name: register
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RegisterMetricsRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ServerResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/domain.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/domain.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/domain.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Register server metrics
+      tags:
+      - servers
   /api/v1/users:
     get:
       description: Get a list of all users (admin only)
@@ -921,7 +1025,7 @@ paths:
         in: query
         name: page_size
         type: integer
-      - default: created_time
+      - default: username
         description: Sort field
         in: query
         name: sort

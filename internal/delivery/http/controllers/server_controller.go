@@ -11,14 +11,16 @@ import (
 	"github.com/th1enq/server_management_system/internal/delivery/http/presenters"
 	"github.com/th1enq/server_management_system/internal/domain"
 	"github.com/th1enq/server_management_system/internal/dto"
+	"github.com/th1enq/server_management_system/internal/infrastructure/mq/producer"
 	"github.com/th1enq/server_management_system/internal/usecases"
 	"go.uber.org/zap"
 )
 
 type ServerController struct {
-	serverUseCase   usecases.ServerUseCase
-	serverPresenter presenters.ServerPresenter
-	logger          *zap.Logger
+	serverUseCase      usecases.ServerUseCase
+	serverPresenter    presenters.ServerPresenter
+	monotoringProducer producer.MonitoringMessageProducer
+	logger             *zap.Logger
 }
 
 func NewServerController(
@@ -33,6 +35,55 @@ func NewServerController(
 	}
 }
 
+// Monitoring godoc
+// @Summary Send server monitoring data
+// @Description Send server monitoring data to the system
+// @Tags servers
+// @Accept json
+// @Produce json
+// @Param monitoring body producer.MonitoringMessage true "Monitoring data"
+// @Success 200 {object} domain.APIResponse
+// @Failure 400 {object} domain.APIResponse
+// @Failure 500 {object} domain.APIResponse
+// @Security BearerAuth
+// @Router /api/v1/servers/monitoring [post]
+func (h *ServerController) Monitoring(c *gin.Context) {
+	var req producer.MonitoringMessage
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Warn("Invalid monitoring request", zap.Error(err))
+		h.serverPresenter.InvalidRequest(c, "Invalid request data", err)
+		return
+	}
+
+	if err := h.serverUseCase.Monitoring(c.Request.Context(), req); err != nil {
+		h.logger.Error("Failed to send monitoring message",
+			zap.Error(err),
+			zap.String("server_id", req.ServerID),
+			zap.Int("cpu", req.CPU),
+			zap.Int("ram", req.RAM),
+			zap.Int("disk", req.Disk),
+			zap.String("request_id", c.GetString("request_id")),
+		)
+		h.serverPresenter.InternalServerError(c, "Failed to send monitoring message", err)
+		return
+	}
+
+	h.serverPresenter.MonitoringSuccess(c, "Monitoring message sent successfully")
+}
+
+// Register godoc
+// @Summary Register server metrics
+// @Description Register server metrics with the system
+// @Tags servers
+// @Accept json
+// @Produce json
+// @Param register body dto.RegisterMetricsRequest true "Register metrics request"
+// @Success 201 {object} domain.APIResponse{data=dto.ServerResponse}
+// @Failure 400 {object} domain.APIResponse
+// @Failure 409 {object} domain.APIResponse
+// @Failure 500 {object} domain.APIResponse
+// @Security BearerAuth
+// @Router /api/v1/servers/register [post]
 func (h *ServerController) Register(c *gin.Context) {
 	var req dto.RegisterMetricsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -118,7 +169,7 @@ func (h *ServerController) CreateServer(c *gin.Context) {
 			zap.Error(err),
 			zap.String("server_id", req.ServerID),
 			zap.String("server_name", req.ServerName),
-			zap.String("request_id", c.GetString("request_id")))
+		)
 
 		if err.Error() == "server_id and server_name are required" {
 			h.serverPresenter.ValidationError(c, "Failed to create server", err)
@@ -275,9 +326,6 @@ func (h *ServerController) UpdateServer(c *gin.Context) {
 		Location:    server.Location,
 		OS:          server.OS,
 		Description: server.Description,
-		CPU:         server.CPU,
-		RAM:         server.RAM,
-		Disk:        server.Disk,
 	}
 
 	h.logger.Info("Server updated successfully",

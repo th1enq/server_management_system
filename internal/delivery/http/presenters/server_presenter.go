@@ -18,6 +18,7 @@ type ServerPresenter interface {
 	ServerDeleted(c *gin.Context)
 	ServerStatusUpdated(c *gin.Context, message string)
 	ExportCompleted(c *gin.Context, filePath string)
+	MonitoringSuccess(c *gin.Context, message string)
 
 	// Error responses
 	InvalidRequest(c *gin.Context, message string, err error)
@@ -33,6 +34,15 @@ type serverPresenter struct{}
 
 func NewServerPresenter() ServerPresenter {
 	return &serverPresenter{}
+}
+
+func (p *serverPresenter) MonitoringSuccess(c *gin.Context, message string) {
+	response := domain.NewSuccessResponse(
+		domain.CodeSuccess,
+		message,
+		nil,
+	)
+	c.JSON(http.StatusOK, response)
 }
 
 func (p *serverPresenter) ServerCreated(c *gin.Context, res dto.CreateServerRequest) {

@@ -1,31 +1,26 @@
 package dto
 
 import (
-	"time"
-
 	"github.com/th1enq/server_management_system/internal/domain/entity"
 )
 
 type RegisterMetricsRequest struct {
-	ServerID     string        `json:"server_id" binding:"required"`
-	ServerName   string        `json:"server_name" binding:"required"`
-	Description  string        `json:"description,omitempty"`
-	Location     string        `json:"location,omitempty"`
-	OS           string        `json:"os,omitempty"`
-	IntervalTime time.Duration `json:"interval_time,omitempty" binding:"omitempty,gte=1"` // in seconds
+	ServerID     string `json:"server_id" binding:"required"`
+	ServerName   string `json:"server_name" binding:"required"`
+	Description  string `json:"description,omitempty"`
+	Location     string `json:"location,omitempty"`
+	OS           string `json:"os,omitempty"`
+	IntervalTime int    `json:"interval_time,omitempty" binding:"omitempty,gte=1"` // in seconds
 }
 
 type CreateServerRequest struct {
-	ServerID     string        `json:"server_id" binding:"required"`
-	ServerName   string        `json:"server_name" binding:"required"`
-	IPv4         string        `json:"ipv4" binding:"required,ipv4"`
-	Description  string        `json:"description,omitempty"`
-	Location     string        `json:"location,omitempty"`
-	OS           string        `json:"os,omitempty"`
-	CPU          int           `json:"cpu,omitempty" binding:"omitempty,gte=0"`
-	RAM          int           `json:"ram,omitempty" binding:"omitempty,gte=0"`           // in GB
-	Disk         int           `json:"disk,omitempty" binding:"omitempty,gte=0"`          // in GB
-	IntervalTime time.Duration `json:"interval_time,omitempty" binding:"omitempty,gte=1"` // in seconds
+	ServerID     string `json:"server_id" binding:"required"`
+	ServerName   string `json:"server_name" binding:"required"`
+	IPv4         string `json:"ipv4" binding:"required,ipv4"`
+	Description  string `json:"description,omitempty"`
+	Location     string `json:"location,omitempty"`
+	OS           string `json:"os,omitempty"`
+	IntervalTime int    `json:"interval_time,omitempty" binding:"omitempty,gte=1"` // in seconds
 }
 
 type UpdateServerRequest struct {
@@ -109,9 +104,6 @@ func FromEntityToServerResponse(server *entity.Server) *ServerResponse {
 		Description: server.Description,
 		Location:    server.Location,
 		OS:          server.OS,
-		CPU:         server.CPU,
-		RAM:         server.RAM,
-		Disk:        server.Disk,
 	}
 }
 

@@ -222,7 +222,7 @@ func (h *healthCheckUseCase) ExportReportXLSX(ctx context.Context, report *repor
 	}
 
 	streamWriter.SetRow("A1", []interface{}{
-		"Server ID", "Server Name", "Status", "Description", "IPv4", "Disk", "RAM", "Location", "OS", "Uptime",
+		"Server ID", "Server Name", "Status", "Description", "IPv4", "Location", "OS", "Uptime",
 	})
 
 	for rowIndex, detail := range report.Detail {
@@ -233,8 +233,6 @@ func (h *healthCheckUseCase) ExportReportXLSX(ctx context.Context, report *repor
 			detail.Server.Status,
 			detail.Server.Description,
 			detail.Server.IPv4,
-			detail.Server.Disk,
-			detail.Server.RAM,
 			detail.Server.Location,
 			detail.Server.OS,
 			detail.AvgUpTime,

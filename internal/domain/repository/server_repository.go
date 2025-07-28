@@ -21,4 +21,6 @@ type ServerRepository interface {
 	CountAll(ctx context.Context) (int64, error)
 	GetAll(ctx context.Context) ([]*entity.Server, error)
 	ExistsByServerIDOrServerName(ctx context.Context, serverID string, serverName string) (bool, error)
+	GetByIPv4(ctx context.Context, ipv4 string) (*entity.Server, error)
+	ExecuteRawQuery(ctx context.Context, query string, args ...interface{}) error
 }

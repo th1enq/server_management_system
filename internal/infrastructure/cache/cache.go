@@ -23,6 +23,9 @@ type CacheClient interface {
 	Keys(ctx context.Context, pattern string) ([]string, error)
 	SADD(ctx context.Context, key string, members ...string) error
 	SMEMBERS(ctx context.Context, key string) ([]string, error)
+	Expire(ctx context.Context, key string, ttl time.Duration) error
+	HMGet(ctx context.Context, key string) (map[string]string, error)
+	HSET(ctx context.Context, key string, values map[string]string) error
 }
 
 type redisClient struct {
@@ -40,6 +43,7 @@ func (r *redisClient) Set(ctx context.Context, key string, data any, ttl time.Du
 		r.logger.Error("Failed to set data in Redis", zap.String("key", key), zap.Error(err))
 		return fmt.Errorf("failed to set data in Redis: %w", err)
 	}
+	r.logger.Info("Data set in Redis successfully", zap.String("key", key), zap.Duration("ttl", ttl))
 	return nil
 }
 
@@ -93,6 +97,35 @@ func (r *redisClient) SMEMBERS(ctx context.Context, key string) ([]string, error
 		return nil, fmt.Errorf("failed to get members from Redis set: %w", err)
 	}
 	return members, nil
+}
+
+func (r *redisClient) Expire(ctx context.Context, key string, ttl time.Duration) error {
+	if err := r.client.Expire(ctx, key, ttl).Err(); err != nil {
+		r.logger.Error("Failed to set expiration for Redis key", zap.String("key", key), zap.Error(err))
+		return fmt.Errorf("failed to set expiration for Redis key: %w", err)
+	}
+	return nil
+}
+
+func (r *redisClient) HMGet(ctx context.Context, key string) (map[string]string, error) {
+	values, err := r.client.HGetAll(ctx, key).Result()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			r.logger.Warn("Cache miss for hash key", zap.String("key", key))
+			return nil, ErrCacheMiss
+		}
+		r.logger.Error("Failed to get hash fields from Redis", zap.String("key", key), zap.Error(err))
+		return nil, fmt.Errorf("failed to get hash fields from Redis: %w", err)
+	}
+	return values, nil
+}
+
+func (r *redisClient) HSET(ctx context.Context, key string, values map[string]string) error {
+	if err := r.client.HSet(ctx, key, values).Err(); err != nil {
+		r.logger.Error("Failed to set hash fields in Redis", zap.String("key", key), zap.Error(err))
+		return fmt.Errorf("failed to set hash fields in Redis: %w", err)
+	}
+	return nil
 }
 
 func NewCache(cfg configs.Cache, logger *zap.Logger) (CacheClient, error) {

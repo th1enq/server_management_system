@@ -27,6 +27,7 @@ type DatabaseClient interface {
 	CreateInBatches(value interface{}, batchSize int) error
 	Create(value interface{}) error
 	Update(column string, value interface{}) error
+	Exec(query string, args ...interface{}) error
 	DB() (*sql.DB, error)
 }
 
@@ -111,6 +112,13 @@ func (p *gormDatabase) Where(query interface{}, args ...interface{}) DatabaseCli
 	return &gormDatabase{
 		client: p.client.Where(query, args...),
 	}
+}
+
+func (p *gormDatabase) Exec(query string, args ...interface{}) error {
+	if err := p.client.Exec(query, args...).Error; err != nil {
+		return fmt.Errorf("failed to execute query: %w", err)
+	}
+	return nil
 }
 
 func (p *gormDatabase) WithContext(ctx context.Context) DatabaseClient {

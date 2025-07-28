@@ -19,6 +19,8 @@ type Config struct {
 	Cron          Cron          `yaml:"cron"`
 	Elasticsearch ElasticSearch `yaml:"elasticsearch"`
 	Email         Email         `yaml:"email"`
+	TSDB          TSDB          `yaml:"tsdb"`
+	MQ            MQ            `yaml:"mq"`
 }
 
 func NewConfig(filePath ConfigFilePath) (Config, error) {

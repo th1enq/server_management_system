@@ -1,8 +1,6 @@
 package entity
 
-import (
-	"time"
-)
+import "time"
 
 type ServerStatus string
 
@@ -12,16 +10,15 @@ const (
 )
 
 type Server struct {
-	ID           uint
-	ServerID     string
-	ServerName   string
-	Status       ServerStatus
-	IPv4         string
-	Description  string
-	Location     string
-	OS           string
-	CPU          int
-	RAM          int
-	Disk         int
-	IntervalTime time.Duration
+	ID            uint
+	ServerID      string
+	ServerName    string
+	Status        ServerStatus
+	IPv4          string
+	Description   string
+	Location      string
+	OS            string
+	IntervalTime  int
+	CreatedTime   time.Time
+	LastHeartbeat time.Time
 }

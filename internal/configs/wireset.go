@@ -12,4 +12,6 @@ var WireSet = wire.NewSet(
 	wire.FieldsOf(new(Config), "JWT"),
 	wire.FieldsOf(new(Config), "Elasticsearch"),
 	wire.FieldsOf(new(Config), "Email"),
+	wire.FieldsOf(new(Config), "TSDB"),
+	wire.FieldsOf(new(Config), "MQ"),
 )

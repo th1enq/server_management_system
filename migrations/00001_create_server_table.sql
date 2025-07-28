@@ -10,15 +10,14 @@ CREATE TABLE servers (
     description TEXT,
     location TEXT,
     os TEXT,
-    cpu INTEGER,
-    ram INTEGER,
-    disk INTEGER,
+    interval_time INTEGER,
     created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    last_heartbeat TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_servers_server_id ON servers (server_id);
 CREATE INDEX idx_servers_name ON servers (server_name);
+CREATE INDEX idx_last_heartbeat ON servers (last_heartbeat);
 
 -- +goose Down
 DROP TABLE IF EXISTS servers;
