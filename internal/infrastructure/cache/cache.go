@@ -20,7 +20,6 @@ type CacheClient interface {
 	Set(ctx context.Context, key string, data any, ttl time.Duration) error
 	Get(ctx context.Context, key string, dest any) error
 	Del(ctx context.Context, key string) error
-	Keys(ctx context.Context, pattern string) ([]string, error)
 	SADD(ctx context.Context, key string, members ...string) error
 	SMEMBERS(ctx context.Context, key string) ([]string, error)
 	Expire(ctx context.Context, key string, ttl time.Duration) error
@@ -71,15 +70,6 @@ func (r *redisClient) Del(ctx context.Context, key string) error {
 		return fmt.Errorf("failed to delete data from Redis: %w", err)
 	}
 	return nil
-}
-
-func (r *redisClient) Keys(ctx context.Context, pattern string) ([]string, error) {
-	keys, err := r.client.Keys(ctx, pattern).Result()
-	if err != nil {
-		r.logger.Error("Failed to get keys from Redis", zap.String("pattern", pattern), zap.Error(err))
-		return nil, fmt.Errorf("failed to get keys from Redis: %w", err)
-	}
-	return keys, nil
 }
 
 func (r *redisClient) SADD(ctx context.Context, key string, members ...string) error {

@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	gormLogger "gorm.io/gorm/logger"
 )
 
@@ -24,10 +25,14 @@ type DatabaseClient interface {
 	Find(dest interface{}, conds ...interface{}) error
 	Save(value interface{}) error
 	Count(count *int64) error
-	CreateInBatches(value interface{}, batchSize int) error
-	Create(value interface{}) error
+	CreateWithErr(value interface{}) error
+	Create(value interface{}) DatabaseClient
 	Update(column string, value interface{}) error
 	Exec(query string, args ...interface{}) error
+	Pluck(column string, dest interface{}) error
+	Scan(dest interface{}) error
+	Select(query string, args ...interface{}) DatabaseClient
+	Clauses(conds interface{}) DatabaseClient
 	DB() (*sql.DB, error)
 }
 
@@ -42,7 +47,13 @@ func (p *gormDatabase) Count(count *int64) error {
 	return nil
 }
 
-func (p *gormDatabase) Create(value interface{}) error {
+func (p *gormDatabase) Create(value interface{}) DatabaseClient {
+	return &gormDatabase{
+		client: p.client.Create(value),
+	}
+}
+
+func (p *gormDatabase) CreateWithErr(value interface{}) error {
 	if err := p.client.Create(value).Error; err != nil {
 		return fmt.Errorf("failed to create record: %w", err)
 	}
@@ -140,6 +151,33 @@ func (p *gormDatabase) Update(column string, value interface{}) error {
 		return fmt.Errorf("failed to update record: %w", err)
 	}
 	return nil
+}
+
+func (p *gormDatabase) Pluck(column string, dest interface{}) error {
+	if err := p.client.Pluck(column, dest).Error; err != nil {
+		return fmt.Errorf("failed to pluck column %s: %w", column, err)
+	}
+	return nil
+}
+
+func (p *gormDatabase) Scan(dest interface{}) error {
+	if err := p.client.Scan(dest).Error; err != nil {
+		return fmt.Errorf("failed to scan records: %w", err)
+	}
+	return nil
+}
+
+func (p *gormDatabase) Select(query string, args ...interface{}) DatabaseClient {
+	return &gormDatabase{
+		client: p.client.Select(query, args...),
+	}
+}
+
+func (p *gormDatabase) Clauses(conds interface{}) DatabaseClient {
+	claudeExpression, _ := conds.(clause.Expression)
+	return &gormDatabase{
+		client: p.client.Clauses(claudeExpression),
+	}
 }
 
 func NewDatabase(cfg configs.Database, logger *zap.Logger) (DatabaseClient, error) {

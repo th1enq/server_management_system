@@ -23,9 +23,6 @@ func (e *excelizeService) Validate(row []string) error {
 		"description",
 		"location",
 		"os",
-		"cpu",
-		"ram",
-		"disk",
 	}
 
 	if len(row) < len(expectedHeaders) {
@@ -65,9 +62,18 @@ func (e *excelizeService) ParseToServer(row []string) (entity.Server, error) {
 		return entity.Server{}, fmt.Errorf("server_name is required")
 	}
 
+	// intervalTimeString := strings.TrimSpace(row[7])
+	// if intervalTimeString != "" {
+	// 	intervalTime, err := strconv.ParseInt(intervalTimeString, 10, 64)
+	// 	if err != nil {
+	// 		return entity.Server{}, fmt.Errorf("invalid interval_time: %w", err)
+	// 	}
+	// 	server.IntervalTime = intervalTime
+	// }
+
 	// Validate status
 	if server.Status != "" {
-		validStatuses := []entity.ServerStatus{"ON", "OFF", "MAINTENANCE"}
+		validStatuses := []entity.ServerStatus{"ON", "OFF"}
 		isValid := false
 		for _, status := range validStatuses {
 			if server.Status == status {

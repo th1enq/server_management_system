@@ -23,7 +23,7 @@ func NewUserRepository(db database.DatabaseClient) repository.UserRepository {
 
 func (u *userRepository) Create(ctx context.Context, user *entity.User) error {
 	model := models.FromUserEntity(user)
-	return u.db.WithContext(ctx).Create(model)
+	return u.db.WithContext(ctx).CreateWithErr(model)
 }
 
 func (u *userRepository) Delete(ctx context.Context, id uint) error {

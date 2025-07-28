@@ -78,7 +78,8 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 		return nil, nil, err
 	}
 	monitoringMessageProducer := producer.NewMonitoringMessageProducer(client, logger)
-	serverUseCase := usecases.NewServerUseCase(serverRepository, tokenServices, excelizeService, monitoringMessageProducer, logger)
+	inMemoryCache := cache.NewInMemoryCache(logger)
+	serverUseCase := usecases.NewServerUseCase(serverRepository, tokenServices, excelizeService, monitoringMessageProducer, inMemoryCache, cacheClient, logger)
 	serverPresenter := presenters.NewServerPresenter()
 	serverController := controllers.NewServerController(serverUseCase, serverPresenter, logger)
 	serverRouter := routes.NewServerRouter(serverController, authMiddleware)

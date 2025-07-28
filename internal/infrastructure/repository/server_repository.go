@@ -9,6 +9,7 @@ import (
 	"github.com/th1enq/server_management_system/internal/domain/repository"
 	"github.com/th1enq/server_management_system/internal/infrastructure/database"
 	"github.com/th1enq/server_management_system/internal/infrastructure/models"
+	"gorm.io/gorm/clause"
 )
 
 type serverRepository struct {
@@ -21,6 +22,27 @@ func NewServerRepository(db database.DatabaseClient) repository.ServerRepository
 	}
 }
 
+func (s *serverRepository) GetIntervalTime(ctx context.Context, serverID string) (int64, error) {
+	var interval int64
+	err := s.db.WithContext(ctx).Model(&models.Server{}).
+		Select("interval_time").
+		Where("server_id = ?", serverID).
+		Scan(&interval)
+	if err != nil {
+		return 0, err
+	}
+	return interval, nil
+}
+
+func (s *serverRepository) GetServerIDs(ctx context.Context) ([]string, error) {
+	var serverIDs []string
+	err := s.db.WithContext(ctx).Model(&models.Server{}).Pluck("server_id", &serverIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get server IDs: %w", err)
+	}
+	return serverIDs, nil
+}
+
 func (s *serverRepository) GetByIPv4(ctx context.Context, ipv4 string) (*entity.Server, error) {
 	var server models.Server
 	if err := s.db.WithContext(ctx).Where("ipv4 = ?", ipv4).First(&server); err != nil {
@@ -29,9 +51,18 @@ func (s *serverRepository) GetByIPv4(ctx context.Context, ipv4 string) (*entity.
 	return models.ToServerEntity(&server), nil
 }
 
-func (s *serverRepository) BatchCreate(ctx context.Context, servers []entity.Server) error {
-	models := models.FromServerEntities(servers)
-	return s.db.WithContext(ctx).CreateInBatches(models, len(models))
+func (s *serverRepository) BatchCreate(ctx context.Context, servers []entity.Server) ([]*entity.Server, error) {
+	var modelsServers []models.Server
+	if err := s.db.
+		WithContext(ctx).
+		Clauses(
+			clause.OnConflict{DoNothing: true},
+		).
+		Create(&servers).
+		Scan(&modelsServers); err != nil {
+		return nil, fmt.Errorf("failed to batch create servers: %w", err)
+	}
+	return models.ToServerEntities(modelsServers), nil
 }
 
 func (s *serverRepository) CountByStatus(ctx context.Context, status entity.ServerStatus) (int64, error) {
@@ -42,7 +73,7 @@ func (s *serverRepository) CountByStatus(ctx context.Context, status entity.Serv
 
 func (s *serverRepository) Create(ctx context.Context, server *entity.Server) error {
 	model := models.FromServerEntity(server)
-	return s.db.WithContext(ctx).Create(model)
+	return s.db.WithContext(ctx).CreateWithErr(model)
 }
 
 func (s *serverRepository) Delete(ctx context.Context, id uint) error {

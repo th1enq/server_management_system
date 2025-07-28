@@ -10,7 +10,7 @@ type RegisterMetricsRequest struct {
 	Description  string `json:"description,omitempty"`
 	Location     string `json:"location,omitempty"`
 	OS           string `json:"os,omitempty"`
-	IntervalTime int    `json:"interval_time,omitempty" binding:"omitempty,gte=1"` // in seconds
+	IntervalTime int64  `json:"interval_time,omitempty" binding:"omitempty,gte=1"` // in seconds
 }
 
 type CreateServerRequest struct {
@@ -20,7 +20,7 @@ type CreateServerRequest struct {
 	Description  string `json:"description,omitempty"`
 	Location     string `json:"location,omitempty"`
 	OS           string `json:"os,omitempty"`
-	IntervalTime int    `json:"interval_time,omitempty" binding:"omitempty,gte=1"` // in seconds
+	IntervalTime int64  `json:"interval_time,omitempty" binding:"omitempty,gte=1"` // in seconds
 }
 
 type UpdateServerRequest struct {
@@ -29,10 +29,7 @@ type UpdateServerRequest struct {
 	Description  string `json:"description,omitempty"`
 	Location     string `json:"location,omitempty"`
 	OS           string `json:"os,omitempty"`
-	CPU          int    `json:"cpu,omitempty" binding:"omitempty,gte=0"`
-	RAM          int    `json:"ram,omitempty" binding:"omitempty,gte=0"`
-	Disk         int    `json:"disk,omitempty" binding:"omitempty,gte=0"`
-	IntervalTime int    `json:"interval_time,omitempty" binding:"omitempty,gte=1"`
+	IntervalTime int64  `json:"interval_time,omitempty" binding:"omitempty,gte=1"`
 }
 
 // ServerFilter for filtering servers via query parameters
@@ -42,9 +39,6 @@ type ServerFilter struct {
 	Status     entity.ServerStatus `form:"status"`
 	IPv4       string              `form:"ipv4" binding:"omitempty,ipv4"`
 	Location   string              `form:"location"`
-	OS         string              `form:"os"`
-	CPU        int                 `form:"cpu" binding:"omitempty,gte=0"`
-	RAM        int                 `form:"ram" binding:"omitempty,gte=0"`
 	Disk       int                 `form:"disk" binding:"omitempty,gte=0"`
 }
 
@@ -57,9 +51,6 @@ type ServerResponse struct {
 	Description string              `json:"description,omitempty"`
 	Location    string              `json:"location,omitempty"`
 	OS          string              `json:"os,omitempty"`
-	CPU         int                 `json:"cpu,omitempty"`
-	RAM         int                 `json:"ram,omitempty"`
-	Disk        int                 `json:"disk,omitempty"`
 }
 
 type ServerStatusResponse struct {

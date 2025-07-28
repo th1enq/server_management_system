@@ -35,7 +35,8 @@ type ServerUseCase interface {
 	ImportServers(ctx context.Context, filePath string) (*dto.ImportResult, error)
 	ExportServers(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) (string, error)
 	GetServerStats(ctx context.Context) (dto.ServerStatusResponse, error)
-	GetAllServers(ctx context.Context) ([]*entity.Server, error)
+	GetServerIDs(ctx context.Context) ([]string, error)
+	ConsumeMessage(ctx context.Context, msg producer.MonitoringMessage) error
 }
 
 type serverUseCase struct {
@@ -44,44 +45,67 @@ type serverUseCase struct {
 	tokenServices      services.TokenServices
 	excelizeServices   services.ExcelizeService
 	monitoringProducer producer.MonitoringMessageProducer
-	cache              cache.CacheClient
+	inMemoryCache      cache.InMemoryCache
+	redisCache         cache.CacheClient
 }
 
-func NewServerUseCase(serverRepo repository.ServerRepository, tokenServices services.TokenServices, excelizeServices services.ExcelizeService, monitoringProducer producer.MonitoringMessageProducer, cache cache.CacheClient, logger *zap.Logger) ServerUseCase {
+func NewServerUseCase(serverRepo repository.ServerRepository, tokenServices services.TokenServices, excelizeServices services.ExcelizeService, monitoringProducer producer.MonitoringMessageProducer, inMemoryCache cache.InMemoryCache, redisCache cache.CacheClient, logger *zap.Logger) ServerUseCase {
 	return &serverUseCase{
 		serverRepo:         serverRepo,
 		tokenServices:      tokenServices,
 		excelizeServices:   excelizeServices,
 		monitoringProducer: monitoringProducer,
-		cache:              cache,
+		inMemoryCache:      inMemoryCache,
+		redisCache:         redisCache,
 		logger:             logger,
 	}
 }
 
-func (s *serverUseCase) UpdateStatus(ctx context.Context, serverID string, status entity.ServerStatus) error {
-	cacheKey := fmt.Sprint("heartbeat:", serverID)
-	value, err := s.cache.HMGet(ctx, cacheKey)
-	if err == nil {
-		
-	}
-
-	s.logger.Info("Updating server status",
-		zap.String("server_id", serverID),
-		zap.String("status", string(status)),
+func (s *serverUseCase) ConsumeMessage(ctx context.Context, msg producer.MonitoringMessage) error {
+	s.logger.Info("Consuming message",
+		zap.String("server_id", msg.ServerID),
 	)
-	server, err := s.serverRepo.GetByServerID(ctx, serverID)
+	serverID := msg.ServerID
+
+	cacheKey := fmt.Sprintf("heartbeat:%s", serverID)
+	var intervalCheckTime int64
+
+	if err := s.redisCache.Get(ctx, cacheKey, &intervalCheckTime); err == nil {
+		expireTime := time.Duration(1.5*float64(intervalCheckTime)) * time.Second
+		if err := s.redisCache.Expire(ctx, cacheKey, expireTime); err != nil {
+			s.logger.Error("Failed to set heartbeat expiration",
+				zap.String("cache_key", cacheKey),
+				zap.Error(err),
+			)
+		}
+	}
+	intervalTime, err := s.serverRepo.GetIntervalTime(ctx, serverID)
 	if err != nil {
-		s.logger.Error("Failed to get server by ID",
+		s.logger.Error("Failed to get server interval time",
 			zap.String("server_id", serverID),
 			zap.Error(err),
 		)
-		return fmt.Errorf("server not found")
+		return fmt.Errorf("failed to get server interval time: %w", err)
 	}
-	server.Status = status
-	if status == entity.ServerStatusOn {
-		server.LastHeartbeat = time.Now()
+	if err := s.serverRepo.UpdateStatus(ctx, serverID, entity.ServerStatusOn); err != nil {
+		s.logger.Error("Failed to update server status to online",
+			zap.String("server_id", serverID),
+			zap.Error(err),
+		)
+		return fmt.Errorf("failed to update server status: %w", err)
 	}
-	if err := s.serverRepo.Update(ctx, server); err != nil {
+	expireTime := time.Duration(1.5*float64(intervalTime)) * time.Second
+	if err := s.redisCache.Set(ctx, cacheKey, intervalCheckTime, expireTime); err != nil {
+		s.logger.Error("Failed to set heartbeat interval in cache",
+			zap.String("cache_key", cacheKey),
+			zap.Error(err),
+		)
+	}
+	return nil
+}
+
+func (s *serverUseCase) UpdateStatus(ctx context.Context, serverID string, status entity.ServerStatus) error {
+	if err := s.serverRepo.UpdateStatus(ctx, serverID, status); err != nil {
 		s.logger.Error("Failed to update server status",
 			zap.String("server_id", serverID),
 			zap.String("status", string(status)),
@@ -93,25 +117,32 @@ func (s *serverUseCase) UpdateStatus(ctx context.Context, serverID string, statu
 		zap.String("server_id", serverID),
 		zap.String("status", string(status)),
 	)
-
 	return nil
 }
 
 func (s *serverUseCase) RefreshStatus(ctx context.Context) error {
-	s.logger.Info("Refreshing server statuses")
-
-	gormQuery := `
-		UPDATE servers
-		SET status = 'OFF'
-		WHERE status = 'ON'
-		AND NOW() - last_heartbeat > (interval_time || ' seconds')::interval
-	`
-
-	if err := s.serverRepo.ExecuteRawQuery(ctx, gormQuery); err != nil {
-		s.logger.Error("Failed to refresh server statuses", zap.Error(err))
-		return fmt.Errorf("failed to refresh server statuses: %w", err)
+	serverIDs, err := s.GetServerIDs(ctx)
+	if err != nil {
+		s.logger.Error("Failed to get server IDs for refresh",
+			zap.Error(err),
+		)
+		return fmt.Errorf("failed to get server IDs: %w", err)
 	}
-	s.logger.Info("Server statuses refreshed successfully")
+	if len(serverIDs) == 0 {
+		s.logger.Info("No servers found for status refresh")
+		return nil
+	}
+
+	for _, serverID := range serverIDs {
+		var intervalCheckTime int64
+		cacheKey := fmt.Sprintf("heartbeat:%s", serverID)
+		if err := s.redisCache.Get(ctx, cacheKey, &intervalCheckTime); err != nil {
+			s.logger.Info("Failed to get heartbeat timestamp from cache",
+				zap.String("cache_key", cacheKey),
+			)
+			s.serverRepo.UpdateStatus(ctx, serverID, entity.ServerStatusOff)
+		}
+	}
 	return nil
 }
 
@@ -205,6 +236,8 @@ func (s *serverUseCase) CreateServer(ctx context.Context, req dto.CreateServerRe
 		return nil, fmt.Errorf("failed to create server: %w", err)
 	}
 
+	s.inMemoryCache.Delete("list_server_id")
+
 	s.logger.Info("Server created successfully",
 		zap.Uint("id", server.ID),
 		zap.String("server_id", server.ServerID),
@@ -232,6 +265,8 @@ func (s *serverUseCase) DeleteServer(ctx context.Context, id uint) error {
 		)
 		return fmt.Errorf("failed to delete server: %w", err)
 	}
+
+	s.inMemoryCache.Delete("list_server_id")
 
 	s.logger.Info("Server deleted successfully",
 		zap.Uint("id", server.ID),
@@ -340,6 +375,8 @@ func (s *serverUseCase) ImportServers(ctx context.Context, filePath string) (*dt
 
 	var mu sync.Mutex
 
+	successID := make(map[string]bool)
+
 	for batchIndex, batch := range batches {
 
 		// Capture variables to avoid race condition
@@ -353,38 +390,29 @@ func (s *serverUseCase) ImportServers(ctx context.Context, filePath string) (*dt
 		)
 
 		workerPool.Submit(func() {
-
-			// Try batch insert first
-			if err := s.serverRepo.BatchCreate(ctx, currentBatch); err != nil {
-				// Fallback to individual inserts
-				for _, sv := range currentBatch {
-					if err := s.serverRepo.Create(ctx, &sv); err != nil {
-						mu.Lock()
-						result.FailureCount++
-						result.FailureServers = append(result.FailureServers,
-							fmt.Sprintf("Server '%s': %s", sv.ServerID, err.Error()))
-						mu.Unlock()
-					} else {
-						mu.Lock()
-						result.SuccessCount++
-						result.SuccessServers = append(result.SuccessServers, sv.ServerID)
-						mu.Unlock()
-					}
-				}
-			} else {
+			successServer, err := s.serverRepo.BatchCreate(ctx, currentBatch)
+			if err == nil {
 				mu.Lock()
-				// Batch insert successful
-				result.SuccessCount += len(currentBatch)
-				for _, sv := range currentBatch {
-					result.SuccessServers = append(result.SuccessServers, sv.ServerID)
+				result.SuccessCount += len(successServer)
+				for _, server := range successServer {
+					result.SuccessServers = append(result.SuccessServers, server.ServerID)
+					successID[server.ServerID] = true
 				}
 				mu.Unlock()
 			}
 		})
 	}
 
-	// Wait for all workers to complete
 	workerPool.StopWait()
+
+	result.FailureCount = rowCount - result.SuccessCount
+	for _, server := range servers {
+		if _, exists := successID[server.ServerID]; !exists {
+			result.FailureServers = append(result.FailureServers, server.ServerID)
+		}
+	}
+
+	s.inMemoryCache.Delete("list_server_id")
 
 	s.logger.Info("Import completed",
 		zap.String("file", filePath),
@@ -484,15 +512,35 @@ func (s *serverUseCase) GetServer(ctx context.Context, id uint) (*entity.Server,
 	return server, nil
 }
 
-func (s *serverUseCase) GetAllServers(ctx context.Context) ([]*entity.Server, error) {
-	servers, err := s.serverRepo.GetAll(ctx)
+func (s *serverUseCase) GetServerIDs(ctx context.Context) ([]string, error) {
+	cacheKey := "list_server_id"
+	servers, err := s.inMemoryCache.Get(cacheKey)
+	var serverIDs []string
 	if err != nil {
-		return nil, fmt.Errorf("failed to get all servers: %w", err)
+		s.logger.Error("Failed to get server IDs from cache",
+			zap.String("cache_key", cacheKey),
+			zap.Error(err),
+		)
+		serverIDs, err = s.serverRepo.GetServerIDs(ctx)
+		if err != nil {
+			s.logger.Error("Failed to get server IDs from repository",
+				zap.Error(err),
+			)
+			return nil, fmt.Errorf("failed to get server IDs: %w", err)
+		}
+	} else {
+		serverIDs, _ = servers.([]string)
 	}
-	s.logger.Info("All servers retrieved successfully",
-		zap.Int("count", len(servers)),
+	if err := s.inMemoryCache.Set(cacheKey, serverIDs); err != nil {
+		s.logger.Error("Failed to set server IDs in cache",
+			zap.String("cache_key", cacheKey),
+			zap.Error(err),
+		)
+	}
+	s.logger.Info("Server IDs retrieved successfully",
+		zap.Int("total_ids", len(serverIDs)),
 	)
-	return servers, nil
+	return serverIDs, nil
 }
 
 func (s *serverUseCase) GetServerStats(ctx context.Context) (dto.ServerStatusResponse, error) {
@@ -527,9 +575,6 @@ func (s *serverUseCase) ListServers(ctx context.Context, filter dto.ServerFilter
 		Status:     filter.Status,
 		IPv4:       filter.IPv4,
 		Location:   filter.Location,
-		OS:         filter.OS,
-		CPU:        filter.CPU,
-		RAM:        filter.RAM,
 		Disk:       filter.Disk,
 	}
 
