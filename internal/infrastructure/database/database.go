@@ -4,8 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"reflect"
+	"strings"
 
 	"github.com/th1enq/server_management_system/internal/configs"
+	"github.com/th1enq/server_management_system/internal/infrastructure/models"
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -24,15 +27,14 @@ type DatabaseClient interface {
 	Delete(value interface{}, conds ...interface{}) error
 	Find(dest interface{}, conds ...interface{}) error
 	Save(value interface{}) error
+	Scan(dest interface{}) error
 	Count(count *int64) error
-	CreateWithErr(value interface{}) error
-	Create(value interface{}) DatabaseClient
+	Create(value interface{}) error
 	Update(column string, value interface{}) error
 	Exec(query string, args ...interface{}) error
 	Pluck(column string, dest interface{}) error
-	Scan(dest interface{}) error
+	BatchCreateOnConflict(value interface{}, dest interface{}) error
 	Select(query string, args ...interface{}) DatabaseClient
-	Clauses(conds interface{}) DatabaseClient
 	DB() (*sql.DB, error)
 }
 
@@ -47,22 +49,74 @@ func (p *gormDatabase) Count(count *int64) error {
 	return nil
 }
 
-func (p *gormDatabase) Create(value interface{}) DatabaseClient {
-	return &gormDatabase{
-		client: p.client.Create(value),
-	}
-}
-
-func (p *gormDatabase) CreateWithErr(value interface{}) error {
-	if err := p.client.Create(value).Error; err != nil {
-		return fmt.Errorf("failed to create record: %w", err)
+func (p *gormDatabase) Scan(dest interface{}) error {
+	if err := p.client.Scan(dest).Error; err != nil {
+		return fmt.Errorf("failed to scan records: %w", err)
 	}
 	return nil
 }
 
-func (p *gormDatabase) CreateInBatches(value interface{}, batchSize int) error {
-	if err := p.client.CreateInBatches(value, batchSize).Error; err != nil {
-		return fmt.Errorf("failed to create records in batches: %w", err)
+func (p *gormDatabase) BatchCreateOnConflict(value interface{}, dest interface{}) error {
+	val := reflect.ValueOf(value)
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+
+	if val.Kind() != reflect.Slice || val.Len() == 0 {
+		return nil
+	}
+
+	servers := make([]models.Server, val.Len())
+	for i := 0; i < val.Len(); i++ {
+		if item := val.Index(i); item.CanInterface() {
+			if server, ok := item.Interface().(models.Server); ok {
+				servers[i] = server
+			} else if item.Kind() == reflect.Ptr {
+				if server, ok := item.Elem().Interface().(models.Server); ok {
+					servers[i] = server
+				}
+			}
+		}
+	}
+
+	// Build raw query
+	placeholders := make([]string, len(servers))
+	values := make([]interface{}, 0, len(servers)*9)
+
+	for i, server := range servers {
+		placeholders[i] = fmt.Sprintf("($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)",
+			i*9+1, i*9+2, i*9+3, i*9+4, i*9+5, i*9+6, i*9+7, i*9+8, i*9+9)
+		values = append(values,
+			server.ServerID, server.ServerName, server.Status,
+			server.IPv4, server.Description, server.Location,
+			server.OS, server.IntervalTime, server.CreatedTime)
+	}
+
+	query := fmt.Sprintf(`
+		INSERT INTO servers (server_id, server_name, status, ipv4, description, location, os, interval_time, created_time)
+		VALUES %s
+		ON CONFLICT (server_id) DO NOTHING
+		RETURNING *`, strings.Join(placeholders, ","))
+
+	return p.client.Raw(query, values...).Scan(dest).Error
+}
+
+func (p *gormDatabase) CreateWithReturning(value interface{}, dest interface{}) error {
+	result := p.client.Clauses(clause.Returning{}).Create(value)
+	if result.Error != nil {
+		return fmt.Errorf("failed to create record: %w", result.Error)
+	}
+	if result.RowsAffected > 0 {
+		if err := result.Scan(dest); err != nil {
+			return fmt.Errorf("failed to scan returning records: %w", err)
+		}
+	}
+	return nil
+}
+
+func (p *gormDatabase) Create(value interface{}) error {
+	if err := p.client.Create(value).Error; err != nil {
+		return fmt.Errorf("failed to create record: %w", err)
 	}
 	return nil
 }
@@ -160,23 +214,19 @@ func (p *gormDatabase) Pluck(column string, dest interface{}) error {
 	return nil
 }
 
-func (p *gormDatabase) Scan(dest interface{}) error {
-	if err := p.client.Scan(dest).Error; err != nil {
-		return fmt.Errorf("failed to scan records: %w", err)
-	}
-	return nil
-}
-
 func (p *gormDatabase) Select(query string, args ...interface{}) DatabaseClient {
 	return &gormDatabase{
 		client: p.client.Select(query, args...),
 	}
 }
 
-func (p *gormDatabase) Clauses(conds interface{}) DatabaseClient {
-	claudeExpression, _ := conds.(clause.Expression)
+func (p *gormDatabase) Clauses(conds ...interface{}) DatabaseClient {
+	exprs := make([]clause.Expression, len(conds))
+	for i, cond := range conds {
+		exprs[i], _ = cond.(clause.Expression)
+	}
 	return &gormDatabase{
-		client: p.client.Clauses(claudeExpression),
+		client: p.client.Clauses(exprs...),
 	}
 }
 

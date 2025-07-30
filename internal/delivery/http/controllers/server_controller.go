@@ -11,26 +11,27 @@ import (
 	"github.com/th1enq/server_management_system/internal/delivery/http/presenters"
 	"github.com/th1enq/server_management_system/internal/domain"
 	"github.com/th1enq/server_management_system/internal/dto"
-	"github.com/th1enq/server_management_system/internal/infrastructure/mq/producer"
 	"github.com/th1enq/server_management_system/internal/usecases"
 	"go.uber.org/zap"
 )
 
 type ServerController struct {
-	serverUseCase      usecases.ServerUseCase
-	serverPresenter    presenters.ServerPresenter
-	monotoringProducer producer.MonitoringMessageProducer
-	logger             *zap.Logger
+	serverUseCase   usecases.ServerUseCase
+	serverPresenter presenters.ServerPresenter
+	gatewayUseCase  usecases.GatewayUseCase
+	logger          *zap.Logger
 }
 
 func NewServerController(
 	serverUseCase usecases.ServerUseCase,
 	serverPresenter presenters.ServerPresenter,
+	gatewayUseCase usecases.GatewayUseCase,
 	logger *zap.Logger,
 ) *ServerController {
 	return &ServerController{
 		serverUseCase:   serverUseCase,
 		serverPresenter: serverPresenter,
+		gatewayUseCase:  gatewayUseCase,
 		logger:          logger,
 	}
 }
@@ -41,22 +42,23 @@ func NewServerController(
 // @Tags servers
 // @Accept json
 // @Produce json
-// @Param monitoring body producer.MonitoringMessage true "Monitoring data"
+// @Param monitoring body dto.MetricsRequest true "Monitoring data"
 // @Success 200 {object} domain.APIResponse
 // @Failure 400 {object} domain.APIResponse
 // @Failure 500 {object} domain.APIResponse
 // @Security BearerAuth
 // @Router /api/v1/servers/monitoring [post]
 func (h *ServerController) Monitoring(c *gin.Context) {
-	var req producer.MonitoringMessage
+	var req dto.MetricsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("Invalid monitoring request", zap.Error(err))
 		h.serverPresenter.InvalidRequest(c, "Invalid request data", err)
 		return
 	}
 
-	if err := h.serverUseCase.Monitoring(c.Request.Context(), req); err != nil {
-		h.logger.Error("Failed to send monitoring message",
+	// Use API Gateway service instead of direct usecase call
+	if err := h.gatewayUseCase.ProcessServerMetrics(c.Request.Context(), req); err != nil {
+		h.logger.Error("Failed to process server metrics through API Gateway",
 			zap.Error(err),
 			zap.String("server_id", req.ServerID),
 			zap.Int("cpu", req.CPU),
@@ -64,11 +66,11 @@ func (h *ServerController) Monitoring(c *gin.Context) {
 			zap.Int("disk", req.Disk),
 			zap.String("request_id", c.GetString("request_id")),
 		)
-		h.serverPresenter.InternalServerError(c, "Failed to send monitoring message", err)
+		h.serverPresenter.InternalServerError(c, "Failed to process server metrics", err)
 		return
 	}
 
-	h.serverPresenter.MonitoringSuccess(c, "Monitoring message sent successfully")
+	h.serverPresenter.MonitoringSuccess(c, "Server metrics processed successfully")
 }
 
 // Register godoc

@@ -108,6 +108,28 @@ definitions:
     - password
     - username
     type: object
+  dto.MetricsRequest:
+    properties:
+      cpu:
+        minimum: 0
+        type: integer
+      disk:
+        minimum: 0
+        type: integer
+      ram:
+        minimum: 0
+        type: integer
+      server_id:
+        type: string
+      timestamp:
+        type: string
+    required:
+    - cpu
+    - disk
+    - ram
+    - server_id
+    - timestamp
+    type: object
   dto.PasswordUpdate:
     properties:
       new_password:
@@ -212,20 +234,14 @@ definitions:
     type: object
   dto.ServerResponse:
     properties:
-      cpu:
-        type: integer
       description:
         type: string
-      disk:
-        type: integer
       ipv4:
         type: string
       location:
         type: string
       os:
         type: string
-      ram:
-        type: integer
       server_id:
         type: string
       server_name:
@@ -235,14 +251,8 @@ definitions:
     type: object
   dto.UpdateServerRequest:
     properties:
-      cpu:
-        minimum: 0
-        type: integer
       description:
         type: string
-      disk:
-        minimum: 0
-        type: integer
       interval_time:
         minimum: 1
         type: integer
@@ -252,9 +262,6 @@ definitions:
         type: string
       os:
         type: string
-      ram:
-        minimum: 0
-        type: integer
       server_name:
         type: string
     type: object
@@ -294,6 +301,8 @@ definitions:
     type: object
   entity.Server:
     properties:
+      createdTime:
+        type: string
       description:
         type: string
       id:
@@ -321,25 +330,6 @@ definitions:
     x-enum-varnames:
     - ServerStatusOn
     - ServerStatusOff
-  producer.MonitoringMessage:
-    properties:
-      cpu:
-        minimum: 0
-        type: integer
-      disk:
-        minimum: 0
-        type: integer
-      ram:
-        minimum: 0
-        type: integer
-      server_id:
-        type: string
-    required:
-    - cpu
-    - disk
-    - ram
-    - server_id
-    type: object
   scheduler.TaskInfo:
     properties:
       last_run:
@@ -949,7 +939,7 @@ paths:
         name: monitoring
         required: true
         schema:
-          $ref: '#/definitions/producer.MonitoringMessage'
+          $ref: '#/definitions/dto.MetricsRequest'
       produces:
       - application/json
       responses:

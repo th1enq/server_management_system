@@ -8,8 +8,8 @@ import (
 
 type Server struct {
 	ID           uint   `gorm:"primaryKey"`
-	ServerID     string `gorm:"index;uniqueIndex;not null"`
-	ServerName   string `gorm:"index;uniqueIndex;not null"`
+	ServerID     string `gorm:"index;unique;not null"`
+	ServerName   string `gorm:"index;unique;not null"`
 	Status       string `gorm:"not null;default:'OFF'"`
 	IPv4         string
 	Description  string

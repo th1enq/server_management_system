@@ -9,4 +9,5 @@ var WireSet = wire.NewSet(
 	NewReportUseCase,
 	NewAuthUseCase,
 	NewMetricsUseCase,
+	NewGatewayUseCase,
 )

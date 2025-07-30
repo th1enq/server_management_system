@@ -55,7 +55,7 @@ log:
 cron:
   update_status:
     name: "update_status"
-    schedule: "@every 1m"  
+    schedule: "@every 20s"  
   daily_report:
     name: "daily_report"
     schedule: "0 0 8 * * *"

@@ -3,9 +3,11 @@ package producer
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/IBM/sarama"
 	"github.com/th1enq/server_management_system/internal/configs"
+	"github.com/th1enq/server_management_system/internal/domain/entity"
 	"github.com/th1enq/server_management_system/internal/utils"
 	"go.uber.org/zap"
 )
@@ -27,6 +29,24 @@ func newSaramaConfig(mqConfig configs.MQ) *sarama.Config {
 	saramaConfig.ClientID = mqConfig.ClientID
 	saramaConfig.Metadata.Full = true
 	return saramaConfig
+}
+
+type Message struct {
+	ServerID  string              `json:"server_id" binding:"required"`
+	OldStatus entity.ServerStatus `json:"old_status" binding:"required"`
+	NewStatus entity.ServerStatus `json:"new_status" binding:"required"`
+	Timestamp time.Time           `json:"timestamp" binding:"required"`
+	CPU       int                 `json:"cpu" binding:"required,gte=0"`
+	RAM       int                 `json:"ram" binding:"required,gte=0"`
+	Disk      int                 `json:"disk" binding:"required,gte=0"`
+}
+
+type StatusChangeMessage struct {
+	ServerID  string              `json:"server_id" binding:"required"`
+	OldStatus entity.ServerStatus `json:"old_status" binding:"required"`
+	NewStatus entity.ServerStatus `json:"new_status" binding:"required"`
+	Timestamp time.Time           `json:"timestamp" binding:"required"`
+	Interval  int64               `json:"interval" binding:"required,gte=0"`
 }
 
 func NewClient(

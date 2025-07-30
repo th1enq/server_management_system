@@ -10,7 +10,7 @@ import (
 )
 
 type UpdateStatus interface {
-	Handle(ctx context.Context, event producer.MonitoringMessage) error
+	Handle(ctx context.Context, event producer.Message) error
 }
 
 type updateStatus struct {
@@ -30,12 +30,12 @@ func NewUpdateStatus(
 
 func (m updateStatus) Handle(
 	ctx context.Context,
-	event producer.MonitoringMessage,
+	event producer.Message,
 ) error {
 	logger := utils.LoggerWithContext(ctx, m.logger)
-	logger.Info("Handling server status off")
+	logger.Info("Handling server status change")
 
-	if err := m.serverUseCase.ConsumeMessage(ctx, event); err != nil {
+	if err := m.serverUseCase.UpdateStatus(ctx, event.ServerID, event.NewStatus); err != nil {
 		logger.Error("Failed to handle server status off", zap.Error(err))
 		return err
 	}

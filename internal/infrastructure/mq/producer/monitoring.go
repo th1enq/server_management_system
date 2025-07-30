@@ -13,15 +13,8 @@ const (
 	MessageMonitoring = "monitoring_event"
 )
 
-type MonitoringMessage struct {
-	ServerID string `json:"server_id" binding:"required"`
-	CPU      int    `json:"cpu" binding:"required,gte=0"`
-	RAM      int    `json:"ram" binding:"required,gte=0"`
-	Disk     int    `json:"disk" binding:"required,gte=0"`
-}
-
 type MonitoringMessageProducer interface {
-	Produce(ctx context.Context, msg MonitoringMessage) error
+	Produce(ctx context.Context, msg Message) error
 }
 
 type monitoringMessageProducer struct {
@@ -41,7 +34,7 @@ func NewMonitoringMessageProducer(
 
 func (m monitoringMessageProducer) Produce(
 	ctx context.Context,
-	msg MonitoringMessage,
+	msg Message,
 ) error {
 	logger := utils.LoggerWithContext(ctx, m.logger)
 

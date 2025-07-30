@@ -77,20 +77,22 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 		cleanup()
 		return nil, nil, err
 	}
-	monitoringMessageProducer := producer.NewMonitoringMessageProducer(client, logger)
+	statusChangeMessageProducer := producer.NewStatusChangeMessageProducer(client, logger)
 	inMemoryCache := cache.NewInMemoryCache(logger)
-	serverUseCase := usecases.NewServerUseCase(serverRepository, tokenServices, excelizeService, monitoringMessageProducer, inMemoryCache, cacheClient, logger)
-	serverPresenter := presenters.NewServerPresenter()
-	serverController := controllers.NewServerController(serverUseCase, serverPresenter, logger)
-	serverRouter := routes.NewServerRouter(serverController, authMiddleware)
-	email := config.Email
 	elasticSearch := config.Elasticsearch
 	elasticsearchClient, cleanup2, err := search.LoadElasticSearch(elasticSearch, logger)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	healthCheckUseCase := usecases.NewHealthCheckUseCase(elasticsearchClient, serverUseCase, logger)
+	healthCheckUseCase := usecases.NewHealthCheckUseCase(elasticsearchClient, logger)
+	serverUseCase := usecases.NewServerUseCase(serverRepository, tokenServices, excelizeService, statusChangeMessageProducer, inMemoryCache, cacheClient, healthCheckUseCase, logger)
+	serverPresenter := presenters.NewServerPresenter()
+	monitoringMessageProducer := producer.NewMonitoringMessageProducer(client, logger)
+	gatewayUseCase := usecases.NewGatewayUseCase(serverUseCase, cacheClient, monitoringMessageProducer, statusChangeMessageProducer, logger)
+	serverController := controllers.NewServerController(serverUseCase, serverPresenter, gatewayUseCase, logger)
+	serverRouter := routes.NewServerRouter(serverController, authMiddleware)
+	email := config.Email
 	reportUseCase := usecases.NewReportUseCase(email, healthCheckUseCase, logger)
 	reportPresenter := presenters.NewReportPresenter()
 	reportController := controllers.NewReportController(reportUseCase, reportPresenter, logger)
@@ -114,6 +116,13 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 	metricsUseCase := usecases.NewMetricsUseCase(metricsRepository, logger)
 	metricsUpdate := consumers.NewMetricsUpdate(metricsUseCase, logger)
 	updateStatus := consumers.NewUpdateStatus(serverUseCase, logger)
+	uptimeCalculatorConsumer := consumers.NewUptimeCalculator(logger, healthCheckUseCase)
+	uptimeConsumer, err := consumer.NewUptimeConsumer(mq, logger)
+	if err != nil {
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
 	serverConsumer, err := consumer.NewServerConsumer(mq, logger)
 	if err != nil {
 		cleanup2()
@@ -126,7 +135,7 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 		cleanup()
 		return nil, nil, err
 	}
-	root := consumers.NewRoot(metricsUpdate, updateStatus, serverConsumer, metricsConsumer, logger)
+	root := consumers.NewRoot(metricsUpdate, updateStatus, uptimeCalculatorConsumer, uptimeConsumer, serverConsumer, metricsConsumer, logger)
 	application := app.NewApplication(iServer, jobManager, root, logger)
 	return application, func() {
 		cleanup2()

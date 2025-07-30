@@ -10,7 +10,7 @@ import (
 )
 
 type MetricsUpdate interface {
-	Handle(ctx context.Context, event producer.MonitoringMessage) error
+	Handle(ctx context.Context, event producer.Message) error
 }
 
 type metricsUpdate struct {
@@ -30,7 +30,7 @@ func NewMetricsUpdate(
 
 func (m metricsUpdate) Handle(
 	ctx context.Context,
-	event producer.MonitoringMessage,
+	event producer.Message,
 ) error {
 	logger := utils.LoggerWithContext(ctx, m.logger).With(zap.Any("event", event))
 	logger.Info("Received metrics task")

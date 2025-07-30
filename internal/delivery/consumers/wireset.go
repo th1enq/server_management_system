@@ -6,4 +6,5 @@ var WireSet = wire.NewSet(
 	NewRoot,
 	NewMetricsUpdate,
 	NewUpdateStatus,
+	NewUptimeCalculator,
 )

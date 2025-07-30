@@ -11,7 +11,7 @@ import (
 )
 
 type MetricsUseCase interface {
-	Insert(ctx context.Context, metrics producer.MonitoringMessage) error
+	Insert(ctx context.Context, metrics producer.Message) error
 	SaveMetrics(ctx context.Context, metrics *entity.ServerMetrics) error
 	QueryMetrics(ctx context.Context, query string) (client.Result, error)
 }
@@ -28,7 +28,7 @@ func NewMetricsUseCase(metricsRepo repository.MetricsRepository, logger *zap.Log
 	}
 }
 
-func (m *metricsUseCase) Insert(ctx context.Context, metrics producer.MonitoringMessage) error {
+func (m *metricsUseCase) Insert(ctx context.Context, metrics producer.Message) error {
 	m.logger.Info("Inserting metrics", zap.Any("event", metrics))
 	return nil
 }

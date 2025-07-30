@@ -778,7 +778,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/producer.MonitoringMessage"
+                            "$ref": "#/definitions/dto.MetricsRequest"
                         }
                     }
                 ],
@@ -1611,6 +1611,36 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.MetricsRequest": {
+            "type": "object",
+            "required": [
+                "cpu",
+                "disk",
+                "ram",
+                "server_id",
+                "timestamp"
+            ],
+            "properties": {
+                "cpu": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "disk": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "ram": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "server_id": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.PasswordUpdate": {
             "type": "object",
             "required": [
@@ -1760,14 +1790,8 @@ const docTemplate = `{
         "dto.ServerResponse": {
             "type": "object",
             "properties": {
-                "cpu": {
-                    "type": "integer"
-                },
                 "description": {
                     "type": "string"
-                },
-                "disk": {
-                    "type": "integer"
                 },
                 "ipv4": {
                     "type": "string"
@@ -1777,9 +1801,6 @@ const docTemplate = `{
                 },
                 "os": {
                     "type": "string"
-                },
-                "ram": {
-                    "type": "integer"
                 },
                 "server_id": {
                     "type": "string"
@@ -1795,16 +1816,8 @@ const docTemplate = `{
         "dto.UpdateServerRequest": {
             "type": "object",
             "properties": {
-                "cpu": {
-                    "type": "integer",
-                    "minimum": 0
-                },
                 "description": {
                     "type": "string"
-                },
-                "disk": {
-                    "type": "integer",
-                    "minimum": 0
                 },
                 "interval_time": {
                     "type": "integer",
@@ -1818,10 +1831,6 @@ const docTemplate = `{
                 },
                 "os": {
                     "type": "string"
-                },
-                "ram": {
-                    "type": "integer",
-                    "minimum": 0
                 },
                 "server_name": {
                     "type": "string"
@@ -1885,6 +1894,9 @@ const docTemplate = `{
         "entity.Server": {
             "type": "object",
             "properties": {
+                "createdTime": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -1924,32 +1936,6 @@ const docTemplate = `{
                 "ServerStatusOn",
                 "ServerStatusOff"
             ]
-        },
-        "producer.MonitoringMessage": {
-            "type": "object",
-            "required": [
-                "cpu",
-                "disk",
-                "ram",
-                "server_id"
-            ],
-            "properties": {
-                "cpu": {
-                    "type": "integer",
-                    "minimum": 0
-                },
-                "disk": {
-                    "type": "integer",
-                    "minimum": 0
-                },
-                "ram": {
-                    "type": "integer",
-                    "minimum": 0
-                },
-                "server_id": {
-                    "type": "string"
-                }
-            }
         },
         "scheduler.TaskInfo": {
             "type": "object",

@@ -24,10 +24,10 @@ const (
 
 type ServerUseCase interface {
 	RefreshStatus(ctx context.Context) error
-	Monitoring(ctx context.Context, req producer.MonitoringMessage) error
 	UpdateStatus(ctx context.Context, serverID string, status entity.ServerStatus) error
 	Register(ctx context.Context, req dto.CreateServerRequest) (*dto.AuthResponse, error)
 	CreateServer(ctx context.Context, req dto.CreateServerRequest) (*entity.Server, error)
+	GetServerByID(ctx context.Context, serverID string) (*entity.Server, error)
 	GetServer(ctx context.Context, id uint) (*entity.Server, error)
 	ListServers(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) ([]*entity.Server, error)
 	UpdateServer(ctx context.Context, id uint, updates dto.UpdateServerRequest) (*entity.Server, error)
@@ -36,72 +36,42 @@ type ServerUseCase interface {
 	ExportServers(ctx context.Context, filter dto.ServerFilter, pagination dto.Pagination) (string, error)
 	GetServerStats(ctx context.Context) (dto.ServerStatusResponse, error)
 	GetServerIDs(ctx context.Context) ([]string, error)
-	ConsumeMessage(ctx context.Context, msg producer.MonitoringMessage) error
 }
 
 type serverUseCase struct {
-	logger             *zap.Logger
-	serverRepo         repository.ServerRepository
-	tokenServices      services.TokenServices
-	excelizeServices   services.ExcelizeService
-	monitoringProducer producer.MonitoringMessageProducer
-	inMemoryCache      cache.InMemoryCache
-	redisCache         cache.CacheClient
+	logger               *zap.Logger
+	serverRepo           repository.ServerRepository
+	tokenServices        services.TokenServices
+	excelizeServices     services.ExcelizeService
+	statusChangeProducer producer.StatusChangeMessageProducer
+	inMemoryCache        cache.InMemoryCache
+	redisCache           cache.CacheClient
+	healthCheckUseCase   HealthCheckUseCase
 }
 
-func NewServerUseCase(serverRepo repository.ServerRepository, tokenServices services.TokenServices, excelizeServices services.ExcelizeService, monitoringProducer producer.MonitoringMessageProducer, inMemoryCache cache.InMemoryCache, redisCache cache.CacheClient, logger *zap.Logger) ServerUseCase {
+func NewServerUseCase(serverRepo repository.ServerRepository, tokenServices services.TokenServices, excelizeServices services.ExcelizeService, statusChangeProducer producer.StatusChangeMessageProducer, inMemoryCache cache.InMemoryCache, redisCache cache.CacheClient, healthCheckUseCase HealthCheckUseCase, logger *zap.Logger) ServerUseCase {
 	return &serverUseCase{
-		serverRepo:         serverRepo,
-		tokenServices:      tokenServices,
-		excelizeServices:   excelizeServices,
-		monitoringProducer: monitoringProducer,
-		inMemoryCache:      inMemoryCache,
-		redisCache:         redisCache,
-		logger:             logger,
+		serverRepo:           serverRepo,
+		tokenServices:        tokenServices,
+		excelizeServices:     excelizeServices,
+		statusChangeProducer: statusChangeProducer,
+		inMemoryCache:        inMemoryCache,
+		redisCache:           redisCache,
+		logger:               logger,
+		healthCheckUseCase:   healthCheckUseCase,
 	}
 }
 
-func (s *serverUseCase) ConsumeMessage(ctx context.Context, msg producer.MonitoringMessage) error {
-	s.logger.Info("Consuming message",
-		zap.String("server_id", msg.ServerID),
-	)
-	serverID := msg.ServerID
-
-	cacheKey := fmt.Sprintf("heartbeat:%s", serverID)
-	var intervalCheckTime int64
-
-	if err := s.redisCache.Get(ctx, cacheKey, &intervalCheckTime); err == nil {
-		expireTime := time.Duration(1.5*float64(intervalCheckTime)) * time.Second
-		if err := s.redisCache.Expire(ctx, cacheKey, expireTime); err != nil {
-			s.logger.Error("Failed to set heartbeat expiration",
-				zap.String("cache_key", cacheKey),
-				zap.Error(err),
-			)
-		}
-	}
-	intervalTime, err := s.serverRepo.GetIntervalTime(ctx, serverID)
+func (s *serverUseCase) GetServerByID(ctx context.Context, serverID string) (*entity.Server, error) {
+	server, err := s.serverRepo.GetByServerID(ctx, serverID)
 	if err != nil {
-		s.logger.Error("Failed to get server interval time",
+		s.logger.Error("Failed to get server by ID",
 			zap.String("server_id", serverID),
 			zap.Error(err),
 		)
-		return fmt.Errorf("failed to get server interval time: %w", err)
+		return nil, fmt.Errorf("failed to get server by ID: %w", err)
 	}
-	if err := s.serverRepo.UpdateStatus(ctx, serverID, entity.ServerStatusOn); err != nil {
-		s.logger.Error("Failed to update server status to online",
-			zap.String("server_id", serverID),
-			zap.Error(err),
-		)
-		return fmt.Errorf("failed to update server status: %w", err)
-	}
-	expireTime := time.Duration(1.5*float64(intervalTime)) * time.Second
-	if err := s.redisCache.Set(ctx, cacheKey, intervalCheckTime, expireTime); err != nil {
-		s.logger.Error("Failed to set heartbeat interval in cache",
-			zap.String("cache_key", cacheKey),
-			zap.Error(err),
-		)
-	}
-	return nil
+	return server, nil
 }
 
 func (s *serverUseCase) UpdateStatus(ctx context.Context, serverID string, status entity.ServerStatus) error {
@@ -140,23 +110,37 @@ func (s *serverUseCase) RefreshStatus(ctx context.Context) error {
 			s.logger.Info("Failed to get heartbeat timestamp from cache",
 				zap.String("cache_key", cacheKey),
 			)
-			s.serverRepo.UpdateStatus(ctx, serverID, entity.ServerStatusOff)
+
+			server, err := s.GetServerByID(ctx, serverID)
+			if err != nil {
+				s.logger.Error("Failed to get server by ID",
+					zap.String("server_id", serverID),
+					zap.Error(err),
+				)
+				return fmt.Errorf("failed to get server by ID: %w", err)
+			}
+
+			oldStatus := server.Status
+
+			if err := s.serverRepo.UpdateStatus(ctx, serverID, entity.ServerStatusOff); err != nil {
+				s.logger.Error("Failed to update server status to OFF",
+					zap.String("server_id", serverID),
+					zap.Error(err),
+				)
+				return fmt.Errorf("failed to update server status to OFF: %w", err)
+			}
+
+			intervalCheckTime := server.IntervalTime
+
+			s.statusChangeProducer.Produce(ctx, producer.StatusChangeMessage{
+				ServerID:  serverID,
+				OldStatus: oldStatus,
+				NewStatus: entity.ServerStatusOff,
+				Timestamp: time.Now(),
+				Interval:  intervalCheckTime,
+			})
 		}
 	}
-	return nil
-}
-
-func (s *serverUseCase) Monitoring(ctx context.Context, req producer.MonitoringMessage) error {
-	if err := s.monitoringProducer.Produce(ctx, req); err != nil {
-		s.logger.Error("Failed to produce monitoring message",
-			zap.String("server_id", req.ServerID),
-			zap.Error(err),
-		)
-		return fmt.Errorf("failed to produce monitoring message: %w", err)
-	}
-	s.logger.Info("Monitoring message produced successfully",
-		zap.String("server_id", req.ServerID),
-	)
 	return nil
 }
 
@@ -237,6 +221,14 @@ func (s *serverUseCase) CreateServer(ctx context.Context, req dto.CreateServerRe
 	}
 
 	s.inMemoryCache.Delete("list_server_id")
+
+	s.healthCheckUseCase.InsertUptime(ctx, producer.StatusChangeMessage{
+		ServerID:  server.ServerID,
+		OldStatus: entity.ServerStatusOn,
+		NewStatus: entity.ServerStatusOff,
+		Timestamp: time.Now(),
+		Interval:  server.IntervalTime,
+	})
 
 	s.logger.Info("Server created successfully",
 		zap.Uint("id", server.ID),
@@ -405,7 +397,7 @@ func (s *serverUseCase) ImportServers(ctx context.Context, filePath string) (*dt
 
 	workerPool.StopWait()
 
-	result.FailureCount = rowCount - result.SuccessCount
+	result.FailureCount = rowCount - result.SuccessCount - 1
 	for _, server := range servers {
 		if _, exists := successID[server.ServerID]; !exists {
 			result.FailureServers = append(result.FailureServers, server.ServerID)
@@ -515,7 +507,7 @@ func (s *serverUseCase) GetServer(ctx context.Context, id uint) (*entity.Server,
 func (s *serverUseCase) GetServerIDs(ctx context.Context) ([]string, error) {
 	cacheKey := "list_server_id"
 	servers, err := s.inMemoryCache.Get(cacheKey)
-	var serverIDs []string
+	serverIDs := make([]string, 0)
 	if err != nil {
 		s.logger.Error("Failed to get server IDs from cache",
 			zap.String("cache_key", cacheKey),

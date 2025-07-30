@@ -1,6 +1,8 @@
 package dto
 
 import (
+	"time"
+
 	"github.com/th1enq/server_management_system/internal/domain/entity"
 )
 
@@ -11,6 +13,14 @@ type RegisterMetricsRequest struct {
 	Location     string `json:"location,omitempty"`
 	OS           string `json:"os,omitempty"`
 	IntervalTime int64  `json:"interval_time,omitempty" binding:"omitempty,gte=1"` // in seconds
+}
+
+type MetricsRequest struct {
+	ServerID  string    `json:"server_id" binding:"required"`
+	CPU       int       `json:"cpu" binding:"required,gte=0"`
+	RAM       int       `json:"ram" binding:"required,gte=0"`
+	Disk      int       `json:"disk" binding:"required,gte=0"`
+	Timestamp time.Time `json:"timestamp" binding:"required"`
 }
 
 type CreateServerRequest struct {
