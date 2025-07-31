@@ -14,7 +14,6 @@ type Root interface {
 }
 
 type root struct {
-	metricsUpdate    MetricsUpdate
 	statusUpdate     UpdateStatus
 	uptimeCalculator uptimeCalculatorConsumer
 	uptimeConsumer   consumer.UptimeConsumer
@@ -24,7 +23,6 @@ type root struct {
 }
 
 func NewRoot(
-	metricsUpdate MetricsUpdate,
 	statusUpdate UpdateStatus,
 	uptimeCalculator uptimeCalculatorConsumer,
 	uptimeConsumer consumer.UptimeConsumer,
@@ -33,7 +31,6 @@ func NewRoot(
 	logger *zap.Logger,
 ) Root {
 	return &root{
-		metricsUpdate:    metricsUpdate,
 		statusUpdate:     statusUpdate,
 		uptimeCalculator: uptimeCalculator,
 		uptimeConsumer:   uptimeConsumer,
@@ -68,17 +65,6 @@ func (r root) Start(ctx context.Context) error {
 		},
 	)
 
-	r.metricsConsumer.RegisterHandler(
-		producer.MessageMonitoring,
-		func(ctx context.Context, queueName string, payload []byte) error {
-			var event producer.Message
-			if err := json.Unmarshal(payload, &event); err != nil {
-				return err
-			}
-			return r.metricsUpdate.Handle(ctx, event)
-		},
-	)
-
 	r.logger.Info("Consumers registered successfully")
 
 	go func() {
@@ -90,12 +76,6 @@ func (r root) Start(ctx context.Context) error {
 	go func() {
 		if err := r.serverConsumer.Start(ctx); err != nil {
 			r.logger.Error("Failed to start server consumer", zap.Error(err))
-		}
-	}()
-
-	go func() {
-		if err := r.metricsConsumer.Start(ctx); err != nil {
-			r.logger.Error("Failed to start metrics consumer", zap.Error(err))
 		}
 	}()
 

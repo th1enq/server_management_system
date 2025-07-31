@@ -5,8 +5,9 @@ import "time"
 type ServerStatus string
 
 const (
-	ServerStatusOn  ServerStatus = "ON"
-	ServerStatusOff ServerStatus = "OFF"
+	ServerStatusOn        ServerStatus = "ON"
+	ServerStatusOff       ServerStatus = "OFF"
+	ServerStatusUndefined ServerStatus = "UNDEFINED"
 )
 
 type Server struct {

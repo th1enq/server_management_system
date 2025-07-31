@@ -25,7 +25,6 @@ import (
 	"github.com/th1enq/server_management_system/internal/infrastructure/repository"
 	"github.com/th1enq/server_management_system/internal/infrastructure/search"
 	"github.com/th1enq/server_management_system/internal/infrastructure/services"
-	"github.com/th1enq/server_management_system/internal/infrastructure/tsdb"
 	"github.com/th1enq/server_management_system/internal/jobs"
 	"github.com/th1enq/server_management_system/internal/jobs/scheduler"
 	"github.com/th1enq/server_management_system/internal/jobs/tasks"
@@ -79,20 +78,20 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 	}
 	statusChangeMessageProducer := producer.NewStatusChangeMessageProducer(client, logger)
 	inMemoryCache := cache.NewInMemoryCache(logger)
-	elasticSearch := config.Elasticsearch
-	elasticsearchClient, cleanup2, err := search.LoadElasticSearch(elasticSearch, logger)
-	if err != nil {
-		cleanup()
-		return nil, nil, err
-	}
-	healthCheckUseCase := usecases.NewHealthCheckUseCase(elasticsearchClient, logger)
-	serverUseCase := usecases.NewServerUseCase(serverRepository, tokenServices, excelizeService, statusChangeMessageProducer, inMemoryCache, cacheClient, healthCheckUseCase, logger)
+	serverUseCase := usecases.NewServerUseCase(serverRepository, tokenServices, excelizeService, statusChangeMessageProducer, inMemoryCache, cacheClient, logger)
 	serverPresenter := presenters.NewServerPresenter()
 	monitoringMessageProducer := producer.NewMonitoringMessageProducer(client, logger)
 	gatewayUseCase := usecases.NewGatewayUseCase(serverUseCase, cacheClient, monitoringMessageProducer, statusChangeMessageProducer, logger)
 	serverController := controllers.NewServerController(serverUseCase, serverPresenter, gatewayUseCase, logger)
 	serverRouter := routes.NewServerRouter(serverController, authMiddleware)
 	email := config.Email
+	elasticSearch := config.Elasticsearch
+	iesClient, err := search.LoadElasticSearch(elasticSearch, logger)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	healthCheckUseCase := usecases.NewHealthCheckUseCase(iesClient, serverUseCase, logger)
 	reportUseCase := usecases.NewReportUseCase(email, healthCheckUseCase, logger)
 	reportPresenter := presenters.NewReportPresenter()
 	reportController := controllers.NewReportController(reportUseCase, reportPresenter, logger)
@@ -110,35 +109,26 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 	jobsRouter := routes.NewJobsRouter(jobsController, authMiddleware)
 	handler := routes.NewHandler(authRouter, serverRouter, reportRouter, userRouter, jobsRouter)
 	iServer := http.NewServer(server, logger, handler)
-	configsTSDB := config.TSDB
-	tsdbClient := tsdb.NewTSDBClient(configsTSDB, logger)
-	metricsRepository := repository.NewMetricsRepository(tsdbClient)
-	metricsUseCase := usecases.NewMetricsUseCase(metricsRepository, logger)
-	metricsUpdate := consumers.NewMetricsUpdate(metricsUseCase, logger)
 	updateStatus := consumers.NewUpdateStatus(serverUseCase, logger)
 	uptimeCalculatorConsumer := consumers.NewUptimeCalculator(logger, healthCheckUseCase)
 	uptimeConsumer, err := consumer.NewUptimeConsumer(mq, logger)
 	if err != nil {
-		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
 	serverConsumer, err := consumer.NewServerConsumer(mq, logger)
 	if err != nil {
-		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
 	metricsConsumer, err := consumer.NewMetricsConsumer(mq, logger)
 	if err != nil {
-		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	root := consumers.NewRoot(metricsUpdate, updateStatus, uptimeCalculatorConsumer, uptimeConsumer, serverConsumer, metricsConsumer, logger)
+	root := consumers.NewRoot(updateStatus, uptimeCalculatorConsumer, uptimeConsumer, serverConsumer, metricsConsumer, logger)
 	application := app.NewApplication(iServer, jobManager, root, logger)
 	return application, func() {
-		cleanup2()
 		cleanup()
 	}, nil
 }

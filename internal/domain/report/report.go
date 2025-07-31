@@ -2,12 +2,10 @@ package report
 
 import (
 	"time"
-
-	"github.com/th1enq/server_management_system/internal/domain/entity"
 )
 
 type ServerUpTime struct {
-	Server    entity.Server
+	ServerID  string
 	AvgUpTime float64
 }
 

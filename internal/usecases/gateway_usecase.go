@@ -50,6 +50,17 @@ func (s *gatewayUseCase) ProcessServerMetrics(ctx context.Context, metrics dto.M
 	if err := s.redisCache.Get(ctx, cacheKey, &intervalCheckTime); err == nil {
 		expireTime := time.Duration(1.5*float64(intervalCheckTime)) * time.Second
 		s.redisCache.Expire(ctx, cacheKey, expireTime)
+
+		if err := s.monitoringProducer.Produce(ctx, producer.Message{
+			ServerID:  metrics.ServerID,
+			OldStatus: entity.ServerStatusOn,
+			NewStatus: entity.ServerStatusOn,
+			Timestamp: metrics.Timestamp,
+		}); err != nil {
+			s.logger.Error("Failed to produce monitoring message", zap.Error(err))
+			return fmt.Errorf("failed to produce monitoring message: %w", err)
+		}
+
 		return nil
 	}
 	server, err := s.serverUseCase.GetServerByID(ctx, metrics.ServerID)
@@ -62,6 +73,9 @@ func (s *gatewayUseCase) ProcessServerMetrics(ctx context.Context, metrics dto.M
 	expireTime := time.Duration(1.5*float64(intervalCheckTime)) * time.Second
 
 	s.redisCache.Set(ctx, cacheKey, intervalCheckTime, expireTime)
+
+	loc, _ := time.LoadLocation("Asia/Ho_Chi_Minh")
+	metrics.Timestamp = metrics.Timestamp.In(loc)
 
 	if err := s.statusChangeProducer.Produce(ctx, producer.StatusChangeMessage{
 		ServerID:  metrics.ServerID,

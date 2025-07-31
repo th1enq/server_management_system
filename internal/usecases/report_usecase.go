@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"html/template"
 	"os"
-	"text/template"
 	"time"
 
 	"github.com/th1enq/server_management_system/internal/configs"
@@ -99,6 +99,12 @@ func (s *reportUseCase) SendReportForDateRange(ctx context.Context, startDate ti
 		s.logger.Error("Failed to generate report for date range", zap.Time("startDate", startDate), zap.Time("endDate", endDate), zap.Error(err))
 		return fmt.Errorf("failed to generate report :%w", err)
 	}
+
+	s.logger.Info("Generated report for date range",
+		zap.Time("startDate", startDate),
+		zap.Time("endDate", endDate),
+		zap.String("emailTo", emailTo),
+	)
 
 	msg := fmt.Sprintf("Server Report - %s to %s", startDate, endDate)
 

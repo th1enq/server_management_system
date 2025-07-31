@@ -6,5 +6,4 @@ var WireSet = wire.NewSet(
 	NewServerRepository,
 	NewUserRepository,
 	NewTokenRepository,
-	NewMetricsRepository,
 )

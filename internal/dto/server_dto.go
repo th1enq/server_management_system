@@ -6,6 +6,11 @@ import (
 	"github.com/th1enq/server_management_system/internal/domain/entity"
 )
 
+type EsStatus struct {
+	Status    entity.ServerStatus `json:"status"`
+	Timestamp time.Time           `json:"timestamp"`
+}
+
 type RegisterMetricsRequest struct {
 	ServerID     string `json:"server_id" binding:"required"`
 	ServerName   string `json:"server_name" binding:"required"`

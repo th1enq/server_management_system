@@ -18,10 +18,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	bufferTime = 5 * time.Second
-)
-
 type ServerUseCase interface {
 	RefreshStatus(ctx context.Context) error
 	UpdateStatus(ctx context.Context, serverID string, status entity.ServerStatus) error
@@ -46,10 +42,9 @@ type serverUseCase struct {
 	statusChangeProducer producer.StatusChangeMessageProducer
 	inMemoryCache        cache.InMemoryCache
 	redisCache           cache.CacheClient
-	healthCheckUseCase   HealthCheckUseCase
 }
 
-func NewServerUseCase(serverRepo repository.ServerRepository, tokenServices services.TokenServices, excelizeServices services.ExcelizeService, statusChangeProducer producer.StatusChangeMessageProducer, inMemoryCache cache.InMemoryCache, redisCache cache.CacheClient, healthCheckUseCase HealthCheckUseCase, logger *zap.Logger) ServerUseCase {
+func NewServerUseCase(serverRepo repository.ServerRepository, tokenServices services.TokenServices, excelizeServices services.ExcelizeService, statusChangeProducer producer.StatusChangeMessageProducer, inMemoryCache cache.InMemoryCache, redisCache cache.CacheClient, logger *zap.Logger) ServerUseCase {
 	return &serverUseCase{
 		serverRepo:           serverRepo,
 		tokenServices:        tokenServices,
@@ -58,7 +53,6 @@ func NewServerUseCase(serverRepo repository.ServerRepository, tokenServices serv
 		inMemoryCache:        inMemoryCache,
 		redisCache:           redisCache,
 		logger:               logger,
-		healthCheckUseCase:   healthCheckUseCase,
 	}
 }
 
@@ -196,7 +190,7 @@ func (s *serverUseCase) CreateServer(ctx context.Context, req dto.CreateServerRe
 	server := &entity.Server{
 		ServerID:     req.ServerID,
 		ServerName:   req.ServerName,
-		Status:       entity.ServerStatusOff,
+		Status:       entity.ServerStatusUndefined,
 		IPv4:         req.IPv4,
 		IntervalTime: req.IntervalTime,
 	}
@@ -221,14 +215,6 @@ func (s *serverUseCase) CreateServer(ctx context.Context, req dto.CreateServerRe
 	}
 
 	s.inMemoryCache.Delete("list_server_id")
-
-	s.healthCheckUseCase.InsertUptime(ctx, producer.StatusChangeMessage{
-		ServerID:  server.ServerID,
-		OldStatus: entity.ServerStatusOn,
-		NewStatus: entity.ServerStatusOff,
-		Timestamp: time.Now(),
-		Interval:  server.IntervalTime,
-	})
 
 	s.logger.Info("Server created successfully",
 		zap.Uint("id", server.ID),

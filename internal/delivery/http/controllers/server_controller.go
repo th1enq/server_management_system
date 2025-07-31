@@ -97,12 +97,13 @@ func (h *ServerController) Register(c *gin.Context) {
 	IPv4 := c.ClientIP()
 
 	reqCreate := dto.CreateServerRequest{
-		ServerID:    req.ServerID,
-		ServerName:  req.ServerName,
-		IPv4:        IPv4,
-		Description: req.Description,
-		Location:    req.Location,
-		OS:          req.OS,
+		ServerID:     req.ServerID,
+		ServerName:   req.ServerName,
+		IPv4:         IPv4,
+		Description:  req.Description,
+		Location:     req.Location,
+		OS:           req.OS,
+		IntervalTime: req.IntervalTime,
 	}
 
 	fmt.Println(reqCreate)

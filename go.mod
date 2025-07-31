@@ -4,7 +4,7 @@ go 1.24.1
 
 require (
 	github.com/IBM/sarama v1.45.2
-	github.com/elastic/go-elasticsearch/v8 v8.18.1
+	github.com/elastic/go-elasticsearch v0.0.0
 	github.com/elastic/go-elasticsearch/v9 v9.0.0
 	github.com/gammazero/workerpool v1.1.3
 	github.com/gin-gonic/gin v1.10.1
@@ -12,7 +12,6 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/google/uuid v1.6.0
 	github.com/google/wire v0.6.0
-	github.com/influxdata/influxdb1-client v0.0.0-20220302092344-a9ab5670611c
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/pressly/goose/v3 v3.24.3
 	github.com/redis/go-redis/v9 v9.9.0

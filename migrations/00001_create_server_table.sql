@@ -1,5 +1,5 @@
 -- +goose Up
-CREATE TYPE server_status AS ENUM ('ON', 'OFF');
+CREATE TYPE server_status AS ENUM ('ON', 'OFF', 'UNDEFINED');
 
 CREATE TABLE servers (
     id SERIAL PRIMARY KEY,

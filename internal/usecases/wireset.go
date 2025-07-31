@@ -8,6 +8,5 @@ var WireSet = wire.NewSet(
 	NewHealthCheckUseCase,
 	NewReportUseCase,
 	NewAuthUseCase,
-	NewMetricsUseCase,
 	NewGatewayUseCase,
 )
