@@ -18,20 +18,17 @@ import (
 type ServerController struct {
 	serverUseCase   usecases.ServerUseCase
 	serverPresenter presenters.ServerPresenter
-	gatewayUseCase  usecases.GatewayUseCase
 	logger          *zap.Logger
 }
 
 func NewServerController(
 	serverUseCase usecases.ServerUseCase,
 	serverPresenter presenters.ServerPresenter,
-	gatewayUseCase usecases.GatewayUseCase,
 	logger *zap.Logger,
 ) *ServerController {
 	return &ServerController{
 		serverUseCase:   serverUseCase,
 		serverPresenter: serverPresenter,
-		gatewayUseCase:  gatewayUseCase,
 		logger:          logger,
 	}
 }
@@ -56,8 +53,7 @@ func (h *ServerController) Monitoring(c *gin.Context) {
 		return
 	}
 
-	// Use API Gateway service instead of direct usecase call
-	if err := h.gatewayUseCase.ProcessServerMetrics(c.Request.Context(), req); err != nil {
+	if err := h.serverUseCase.ProcessMetrics(c.Request.Context(), req); err != nil {
 		h.logger.Error("Failed to process server metrics through API Gateway",
 			zap.Error(err),
 			zap.String("server_id", req.ServerID),

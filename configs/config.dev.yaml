@@ -19,17 +19,9 @@ tsdb:
   user: admin
   password: admin123
 
-mq:
+broker:
   addresses:
     - localhost:9092
-  client_id: "vcs_sms"
-  consumer_groups:
-    - group_id: "vcs_sms-metrics"
-      topics: 
-        - "monitoring_event"
-    - group_id: "vcs_sms-status"
-      topics:
-        - "monitoring_event"
 
 cache:
   host: localhost
@@ -59,6 +51,14 @@ cron:
   daily_report:
     name: "daily_report"
     schedule: "0 0 8 * * *"
+
+dispatcher:
+  process_interval: 20s
+  lock_checker_interval: 600m
+  cleanup_worker_interval: 60s
+  max_lock_time_duration: 5m
+  messages_retention_duration: 1m
+  machine_id: "machine-1"
 
 email:
   smtp_host: smtp.gmail.com

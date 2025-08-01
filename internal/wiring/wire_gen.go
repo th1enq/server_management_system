@@ -11,7 +11,6 @@ import (
 	"github.com/th1enq/server_management_system/internal/app"
 	"github.com/th1enq/server_management_system/internal/configs"
 	"github.com/th1enq/server_management_system/internal/delivery"
-	"github.com/th1enq/server_management_system/internal/delivery/consumers"
 	"github.com/th1enq/server_management_system/internal/delivery/http"
 	"github.com/th1enq/server_management_system/internal/delivery/http/controllers"
 	"github.com/th1enq/server_management_system/internal/delivery/http/presenters"
@@ -20,9 +19,9 @@ import (
 	"github.com/th1enq/server_management_system/internal/infrastructure"
 	"github.com/th1enq/server_management_system/internal/infrastructure/cache"
 	"github.com/th1enq/server_management_system/internal/infrastructure/database"
-	"github.com/th1enq/server_management_system/internal/infrastructure/mq/consumer"
-	"github.com/th1enq/server_management_system/internal/infrastructure/mq/producer"
-	"github.com/th1enq/server_management_system/internal/infrastructure/repository"
+	"github.com/th1enq/server_management_system/internal/infrastructure/mq"
+	"github.com/th1enq/server_management_system/internal/infrastructure/outbox"
+	"github.com/th1enq/server_management_system/internal/infrastructure/repositories"
 	"github.com/th1enq/server_management_system/internal/infrastructure/search"
 	"github.com/th1enq/server_management_system/internal/infrastructure/services"
 	"github.com/th1enq/server_management_system/internal/jobs"
@@ -51,7 +50,7 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 		cleanup()
 		return nil, nil, err
 	}
-	userRepository := repository.NewUserRepository(databaseClient)
+	userRepository := repositories.NewUserRepository(databaseClient)
 	passwordService := services.NewBcryptService()
 	userUseCase := usecases.NewUserUseCase(userRepository, passwordService, logger)
 	configsCache := config.Cache
@@ -60,7 +59,7 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 		cleanup()
 		return nil, nil, err
 	}
-	tokenRepository := repository.NewTokenRepository(cacheClient)
+	tokenRepository := repositories.NewTokenRepository(cacheClient)
 	jwt := config.JWT
 	tokenServices := services.NewJWTService(jwt)
 	authUseCase := usecases.NewAuthUseCase(userUseCase, tokenRepository, tokenServices, passwordService, logger)
@@ -68,21 +67,12 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 	authController := controllers.NewAuthController(authUseCase, authPresenter, logger)
 	authMiddleware := middleware.NewAuthMiddleware(authUseCase, logger)
 	authRouter := routes.NewAuthRouter(authController, authMiddleware)
-	serverRepository := repository.NewServerRepository(databaseClient)
+	serverRepository := repositories.NewServerRepository(databaseClient)
 	excelizeService := services.NewExcelizeService()
-	mq := config.MQ
-	client, err := producer.NewClient(mq, logger)
-	if err != nil {
-		cleanup()
-		return nil, nil, err
-	}
-	statusChangeMessageProducer := producer.NewStatusChangeMessageProducer(client, logger)
 	inMemoryCache := cache.NewInMemoryCache(logger)
-	serverUseCase := usecases.NewServerUseCase(serverRepository, tokenServices, excelizeService, statusChangeMessageProducer, inMemoryCache, cacheClient, logger)
+	serverUseCase := usecases.NewServerUseCase(serverRepository, tokenServices, excelizeService, inMemoryCache, cacheClient, logger)
 	serverPresenter := presenters.NewServerPresenter()
-	monitoringMessageProducer := producer.NewMonitoringMessageProducer(client, logger)
-	gatewayUseCase := usecases.NewGatewayUseCase(serverUseCase, cacheClient, monitoringMessageProducer, statusChangeMessageProducer, logger)
-	serverController := controllers.NewServerController(serverUseCase, serverPresenter, gatewayUseCase, logger)
+	serverController := controllers.NewServerController(serverUseCase, serverPresenter, logger)
 	serverRouter := routes.NewServerRouter(serverController, authMiddleware)
 	email := config.Email
 	elasticSearch := config.Elasticsearch
@@ -109,25 +99,15 @@ func InitializeStandardServer(configFilePath configs.ConfigFilePath) (*app.Appli
 	jobsRouter := routes.NewJobsRouter(jobsController, authMiddleware)
 	handler := routes.NewHandler(authRouter, serverRouter, reportRouter, userRouter, jobsRouter)
 	iServer := http.NewServer(server, logger, handler)
-	updateStatus := consumers.NewUpdateStatus(serverUseCase, logger)
-	uptimeCalculatorConsumer := consumers.NewUptimeCalculator(logger, healthCheckUseCase)
-	uptimeConsumer, err := consumer.NewUptimeConsumer(mq, logger)
+	broker := config.Broker
+	messageBroker, err := mq.NewBroker(broker)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	serverConsumer, err := consumer.NewServerConsumer(mq, logger)
-	if err != nil {
-		cleanup()
-		return nil, nil, err
-	}
-	metricsConsumer, err := consumer.NewMetricsConsumer(mq, logger)
-	if err != nil {
-		cleanup()
-		return nil, nil, err
-	}
-	root := consumers.NewRoot(updateStatus, uptimeCalculatorConsumer, uptimeConsumer, serverConsumer, metricsConsumer, logger)
-	application := app.NewApplication(iServer, jobManager, root, logger)
+	dispatcher := config.Dispatcher
+	outboxDispatcher := outbox.NewDispatcher(databaseClient, messageBroker, dispatcher)
+	application := app.NewApplication(iServer, jobManager, logger, outboxDispatcher)
 	return application, func() {
 		cleanup()
 	}, nil

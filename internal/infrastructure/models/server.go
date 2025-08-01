@@ -16,7 +16,7 @@ type Server struct {
 	Location     string
 	OS           string
 	IntervalTime int64     `gorm:"default:10"`
-	CreatedTime  time.Time `gorm:"autoCreateTime"`
+	CreatedAt    time.Time `gorm:"autoCreateTime"`
 }
 
 func FromServerEntity(s *entity.Server) *Server {
@@ -30,7 +30,7 @@ func FromServerEntity(s *entity.Server) *Server {
 		Location:     s.Location,
 		OS:           s.OS,
 		IntervalTime: s.IntervalTime,
-		CreatedTime:  s.CreatedTime,
+		CreatedAt:    s.CreatedAt,
 	}
 }
 
@@ -53,7 +53,7 @@ func ToServerEntity(s *Server) *entity.Server {
 		Location:     s.Location,
 		OS:           s.OS,
 		IntervalTime: s.IntervalTime,
-		CreatedTime:  s.CreatedTime,
+		CreatedAt:    s.CreatedAt,
 	}
 }
 

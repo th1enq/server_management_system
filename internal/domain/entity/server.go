@@ -20,5 +20,5 @@ type Server struct {
 	Location     string
 	OS           string
 	IntervalTime int64
-	CreatedTime  time.Time
+	CreatedAt    time.Time
 }

@@ -1,8 +1,12 @@
-package repository
+package repositories
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
+	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/th1enq/server_management_system/internal/domain/entity"
 	"github.com/th1enq/server_management_system/internal/domain/query"
@@ -172,9 +176,50 @@ func (s *serverRepository) Update(ctx context.Context, server *entity.Server) er
 	return s.db.WithContext(ctx).Save(model)
 }
 
-func (s *serverRepository) UpdateStatus(ctx context.Context, serverID string, status entity.ServerStatus) error {
-	var server models.Server
-	if err := s.db.WithContext(ctx).Model(&server).Where("server_id = ?", serverID).Update("status", status); err != nil {
+func (s *serverRepository) UpdateStatus(ctx context.Context, serverID string, status entity.ServerStatus, timestamp time.Time) error {
+	err := s.db.Transaction(ctx, func(tx database.DatabaseClient) error {
+		var server models.Server
+		if err := tx.Model(&server).Where("server_id = ?", serverID).Update("status", status); err != nil {
+			return err
+		}
+
+		data := map[string]interface{}{
+			"server_id": serverID,
+			"status":    status,
+			"timestamp": timestamp,
+		}
+		encodedData, err := json.Marshal(data)
+		if err != nil {
+			return err
+		}
+		msg := models.Message{
+			Key:     fmt.Sprintf("server_status:%s", serverID),
+			Headers: nil,
+			Body:    encodedData,
+			Topic:   "server_status_updates",
+		}
+		msgBuf := new(bytes.Buffer)
+		msgEnc := gob.NewEncoder(msgBuf)
+
+		if err := msgEnc.Encode(msg); err != nil {
+			return err
+		}
+
+		record := models.RawRecord{
+			Message:     msgBuf.Bytes(),
+			State:       models.PendingDelivery,
+			LockID:      nil,
+			LockedAt:    nil,
+			ProcessedAt: nil,
+		}
+
+		if err := tx.Create(&record); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
 		return err
 	}
 	return nil

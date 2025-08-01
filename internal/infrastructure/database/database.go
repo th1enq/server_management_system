@@ -1,11 +1,14 @@
 package database
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/gob"
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/th1enq/server_management_system/internal/configs"
 	"github.com/th1enq/server_management_system/internal/infrastructure/models"
@@ -31,15 +34,154 @@ type DatabaseClient interface {
 	Count(count *int64) error
 	Create(value interface{}) error
 	Update(column string, value interface{}) error
+	Updates(values interface{}) error
 	Exec(query string, args ...interface{}) error
 	Pluck(column string, dest interface{}) error
 	BatchCreateOnConflict(value interface{}, dest interface{}) error
 	Select(query string, args ...interface{}) DatabaseClient
 	DB() (*sql.DB, error)
+
+	Transaction(ctx context.Context, fn func(tx DatabaseClient) error) error
+
+	GetRecordsByLockID(lockID string) ([]models.Record, error)
+	UpdateRecordLockByState(lockID string, lockedOn time.Time, state models.RecordState) error
+	UpdateRecordByID(message models.Record) error
+	ClearLocksWithDurationBeforeDate(time time.Time) error
+	ClearLocksByLockID(lockID string) error
+	RemoveRecordsBeforeDatetime(expiryTime time.Time) error
 }
 
 type gormDatabase struct {
 	client *gorm.DB
+}
+
+func (p *gormDatabase) Transaction(ctx context.Context, fn func(tx DatabaseClient) error) error {
+	err := p.client.Transaction(func(tx *gorm.DB) error {
+		txClient := &gormDatabase{client: tx}
+		if err := fn(txClient); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("transaction failed: %w", err)
+	}
+	return nil
+}
+
+func (p *gormDatabase) Updates(values interface{}) error {
+	if err := p.client.Updates(values).Error; err != nil {
+		return fmt.Errorf("failed to update records: %w", err)
+	}
+	return nil
+}
+
+func (p *gormDatabase) ClearLocksByLockID(lockID string) error {
+	err := p.client.Model(&models.Record{}).
+		Where("lock_id = ?", lockID).
+		Updates(map[string]interface{}{
+			"locked_at": nil,
+			"lock_id":   nil,
+		}).Error
+	if err != nil {
+		return fmt.Errorf("failed to clear locks by lock ID: %w", err)
+	}
+	return nil
+}
+
+// ClearLocksWithDurationBeforeDate implements DatabaseClient.
+func (p *gormDatabase) ClearLocksWithDurationBeforeDate(time time.Time) error {
+	err := p.client.Model(&models.Record{}).
+		Where("locked_at < ?", time).
+		Updates(map[string]interface{}{
+			"locked_at": nil,
+			"lock_id":   nil,
+		}).Error
+	if err != nil {
+		return fmt.Errorf("failed to clear locks before date: %w", err)
+	}
+	return nil
+}
+
+// GetRecordsByLockID implements DatabaseClient.
+func (p *gormDatabase) GetRecordsByLockID(lockID string) ([]models.Record, error) {
+	rows, err := p.client.Model(&models.Record{}).
+		Where("lock_id = ?", lockID).
+		Find(&[]models.Record{}).Rows()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get records by lock ID: %w", err)
+	}
+	defer rows.Close()
+
+	var messages []models.Record
+	for rows.Next() {
+		var rec models.Record
+		var data []byte
+		if err := rows.Scan(&rec.ID, &data, &rec.State, &rec.CreatedAt, &rec.LockID, &rec.LockedAt, &rec.ProcessedAt, &rec.NumberOfAttempts, &rec.LastAttemptAt, &rec.Error); err != nil {
+			if err == sql.ErrNoRows {
+				return messages, nil
+			}
+			return messages, fmt.Errorf("failed to scan record: %w", err)
+		}
+		decErr := gob.NewDecoder(bytes.NewBuffer(data)).Decode(&rec.Message)
+		if decErr != nil {
+			return nil, fmt.Errorf("failed to decode message: %w", decErr)
+		}
+		messages = append(messages, rec)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over rows: %w", err)
+	}
+	return messages, nil
+}
+
+// RemoveRecordsBeforeDatetime implements DatabaseClient.
+func (p *gormDatabase) RemoveRecordsBeforeDatetime(expiryTime time.Time) error {
+	err := p.client.Model(&models.Record{}).
+		Where("created_at < ?", expiryTime).
+		Delete(&models.Record{}).Error
+	if err != nil {
+		return fmt.Errorf("failed to remove records before datetime: %w", err)
+	}
+	return nil
+}
+
+// UpdateRecordByID implements DatabaseClient.
+func (p *gormDatabase) UpdateRecordByID(message models.Record) error {
+	msgData := new(bytes.Buffer)
+	enc := gob.NewEncoder(msgData)
+	if err := enc.Encode(message); err != nil {
+		return fmt.Errorf("failed to encode message: %w", err)
+	}
+	err := p.client.Model(&models.Record{}).
+		Where("id = ?", message.ID).
+		Updates(map[string]interface{}{
+			"message":            msgData.Bytes(),
+			"state":              message.State,
+			"locked_at":          message.LockedAt,
+			"lock_id":            message.LockID,
+			"processed_at":       message.ProcessedAt,
+			"number_of_attempts": message.NumberOfAttempts,
+			"last_attempt_at":    message.LastAttemptAt,
+			"error":              message.Error,
+		}).Error
+	if err != nil {
+		return fmt.Errorf("failed to update record by ID: %w", err)
+	}
+	return nil
+}
+
+func (p *gormDatabase) UpdateRecordLockByState(lockID string, lockedOn time.Time, state models.RecordState) error {
+	err := p.client.Model(&models.Record{}).
+		Where("state = ?", state).
+		Updates(map[string]interface{}{
+			"locked_at": lockedOn,
+			"lock_id":   lockID,
+		}).Error
+	if err != nil {
+		return fmt.Errorf("failed to update record lock by state: %w", err)
+	}
+	return nil
 }
 
 func (p *gormDatabase) Count(count *int64) error {
@@ -89,29 +231,16 @@ func (p *gormDatabase) BatchCreateOnConflict(value interface{}, dest interface{}
 		values = append(values,
 			server.ServerID, server.ServerName, server.Status,
 			server.IPv4, server.Description, server.Location,
-			server.OS, server.IntervalTime, server.CreatedTime)
+			server.OS, server.IntervalTime, server.CreatedAt)
 	}
 
 	query := fmt.Sprintf(`
-		INSERT INTO servers (server_id, server_name, status, ipv4, description, location, os, interval_time, created_time)
+		INSERT INTO servers (server_id, server_name, status, ipv4, description, location, os, interval_time, created_at)
 		VALUES %s
 		ON CONFLICT (server_id) DO NOTHING
 		RETURNING *`, strings.Join(placeholders, ","))
 
 	return p.client.Raw(query, values...).Scan(dest).Error
-}
-
-func (p *gormDatabase) CreateWithReturning(value interface{}, dest interface{}) error {
-	result := p.client.Clauses(clause.Returning{}).Create(value)
-	if result.Error != nil {
-		return fmt.Errorf("failed to create record: %w", result.Error)
-	}
-	if result.RowsAffected > 0 {
-		if err := result.Scan(dest); err != nil {
-			return fmt.Errorf("failed to scan returning records: %w", err)
-		}
-	}
-	return nil
 }
 
 func (p *gormDatabase) Create(value interface{}) error {

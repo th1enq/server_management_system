@@ -15,7 +15,7 @@ for i in range(1, 10):
         "description": f"Generated server {i}",
         "location": random.choice(["US-East", "US-West", "EU-Central", "Asia-Pacific"]),
         "os": random.choice(["Ubuntu 20.04", "CentOS 7", "Debian 11", "Windows Server 2019"]),
-        "interval_time": random.randint(1, 60)
+        "interval_time": random.randint(5, 30)
     })
 
 # Ghi vào file Excel

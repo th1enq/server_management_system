@@ -28,12 +28,12 @@ func NewAuthController(
 }
 
 // Login handles user login
-// @Summary User login
-// @Description Authenticate user and return JWT tokens
+// @Summary Login with username and password
+// @Description Login and return JWT tokens
 // @Tags auth
-// @Accept json
 // @Produce json
-// @Param request body dto.LoginRequest true "Login credentials"
+// @Accept json
+// @Param param body dto.LoginRequest true "User Login Credentials"
 // @Success 200 {object} domain.APIResponse{data=dto.AuthResponse}
 // @Failure 400 {object} domain.APIResponse
 // @Failure 401 {object} domain.APIResponse

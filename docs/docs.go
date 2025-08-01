@@ -26,7 +26,7 @@ const docTemplate = `{
     "paths": {
         "/api/v1/auth/login": {
             "post": {
-                "description": "Authenticate user and return JWT tokens",
+                "description": "Login and return JWT tokens",
                 "consumes": [
                     "application/json"
                 ],
@@ -36,11 +36,11 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "User login",
+                "summary": "Login with username and password",
                 "parameters": [
                     {
-                        "description": "Login credentials",
-                        "name": "request",
+                        "description": "User Login Credentials",
+                        "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
@@ -1894,7 +1894,7 @@ const docTemplate = `{
         "entity.Server": {
             "type": "object",
             "properties": {
-                "createdTime": {
+                "createdAt": {
                     "type": "string"
                 },
                 "description": {
@@ -1930,11 +1930,13 @@ const docTemplate = `{
             "type": "string",
             "enum": [
                 "ON",
-                "OFF"
+                "OFF",
+                "UNDEFINED"
             ],
             "x-enum-varnames": [
                 "ServerStatusOn",
-                "ServerStatusOff"
+                "ServerStatusOff",
+                "ServerStatusUndefined"
             ]
         },
         "scheduler.TaskInfo": {

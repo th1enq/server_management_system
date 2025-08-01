@@ -10,7 +10,6 @@ import (
 	"github.com/th1enq/server_management_system/internal/domain/entity"
 	"github.com/th1enq/server_management_system/internal/domain/report"
 	"github.com/th1enq/server_management_system/internal/dto"
-	"github.com/th1enq/server_management_system/internal/infrastructure/mq/producer"
 	"github.com/th1enq/server_management_system/internal/infrastructure/search"
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/zap"
@@ -21,7 +20,7 @@ const (
 )
 
 type HealthCheckUseCase interface {
-	InsertUptime(ctx context.Context, msg producer.StatusChangeMessage) error
+	InsertUptime(ctx context.Context) error
 	CalculateAverageUptime(ctx context.Context, startTime, endTime time.Time) (*report.DailyReport, error)
 	ExportReportXLSX(ctx context.Context, report *report.DailyReport) (string, error)
 }
@@ -182,28 +181,28 @@ func (h *healthCheckUseCase) ExportReportXLSX(ctx context.Context, report *repor
 	return fileName, nil
 }
 
-func (h *healthCheckUseCase) InsertUptime(ctx context.Context, msg producer.StatusChangeMessage) error {
-	if msg.OldStatus == msg.NewStatus {
-		h.logger.Info("No status change detected, skipping indexing",
-			zap.String("server_id", msg.ServerID),
-			zap.String("old_status", string(msg.OldStatus)),
-			zap.String("new_status", string(msg.NewStatus)),
-		)
-		return nil
-	}
-	newDocument := map[string]interface{}{
-		"server_id": msg.ServerID,
-		"status":    msg.NewStatus,
-		"timestamp": msg.Timestamp.Format(time.RFC3339),
-	}
+func (h *healthCheckUseCase) InsertUptime(ctx context.Context) error {
+	// if msg.OldStatus == msg.NewStatus {
+	// 	h.logger.Info("No status change detected, skipping indexing",
+	// 		zap.String("server_id", msg.ServerID),
+	// 		zap.String("old_status", string(msg.OldStatus)),
+	// 		zap.String("new_status", string(msg.NewStatus)),
+	// 	)
+	// 	return nil
+	// }
+	// newDocument := map[string]interface{}{
+	// 	"server_id": msg.ServerID,
+	// 	"status":    msg.NewStatus,
+	// 	"timestamp": msg.Timestamp.Format(time.RFC3339),
+	// }
 
-	if err := h.esClient.Insert(ctx,
-		indexName,
-		fmt.Sprintf("%s-%s", msg.ServerID, msg.Timestamp.Format(time.RFC3339)),
-		newDocument,
-	); err != nil {
-		return err
-	}
+	// if err := h.esClient.Insert(ctx,
+	// 	indexName,
+	// 	fmt.Sprintf("%s-%s", msg.ServerID, msg.Timestamp.Format(time.RFC3339)),
+	// 	newDocument,
+	// ); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }

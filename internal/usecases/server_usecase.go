@@ -13,14 +13,13 @@ import (
 	"github.com/th1enq/server_management_system/internal/domain/services"
 	"github.com/th1enq/server_management_system/internal/dto"
 	"github.com/th1enq/server_management_system/internal/infrastructure/cache"
-	"github.com/th1enq/server_management_system/internal/infrastructure/mq/producer"
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/zap"
 )
 
 type ServerUseCase interface {
+	ProcessMetrics(ctx context.Context, metrics dto.MetricsRequest) error
 	RefreshStatus(ctx context.Context) error
-	UpdateStatus(ctx context.Context, serverID string, status entity.ServerStatus) error
 	Register(ctx context.Context, req dto.CreateServerRequest) (*dto.AuthResponse, error)
 	CreateServer(ctx context.Context, req dto.CreateServerRequest) (*entity.Server, error)
 	GetServerByID(ctx context.Context, serverID string) (*entity.Server, error)
@@ -35,25 +34,53 @@ type ServerUseCase interface {
 }
 
 type serverUseCase struct {
-	logger               *zap.Logger
-	serverRepo           repository.ServerRepository
-	tokenServices        services.TokenServices
-	excelizeServices     services.ExcelizeService
-	statusChangeProducer producer.StatusChangeMessageProducer
-	inMemoryCache        cache.InMemoryCache
-	redisCache           cache.CacheClient
+	logger           *zap.Logger
+	serverRepo       repository.ServerRepository
+	tokenServices    services.TokenServices
+	excelizeServices services.ExcelizeService
+	inMemoryCache    cache.InMemoryCache
+	redisCache       cache.CacheClient
 }
 
-func NewServerUseCase(serverRepo repository.ServerRepository, tokenServices services.TokenServices, excelizeServices services.ExcelizeService, statusChangeProducer producer.StatusChangeMessageProducer, inMemoryCache cache.InMemoryCache, redisCache cache.CacheClient, logger *zap.Logger) ServerUseCase {
+func NewServerUseCase(serverRepo repository.ServerRepository, tokenServices services.TokenServices, excelizeServices services.ExcelizeService, inMemoryCache cache.InMemoryCache, redisCache cache.CacheClient, logger *zap.Logger) ServerUseCase {
 	return &serverUseCase{
-		serverRepo:           serverRepo,
-		tokenServices:        tokenServices,
-		excelizeServices:     excelizeServices,
-		statusChangeProducer: statusChangeProducer,
-		inMemoryCache:        inMemoryCache,
-		redisCache:           redisCache,
-		logger:               logger,
+		serverRepo:       serverRepo,
+		tokenServices:    tokenServices,
+		excelizeServices: excelizeServices,
+		inMemoryCache:    inMemoryCache,
+		redisCache:       redisCache,
+		logger:           logger,
 	}
+}
+
+func (s *serverUseCase) ProcessMetrics(ctx context.Context, metrics dto.MetricsRequest) error {
+	cacheKey := fmt.Sprintf("heartbeat:%s", metrics.ServerID)
+	var intervalCheckTime int64
+	if err := s.redisCache.Get(ctx, cacheKey, &intervalCheckTime); err == nil {
+		expireTime := time.Duration(1.5*float64(intervalCheckTime)) * time.Second
+		s.redisCache.Expire(ctx, cacheKey, expireTime)
+		return nil
+	}
+	server, err := s.GetServerByID(ctx, metrics.ServerID)
+	if err != nil {
+		s.logger.Error("Failed to get server by ID", zap.String("server_id", metrics.ServerID), zap.Error(err))
+		return fmt.Errorf("server not found")
+	}
+
+	intervalCheckTime = server.IntervalTime
+	expireTime := time.Duration(1.5*float64(intervalCheckTime)) * time.Second
+
+	s.redisCache.Set(ctx, cacheKey, intervalCheckTime, expireTime)
+
+	loc, _ := time.LoadLocation("Asia/Ho_Chi_Minh")
+	metrics.Timestamp = metrics.Timestamp.In(loc)
+
+	if err := s.serverRepo.UpdateStatus(ctx, metrics.ServerID, entity.ServerStatusOn, metrics.Timestamp); err != nil {
+		s.logger.Error("Failed to update server status to ON", zap.String("server_id", metrics.ServerID), zap.Error(err))
+		return fmt.Errorf("failed to update server status: %w", err)
+	}
+
+	return nil
 }
 
 func (s *serverUseCase) GetServerByID(ctx context.Context, serverID string) (*entity.Server, error) {
@@ -66,22 +93,6 @@ func (s *serverUseCase) GetServerByID(ctx context.Context, serverID string) (*en
 		return nil, fmt.Errorf("failed to get server by ID: %w", err)
 	}
 	return server, nil
-}
-
-func (s *serverUseCase) UpdateStatus(ctx context.Context, serverID string, status entity.ServerStatus) error {
-	if err := s.serverRepo.UpdateStatus(ctx, serverID, status); err != nil {
-		s.logger.Error("Failed to update server status",
-			zap.String("server_id", serverID),
-			zap.String("status", string(status)),
-			zap.Error(err),
-		)
-		return fmt.Errorf("failed to update server status: %w", err)
-	}
-	s.logger.Info("Server status updated successfully",
-		zap.String("server_id", serverID),
-		zap.String("status", string(status)),
-	)
-	return nil
 }
 
 func (s *serverUseCase) RefreshStatus(ctx context.Context) error {
@@ -105,18 +116,18 @@ func (s *serverUseCase) RefreshStatus(ctx context.Context) error {
 				zap.String("cache_key", cacheKey),
 			)
 
-			server, err := s.GetServerByID(ctx, serverID)
-			if err != nil {
-				s.logger.Error("Failed to get server by ID",
-					zap.String("server_id", serverID),
-					zap.Error(err),
-				)
-				return fmt.Errorf("failed to get server by ID: %w", err)
-			}
+			// server, err := s.GetServerByID(ctx, serverID)
+			// if err != nil {
+			// 	s.logger.Error("Failed to get server by ID",
+			// 		zap.String("server_id", serverID),
+			// 		zap.Error(err),
+			// 	)
+			// 	return fmt.Errorf("failed to get server by ID: %w", err)
+			// }
 
-			oldStatus := server.Status
+			// oldStatus := server.Status
 
-			if err := s.serverRepo.UpdateStatus(ctx, serverID, entity.ServerStatusOff); err != nil {
+			if err := s.serverRepo.UpdateStatus(ctx, serverID, entity.ServerStatusOff, time.Now()); err != nil {
 				s.logger.Error("Failed to update server status to OFF",
 					zap.String("server_id", serverID),
 					zap.Error(err),
@@ -124,15 +135,15 @@ func (s *serverUseCase) RefreshStatus(ctx context.Context) error {
 				return fmt.Errorf("failed to update server status to OFF: %w", err)
 			}
 
-			intervalCheckTime := server.IntervalTime
+			// intervalCheckTime := server.IntervalTime
 
-			s.statusChangeProducer.Produce(ctx, producer.StatusChangeMessage{
-				ServerID:  serverID,
-				OldStatus: oldStatus,
-				NewStatus: entity.ServerStatusOff,
-				Timestamp: time.Now(),
-				Interval:  intervalCheckTime,
-			})
+			// s.statusChangeProducer.Produce(ctx, producer.StatusChangeMessage{
+			// 	ServerID:  serverID,
+			// 	OldStatus: oldStatus,
+			// 	NewStatus: entity.ServerStatusOff,
+			// 	Timestamp: time.Now(),
+			// 	Interval:  intervalCheckTime,
+			// })
 		}
 	}
 	return nil

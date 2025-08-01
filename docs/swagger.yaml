@@ -301,7 +301,7 @@ definitions:
     type: object
   entity.Server:
     properties:
-      createdTime:
+      createdAt:
         type: string
       description:
         type: string
@@ -326,10 +326,12 @@ definitions:
     enum:
     - "ON"
     - "OFF"
+    - UNDEFINED
     type: string
     x-enum-varnames:
     - ServerStatusOn
     - ServerStatusOff
+    - ServerStatusUndefined
   scheduler.TaskInfo:
     properties:
       last_run:
@@ -404,11 +406,11 @@ paths:
     post:
       consumes:
       - application/json
-      description: Authenticate user and return JWT tokens
+      description: Login and return JWT tokens
       parameters:
-      - description: Login credentials
+      - description: User Login Credentials
         in: body
-        name: request
+        name: body
         required: true
         schema:
           $ref: '#/definitions/dto.LoginRequest'
@@ -432,7 +434,7 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/domain.APIResponse'
-      summary: User login
+      summary: Login with username and password
       tags:
       - auth
   /api/v1/auth/logout:

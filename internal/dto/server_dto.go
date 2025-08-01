@@ -76,10 +76,10 @@ type ServerStatusResponse struct {
 
 // Pagination parameters (for query)
 type Pagination struct {
-	Page     int    `form:"page" binding:"gte=1"`
-	PageSize int    `form:"page_size" binding:"gte=1,lte=100"`
+	Page     int    `form:"page"`
+	PageSize int    `form:"page_size"`
 	Sort     string `form:"sort"`
-	Order    string `form:"order" binding:"oneof=asc desc"`
+	Order    string `form:"order"`
 }
 
 // ServerListResponse for paginated API responses
